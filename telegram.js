@@ -73,23 +73,23 @@ window.loadGame = function(callback) {
             }
             
             if (data && data.length > 0) {
-              const cloudPlayer = data[0] || data;
+              const cloudPlayer = data[0] || data; // Берём первую запись из ответа
               console.log("☁️ Прогресс найден в облаке, синхронизируем...");
               
-              // Конвертируем полностью нижний регистр БД Postgres обратно в camelCase для игры
-              if (cloudPlayer.currenttownindex !== undefined) window.player.currentTownIndex = Number(cloudPlayer.currenttownindex);
-              if (cloudPlayer.statpoints !== undefined) window.player.statPoints = Number(cloudPlayer.statpoints);
+              // 🔥 ЖЕСТКИЙ ФИКС СИНХРОНИЗАЦИИ: 
+              // Берем уровень, опыт и статы напрямую из базы данных, запрещая их ломать клиенту
+              window.player.level = Number(cloudPlayer.level || 1);
+              window.player.gold = Number(cloudPlayer.gold || 0);
+              window.player.xp = Number(cloudPlayer.xp || 0);
+              window.player.hp = Number(cloudPlayer.hp || 100);
+              window.player.stats = cloudPlayer.stats || window.player.stats;
+              window.player.inventory = cloudPlayer.inventory || window.player.inventory;
+              window.player.equipped = cloudPlayer.equipped || window.player.equipped;
+
+              // Восстанавливаем camelCase переменные очков статов и городов строго из БД
+              window.player.currentTownIndex = Number(cloudPlayer.currenttownindex !== undefined ? cloudPlayer.currenttownindex : (cloudPlayer.currentTownIndex || 0));
+              window.player.statPoints = Number(cloudPlayer.statpoints !== undefined ? cloudPlayer.statpoints : (cloudPlayer.statPoints || 0));
               
-              // Загружаем данные с облака, если уровень на сервере выше или равен локальному
-              if ((cloudPlayer.level || 1) >= (window.player.level || 1)) {
-                window.player.level = cloudPlayer.level;
-                window.player.gold = cloudPlayer.gold;
-                window.player.xp = cloudPlayer.xp;
-                window.player.hp = cloudPlayer.hp;
-                window.player.stats = cloudPlayer.stats;
-                window.player.inventory = cloudPlayer.inventory;
-                window.player.equipped = cloudPlayer.equipped;
-              }
               if (typeof window.render === 'function') window.render();
             } else {
               // 🔥 ПРИНУДИТЕЛЬНЫЙ ТОЛЧЕК: Если в БД пусто, мгновенно создаем запись новичка при старте!
