@@ -402,8 +402,16 @@ function initBattleScreen(oppName, oppIcon, myMaxHp, oppMaxHp, startLogText, cur
           btn.innerHTML = `🧪 Выпить: ${pData.name} (+${pData.heal} HP)`;
           log.parentNode.insertBefore(btn, log);
 
-          btn.onclick = function(e) {
+            btn.onclick = function(e) {
             if (e) e.stopPropagation();
+            
+            // 🔥 ФИКС: Если игрок уже погиб, запрещаем пить зелье!
+            if (window.player.hp <= 0) {
+              alert("Вы не можете пить зелье, будучи поверженным!");
+              btn.remove();
+              return;
+            }
+
             btn.remove();
             window.player.hp = Math.min(serverMyMaxHp, window.player.hp + pData.heal);
             window._updateBars();
@@ -446,6 +454,11 @@ function initBattleScreen(oppName, oppIcon, myMaxHp, oppMaxHp, startLogText, cur
       if (pText) pText.textContent = `${Math.max(0, currentLocalHp)} / ${serverMyMaxHp}`;
       if (mFill) mFill.style.width = `${(Math.max(0, currentMonsterHp) / serverOppMaxHp) * 100}%`;
       if (mText) mText.textContent = `${Math.max(0, currentMonsterHp)} / ${serverOppMaxHp}`;
+
+      // 🔥 ФИКС: Если кто-то погиб (игрок или монстр), мгновенно удаляем инлайн-кнопку лечения с экрана!
+      if (currentLocalHp <= 0 || currentMonsterHp <= 0) {
+        document.getElementById('server-inline-potion-btn')?.remove();
+      }
     };
     
     window._updateBars();
