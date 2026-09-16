@@ -1,0 +1,47 @@
+<!-- shop_template.html -->
+<div class="modal-content" style="max-height: 95vh; width: 100%; max-width: 480px; display: flex; flex-direction: column; padding: 12px 16px; border-radius: 20px 20px 0 0; margin: 0 auto; position: relative;">
+  
+  <!-- Шапка магазина -->
+  <div class="modal-header" style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+    <h3 id="shop-title" style="font-size: 16px; margin: 0; display: flex; align-items: center; gap: 8px;">🛒 Лавка торговца</h3>
+    <!-- Кнопка «Назад» для возврата к списку категорий -->
+    <button id="shop-back-btn" class="close-btn" style="display: none; margin-left: auto; margin-right: 8px; border-radius: 8px; width: auto; height: 32px; padding: 0 12px; font-size: 12px; font-weight: bold;">⬅️ Назад</button>
+    <button class="close-btn" id="shop-close-btn" style="width: 32px; height: 32px; font-size: 14px;">✕</button>
+  </div>
+
+  <!-- Золото игрока для контроля кошелька -->
+  <div style="font-size: 13px; font-weight: bold; color: #f1c40f; text-align: right; margin-bottom: 12px; padding-right: 4px;">
+    Ваш кошелек: <span id="shop-player-gold">0</span> 💰
+  </div>
+
+  <!-- 📋 УРОВЕНЬ 1: ГЛАВНАЯ СТРАНИЦА КАТЕГОРИЙ (ГОРИЗОНТАЛЬНЫЕ СТРОКИ) -->
+  <div id="shop-categories-page" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+    
+    <button class="loc-btn" data-shop-cat="weapon" style="flex-direction: row; justify-content: space-between; padding: 16px 20px; width: 100%; margin: 0;">
+      <div style="display: flex; align-items: center; gap: 12px; font-weight: bold;"><span>🗡️</span> Оружие и Щиты</div>
+      <span style="color: var(--hint);">➡️</span>
+    </button>
+
+    <button class="loc-btn" data-shop-cat="armor" style="flex-direction: row; justify-content: space-between; padding: 16px 20px; width: 100%; margin: 0;">
+      <div style="display: flex; align-items: center; gap: 12px; font-weight: bold;"><span>👕</span> Доспехи и Броня</div>
+      <span style="color: var(--hint);">➡️</span>
+    </button>
+
+    <button class="loc-btn" data-shop-cat="jewelry" style="flex-direction: row; justify-content: space-between; padding: 16px 20px; width: 100%; margin: 0;">
+      <div style="display: flex; align-items: center; gap: 12px; font-weight: bold;"><span>💍</span> Бижутерия и Кольца</div>
+      <span style="color: var(--hint);">➡️</span>
+    </button>
+
+    <button class="loc-btn" data-shop-cat="consumables" style="flex-direction: row; justify-content: space-between; padding: 16px 20px; width: 100%; margin: 0;">
+      <div style="display: flex; align-items: center; gap: 12px; font-weight: bold;"><span>🧪</span> Зелья и Свитки</div>
+      <span style="color: var(--hint);">➡️</span>
+    </button>
+
+  </div>
+
+  <!-- 📦 УРОВЕНЬ 2: ВНУТРЕННЯЯ СТРАНИЦА ТОВАРОВ (СКРЫТА ПО УМОЛЧАНИЮ) -->
+  <div id="shop-items-page" style="display: none; flex-direction: column; gap: 10px; width: 100%; overflow-y: auto; flex: 1; padding-right: 2px;">
+    <!-- Сюда JS динамически отрендерит строки товаров выбранной категории -->
+  </div>
+
+</div>
