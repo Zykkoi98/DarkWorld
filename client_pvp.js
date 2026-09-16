@@ -483,6 +483,12 @@ function deleteCustomPopover() {
 }
 
 window.closeBattleModal = function() {
-  const m = document.getElementById('battle-modal'); if (m) { m.classList.remove('active'); m.style.setProperty('display', 'none', 'important'); }
+  const m = document.getElementById('battle-modal'); 
+  if (m) { 
+    m.classList.remove('active'); 
+    m.style.setProperty('display', 'none', 'important'); 
+  }
+  // 🔥 Гарантированная зачистка кнопки зелья при закрытии экрана боя
+  document.getElementById('server-inline-potion-btn')?.remove();
   deleteCustomPopover();
 };
