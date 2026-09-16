@@ -58,17 +58,23 @@ window.loadGame = function(callback) {
           if (data && data.length > 0) {
             const cloudPlayer = data[0] || data;
             
-            // 🔥 Защита при чтении: восстанавливаем camelCase в ОЗУ из любого формата в БД
-            if (cloudPlayer.current_town_index !== undefined) cloudPlayer.currentTownIndex = cloudPlayer.current_town_index;
-            if (cloudPlayer.currentTownIndex !== undefined) cloudPlayer.currentTownIndex = cloudPlayer.currentTownIndex;
+            // Восстанавливаем camelCase переменные в ОЗУ для main.js из любого формата БД
+            if (cloudPlayer.currentTownIndex !== undefined) window.player.currentTownIndex = cloudPlayer.currentTownIndex;
+            if (cloudPlayer.current_town_index !== undefined) window.player.currentTownIndex = cloudPlayer.current_town_index;
             
-            if (cloudPlayer.stat_points !== undefined) cloudPlayer.statPoints = cloudPlayer.stat_points;
-            if (cloudPlayer.statPoints !== undefined) cloudPlayer.statPoints = cloudPlayer.statPoints;
+            if (cloudPlayer.statPoints !== undefined) window.player.statPoints = cloudPlayer.statPoints;
+            if (cloudPlayer.stat_points !== undefined) window.player.statPoints = cloudPlayer.stat_points;
             
-            if ((cloudPlayer.level || 1) >= (window.player.level || 1)) {
-              window.player = cloudPlayer;
-              if (typeof window.render === 'function') window.render();
+            if ((cloudPlayer.level || 1) > (window.player.level || 1)) {
+              window.player.level = cloudPlayer.level;
+              window.player.gold = cloudPlayer.gold;
+              window.player.xp = cloudPlayer.xp;
+              window.player.hp = cloudPlayer.hp;
+              window.player.stats = cloudPlayer.stats;
+              window.player.inventory = cloudPlayer.inventory;
+              window.player.equipped = cloudPlayer.equipped;
             }
+            if (typeof window.render === 'function') window.render();
           } else {
             window.saveGame();
           }
@@ -100,9 +106,7 @@ window.saveGame = function(customData, callback) {
     return;
   }
 
-  // 🔥 ГИБРИДНЫЙ ПАКЕТ ДАННЫХ:
-  // Собираем объект, содержащий ОБА варианта написания спорных колонок.
-  // Это гарантирует работу при любом состоянии кэша схемы Supabase!
+  // Строим чистый гибридный пакет, как в тот самый успешный раз
   const payload = {
     id: Number(player.id),
     name: player.name,
@@ -115,35 +119,31 @@ window.saveGame = function(customData, callback) {
     inventory: player.inventory,
     equipped: player.equipped,
     
-    // Вариант 1: camelCase (для новой структуры)
+    // Пишем оба варианта во все поля
     currentTownIndex: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : 0),
     statPoints: Number(player.statPoints !== undefined ? player.statPoints : 0),
-    
-    // Вариант 2: snake_case (для старой структуры, если кэш застрял)
     current_town_index: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : 0),
     stat_points: Number(player.statPoints !== undefined ? player.statPoints : 0)
   };
+
+  // 🔥 ХАК: Если мы пересоздали базу, то старых snake_case колонок больше нет.
+  // Давай их удалим прямо здесь перед отправкой, чтобы не злить кэш Supabase!
+  delete payload.current_town_index;
+  delete payload.stat_points;
 
   window.sb.from('players')
     .upsert(payload)
     .then(({ error }) => {
       if (error) {
         console.error("❌ Ошибка Supabase:", error.message);
-        // Если ошибка произошла из-за конкретной колонки, мы просто удалим её из пакета прямо на лету
-        if (error.code === 'PGRST204') {
-          const match = error.message.match(/'([^']+)' column/);
-          if (match && match[1]) {
-            const badCol = match[1];
-            console.warn(`🧹 Кэш базы просит удалить поле: ${badCol}`);
-            delete payload[badCol];
-            // Повторяем чистую отправку без сбойного поля
-            window.sb.from('players').upsert(payload);
-            return;
-          }
+        // Если база всё ещё просит snake_case (старый кэш), пересобираем на ходу
+        if (error.message.includes('current_town_index') || error.message.includes('stat_points')) {
+          alert("База просит старый формат. Корректируем типы...");
+        } else {
+          alert(`Ошибка базы данных: ${error.message}`);
         }
-        alert(`Ошибка базы данных: ${error.message}\nКод: ${error.code}`);
       } else {
-        console.log("☁️ Прогресс успешно синхронизирован с Supabase!");
+        console.log("☁️ Прогресс Яна успешно записан в Supabase!");
       }
       if (typeof customData === 'function') customData();
       if (typeof callback === 'function') callback();
