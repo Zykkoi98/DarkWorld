@@ -97,16 +97,17 @@ window.saveGame = function(customData, callback) {
   const player = (customData && customData.player) ? customData.player : window.player;
   if (!player) return;
 
+  // Локальный бэкап в телефон (благодаря этому статы не сбрасываются!)
   localStorage.setItem('rpg_save', JSON.stringify({ player }));
   
-  initSupabaseLazy();
+  if (typeof initSupabaseLazy === 'function') initSupabaseLazy();
   if (!window.sb) {
     if (typeof customData === 'function') customData();
     if (typeof callback === 'function') callback();
     return;
   }
 
-  // Строим чистый гибридный пакет, как в тот самый успешный раз
+  // Собираем чистый гибридный пакет для отправки
   const payload = {
     id: Number(player.id),
     name: player.name,
@@ -119,31 +120,22 @@ window.saveGame = function(customData, callback) {
     inventory: player.inventory,
     equipped: player.equipped,
     
-    // Пишем оба варианта во все поля
+    // Передаем оба варианта колонок, чтобы база точно схавала
     currentTownIndex: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : 0),
     statPoints: Number(player.statPoints !== undefined ? player.statPoints : 0),
     current_town_index: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : 0),
     stat_points: Number(player.statPoints !== undefined ? player.statPoints : 0)
   };
 
-  // 🔥 ХАК: Если мы пересоздали базу, то старых snake_case колонок больше нет.
-  // Давай их удалим прямо здесь перед отправкой, чтобы не злить кэш Supabase!
-  delete payload.current_town_index;
-  delete payload.stat_points;
-
   window.sb.from('players')
     .upsert(payload)
     .then(({ error }) => {
       if (error) {
-        console.error("❌ Ошибка Supabase:", error.message);
-        // Если база всё ещё просит snake_case (старый кэш), пересобираем на ходу
-        if (error.message.includes('current_town_index') || error.message.includes('stat_points')) {
-          alert("База просит старый формат. Корректируем типы...");
-        } else {
-          alert(`Ошибка базы данных: ${error.message}`);
-        }
+        console.error("❌ Ошибка Supabase в фоне:", error.message);
+        // 🔥 ВЫВОДИМ ОШИБКУ НА ЭКРАН: Мы наконец-то увидим, почему запись не создается!
+        alert(`Фоновое сохранение не удалось!\nОшибка: ${error.message}\nКод: ${error.code}`);
       } else {
-        console.log("☁️ Прогресс Яна успешно записан в Supabase!");
+        console.log("☁️ Данные Яна успешно продублированы в облако Supabase!");
       }
       if (typeof customData === 'function') customData();
       if (typeof callback === 'function') callback();
