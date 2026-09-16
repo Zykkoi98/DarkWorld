@@ -11,104 +11,117 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 window.sb = null;
 
 /**
- * 🔌 БЕЗОПАСНОЕ ЛЕНИВОЕ ПОДКЛЮЧЕНИЕ К СУПАБЕЙС
- * Срабатывает только после того, как игра успешно отрисовала интерфейс
+ * Инициализация ленивого подключения к Supabase
  */
 function initSupabaseLazy() {
-  if (window.sb) return; // Если уже подключены, ничего не делаем
+  if (window.sb) return;
   if (window.supabase && typeof window.supabase.createClient === 'function') {
     try {
       window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      console.log("🔌 Ленивое подключение к Supabase успешно создано!");
+      console.log("🔌 Подключение к Supabase успешно инициализировано в фоне.");
     } catch(e) {
-      console.warn("⚠️ Не удалось инициализировать клиент Supabase в фоне:", e);
+      console.warn("⚠️ Не удалось инициализировать клиент базы данных:", e);
     }
   }
 }
 
+/**
+ * ☁️ ЗАГРУЗКА ПРОГРЕССА ПЕРСОНАЖА
+ */
 window.loadGame = function(callback) {
   const TG = window.Telegram?.WebApp;
+  const tgUser = TG?.initDataUnsafe?.user;
   
-  if (TG) {
-    TG.ready();
-    TG.expand();
+  // Создаем базовый слепок игрока, чтобы main.js не уходил в бесконечный цикл
+  if (typeof window.createPlayer === 'function') {
+    window.player = window.createPlayer();
+  } else {
+    window.player = { 
+      id: 0, name: "Игрок", level: 1, xp: 0, gold: 50, hp: 100,
+      stats: { strength: 10, agility: 10, endurance: 10, intellect: 10, luck: 10 }, 
+      inventory: { equipment: [], consumables: [], resources: [] }, 
+      equipped: { head: null, body: null, legs: null, neck: null, gloves: null, mainHand: null, offHand: null, potion: null, scroll: null, rings: [null, null, null] } 
+    };
   }
 
-  const tgUser = TG?.initDataUnsafe?.user;
+  // 1. ЕСЛИ МЫ ВНУТРИ REAL TELEGRAM MINI APP
+  if (TG && tgUser) {
+    const userId = tgUser.id;
+    window.player.id = userId;
+    window.player.name = tgUser.first_name || "Рыцарь";
 
-  // 1. СЦЕНАРИЙ: УСПЕШНЫЙ ВХОД ЧЕРЕЗ TELEGRAM MINI APP (ВАШ СЛУЧАЙ!)
-  if (TG && tgUser) { // 🚀 МГНОВЕННЫЙ СТАРТ: Разрешаем игре мгновенно открыться (Ян сразу видит интерфейс)
+    // Подтягиваем локальный кэш смартфона с прошлого захода
+    const localSave = localStorage.getItem('rpg_save');
+    if (localSave) {
+      try {
+        const savedData = JSON.parse(localSave);
+        if (savedData.player && savedData.player.id === userId) {
+          window.player = savedData.player;
+        }
+      } catch(e) {}
+    }
+
+    // Мгновенно запускаем интерфейс игры
     callback(null);
 
-    // Уходим в фоновый ленивый запрос к Supabase через 500мс
+    // Фоновая синхронизация с облаком
     setTimeout(() => {
-      // 🔥 ДОБАВИЛИ ЖЕСТКИЙ ВЫЗОВ: Сначала железно инициализируем подключение!
-      if (typeof initSupabaseLazy === 'function') initSupabaseLazy();
+      initSupabaseLazy();
+      if (!window.sb) return;
       
-      if (!window.sb) {
-        console.warn("⚠️ Фоновое подключение к Supabase не удалось создать.");
-        return;
-      }
-      
-      console.log("☁️ Фоновый запрос профиля из Supabase...");
       window.sb.from('players').select('*').eq('id', Number(userId))
         .then(({ data, error }) => {
-          if (error) {
-            console.warn("⚠️ Облачная база временно недоступна в фоне:", error.message);
-            return;
-          }
+          if (error) return;
 
           if (data && data.length > 0) {
-            console.log("☁️ Данные с облака Supabase успешно синхронизированы в фоне!");
-            const cloudPlayer = Array.isArray(data) ? data[0] : data;
+            const cloudPlayer = data[0] || data;
             
-            // Если на сервере уровень или опыт выше, обновляем локального персонажа
+            // Восстанавливаем camelCase переменные в ОЗУ для main.js из snake_case базы данных
+            if (cloudPlayer.current_town_index !== undefined) cloudPlayer.currentTownIndex = cloudPlayer.current_town_index;
+            if (cloudPlayer.stat_points !== undefined) cloudPlayer.statPoints = cloudPlayer.stat_points;
+            
             if ((cloudPlayer.level || 1) >= (window.player.level || 1)) {
               window.player = cloudPlayer;
-              if (typeof window.render === 'function') window.render(); // Перерисовываем город
+              if (typeof window.render === 'function') window.render();
             }
           } else {
-            // 🔥 ТЕПЕРЬ ЭТО СРАБОТАЕТ НА 100% ПРИ ПЕРВОМ ВХОДЕ
-            console.log("☁️ Профиль игрока отсутствует в облаке. Создаем запись для новичка...");
+            // Если в БД нет игрока — вызываем сохранение для автоматической регистрации новичка
             window.saveGame();
           }
-        })
-        .catch(err => console.warn("⚠️ Фоновый сетевой запрос сброшен по таймауту:", err));
-    }, 600);} else {
-    // 2. СЦЕНАРИЙ: ЗАПУСК ПРОСТО В БРАУЗЕРЕ НА ПК
-    console.warn("⚠️ Запущено вне Telegram. Включен локальный режим.");
-    
+        }).catch(err => console.warn("Фоновый таймаут:", err));
+    }, 600);
+
+  } else {
+    // 2. ЕСЛИ ОТКРЫЛИ ПРОСТО В БРАУЗЕРЕ НА ПК
     const localSave = localStorage.getItem('rpg_save');
     if (localSave) {
       try { window.player = JSON.parse(localSave).player; } catch(e) {}
     } else {
-      if (typeof window.createPlayer === 'function') {
-        window.player = window.createPlayer();
-      } else {
-        window.player = { id: 777777, name: "Браузерный_Тестер", level: 1, xp: 0, gold: 50, stats: { strength: 10, endurance: 10 }, inventory: { equipment: [], consumables: [], resources: [] }, equipped: { rings: [null, null, null] } };
-      }
       window.player.id = 777777;
       window.player.name = "Браузерный_Тестер";
     }
-    
     return callback(null);
   }
 };
 
+/**
+ * 💾 БЕЗОПАСНАЯ ФУНКЦИЯ СОХРАНЕНИЯ ПРОГРЕССА БЕЗ CAMELCASE КОЛОНОК
+ */
 window.saveGame = function(customData, callback) {
   const player = (customData && customData.player) ? customData.player : window.player;
   if (!player) return;
 
-  // 1. Мгновенно пишем в память телефона (локальный бэкап)
+  // Локальный мгновенный бэкап на устройстве
   localStorage.setItem('rpg_save', JSON.stringify({ player }));
   
-  // Активируем фоновое подключение, если оно еще не поднято
-  if (typeof initSupabaseLazy === 'function') initSupabaseLazy();
-  if (!window.sb) return;
+  initSupabaseLazy();
+  if (!window.sb) {
+    if (typeof customData === 'function') customData();
+    if (typeof callback === 'function') callback();
+    return;
+  }
 
-  console.log("☁️ Фоновое сохранение профиля Яна в Supabase...");
-
-  // 🔥 ИСПРАВЛЕНИЕ: Убираем camelCase. Передаем поля строго в соответствии с колонками вашей БД
+  // 🔥 ПОЛНЫЙ СБРОС CAMELCASE: Формируем пакет данных строго под структуру таблиц PostgreSQL
   const payload = {
     id: Number(player.id),
     name: player.name,
@@ -121,7 +134,7 @@ window.saveGame = function(customData, callback) {
     inventory: player.inventory,
     equipped: player.equipped,
     
-    // Передаем строго snake_case (маленькие буквы с подчеркиванием)
+    // Записываем данные строго в snake_case колонки (без currentTownIndex и statPoints!)
     current_town_index: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : (player.current_town_index || 0)),
     stat_points: Number(player.statPoints !== undefined ? player.statPoints : (player.stat_points || 0))
   };
@@ -130,15 +143,17 @@ window.saveGame = function(customData, callback) {
     .upsert(payload)
     .then(({ error }) => {
       if (error) {
-        console.error("❌ Ошибка Supabase:", error.message);
+        console.error("❌ Ошибка отправки данных в Supabase:", error.message);
         alert(`Ошибка базы данных: ${error.message}\nКод: ${error.code}`);
       } else {
-        console.log("☁️ Прогресс успешно сохранен в Supabase!");
-        if (typeof customData === 'function') customData();
-        if (typeof callback === 'function') callback();
+        console.log("☁️ Прогресс персонажа успешно синхронизирован с Supabase!");
       }
+      if (typeof customData === 'function') customData();
+      if (typeof callback === 'function') callback();
     })
-    .catch(err => {
-      console.error("❌ Сетевой сбой отправки в базу:", err);
+    .catch(e => {
+      console.warn("⚠️ Ошибка отправки:", e);
+      if (typeof customData === 'function') customData();
+      if (typeof callback === 'function') callback();
     });
 };
