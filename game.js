@@ -9,6 +9,20 @@ let currentTab = 'equipment'; // Текущая активная вкладка 
 window.rand = function(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };
+// 🔥 ФИКС: Жестко и явно объявляем функцию на объекте window в самом начале файла!
+window.getCorrectLevelByXp = function(xp) {
+  if (!window.XP_TABLE || !Array.isArray(window.XP_TABLE)) {
+    console.error("❌ XP_TABLE не найден в window!");
+    return 1;
+  }
+   // Идем с конца таблицы опыта к началу
+  for (let lvl = window.XP_TABLE.length - 1; lvl >= 1; lvl--) {
+    if (xp >= window.XP_TABLE[lvl]) {
+      return lvl; 
+    }
+  }
+  return 1;
+};
 
 // Расчет лимита опыта для следующего уровня
 function xpToNext(level) {
