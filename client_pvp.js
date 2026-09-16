@@ -16,13 +16,12 @@ let selectedDefendZones = [];    // Массив, куда заносятся 2 
 // Словарь для красивого форматирования логов раунда на русском языке
 const ZONE_NAMES = { head: "Голову", breast: "Грудь", torso: "Торс", belt: "Пояс", legs: "Ноги" };
 
-/**
- * 🔗 БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ И ПОДКЛЮЧЕНИЕ К СЕРВЕРУ ВЕБ-СОКЕТОВ
- * Функция проверяет, нет ли уже активного соединения, подключается к Node.js
- */
 function initSocketConnection() {
   if (socket) return; // Если сокет уже поднят, предотвращаем дублирование
-  const socket = io('https://darkworld-server.onrender.com'); // Коннектимся к нашему серверу
+  
+  // 🔥 ИСПРАВЛЕНИЕ: Убрали const! Теперь значение пишется в глобальный socket
+  socket = io('https://darkworld-server.onrender.com'); 
+  
   setupSocketListeners(); // Подключаем слушатели событий сокетов
 }
 
