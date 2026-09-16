@@ -24,6 +24,7 @@ function initSupabaseLazy() {
 window.loadGame = function(callback) {
   const TG = window.Telegram?.WebApp;
   const tgUser = TG?.initDataUnsafe?.user;
+  const monitor = document.getElementById('tg-debug-monitor');
   
   if (typeof window.createPlayer === 'function') {
     window.player = window.createPlayer();
@@ -45,7 +46,6 @@ window.loadGame = function(callback) {
     window.player.id = Number(userId);
     window.player.name = tgUser.first_name || "Рыцарь";
 
-    // Сначала берем локальный сейв как временную подстраховку
     const localSave = localStorage.getItem('rpg_save');
     if (localSave) {
       try {
@@ -58,6 +58,7 @@ window.loadGame = function(callback) {
 
     initSupabaseLazy();
     if (!window.sb) {
+      if (monitor) monitor.innerHTML += "<div>⚠️ База Supabase не подключена</div>";
       hideLoader();
       return callback(null);
     }
@@ -65,14 +66,15 @@ window.loadGame = function(callback) {
     window.sb.from('players').select('*').eq('id', Number(userId))
       .then(({ data, error }) => {
         if (error) {
+          if (monitor) monitor.innerHTML += `<div>❌ Ошибка Supabase: ${error.message}</div>`;
           hideLoader();
           return callback(null);
         }
         
         if (data && data.length > 0) {
-          // 🔥 ИСПРАВЛЕНИЕ: Жестко берем нулевой элемент массива базы данных!
+          // 🔥 ЖЕСТКИЙ ФИКС: Берем нулевой элемент ИЗ МАССИВА данных базы!
           const cloudPlayer = data[0]; 
-          console.log("☁️ Извлечен профиль из облака:", cloudPlayer);
+          if (monitor) monitor.innerHTML += `<div>☁️ Успешно скачан профиль из Supabase.</div>`;
           
           window.player.level = Number(cloudPlayer.level || 1);
           window.player.gold = Number(cloudPlayer.gold || 0);
@@ -82,16 +84,18 @@ window.loadGame = function(callback) {
           window.player.stats = cloudPlayer.stats || window.player.stats;
           window.player.inventory = cloudPlayer.inventory || window.player.inventory;
           window.player.equipped = cloudPlayer.equipped || window.player.equipped;
+          
+          // Восстанавливаем регистр полей БД
           window.player.currentTownIndex = Number(cloudPlayer.currenttownindex !== undefined ? cloudPlayer.currenttownindex : 0);
           window.player.statPoints = Number(cloudPlayer.statpoints !== undefined ? cloudPlayer.statpoints : 0);
           
-          // 🔥 Проверка накрученного уровня срабатывает ТОЛЬКО после полной записи всех данных
+          // 🔥 Запуск проверки уровня строго ПОСЛЕ применения всех полей
           if (typeof window.checkLevelUp === 'function') {
             window.checkLevelUp(true);
           }
           
         } else {
-          console.log("🆕 Игрок зашел впервые, регистрируем...");
+          if (monitor) monitor.innerHTML += "<div>🆕 Создаем новый профиль в облаке...</div>";
           window.saveGame();
         }
         
@@ -100,13 +104,12 @@ window.loadGame = function(callback) {
         if (typeof window.render === 'function') window.render();
       })
       .catch(err => {
-        console.warn("Сбой Supabase, переходим на локальный сейв", err);
+        if (monitor) monitor.innerHTML += `<div>⚠️ Краш обработки данных: ${err.message || err}</div>`;
         hideLoader();
         callback(null);
       });
 
   } else {
-    // Для тестов локально на ПК в браузере
     const localSave = localStorage.getItem('rpg_save');
     if (localSave) {
       try { window.player = JSON.parse(localSave).player; } catch(e) {}
