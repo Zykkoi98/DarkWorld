@@ -671,7 +671,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // ============================================================================
 function wakeUpServer() {
   // 🔥 ОБЯЗАТЕЛЬНО замени эту заглушку на реальную ссылку, которую выдаст Render!
-  const SERVER_URL = "https://darkworld-battle-server.onrender.com"; 
+  const SERVER_URL = "https://darkworld-server.onrender.com";
   
   // Просто «стучимся» к серверу, чтобы он не спал
   fetch(SERVER_URL)
