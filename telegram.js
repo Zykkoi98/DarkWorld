@@ -41,76 +41,78 @@ initTelegram();
  * Берет данные СТРОГО из реальной таблицы Supabase по настоящему Telegram ID.
  */
 window.loadGame = function(callback) {
-  // 🔥 ЧИТАЕМ ОБЪЕКТ СТРОГО В МОМЕНТ ВЫЗОВА, А НЕ НА ВЕРХУ ФАЙЛА
   const TG = window.Telegram?.WebApp;
   
   if (TG) {
-    TG.ready(); // Явно говорим телеграму, что мы готовы
+    TG.ready();
     TG.expand();
   }
 
   const tgUser = TG?.initDataUnsafe?.user;
   
-  // 2. Если мы внутри реального Telegram Mini App
+  // 1. ЕСЛИ МЫ ВНУТРИ РЕАЛЬНОГО TELEGRAM MINI APP
   if (TG && tgUser) {
     const userId = tgUser.id;
-    console.log(`☁️ Успешный вход через Telegram! Имя: ${tgUser.first_name}, ID: ${userId}`);
+    console.log(`☁️ Запрос профиля из Supabase для Telegram ID: ${userId}`);
 
     if (!window.sb) {
       console.error("❌ База данных Supabase не инициализирована!");
       return callback(new Error("Supabase missing"));
     }
 
+    // 🔥 ИСПРАВЛЕНИЕ: Вместо .single() используем обычный select, чтобы избежать краша скрипта
     window.sb.from('players')
       .select('*')
       .eq('id', Number(userId))
-      .single()
       .then(({ data, error }) => {
-        if (error && error.code === 'PGRST116') {
-          console.log("🆕 Новый игрок в Telegram. Создаем профиль в Supabase...");
+        if (error) {
+          console.error("❌ Ошибка Supabase при загрузке:", error.message);
+          return callback(error);
+        }
+
+        // Если массив данных пустой, значит игрока еще нет в базе данных
+        if (!data || data.length === 0) {
+          console.log("🆕 Игрок зашел впервые. Генерируем стартовый профиль...");
+          
           if (typeof window.createPlayer === 'function') {
             window.player = window.createPlayer(); 
-            window.player.id = userId;
-            window.player.name = tgUser.first_name || "Игрок";
-            window.saveGame(() => { callback(null); });
+            window.player.id = userId; // Записываем реальный ID
+            window.player.name = tgUser.first_name || "Герой"; // Записываем реальное имя из ТГ
+            
+            // Сохраняем в Supabase
+            window.saveGame(() => {
+              return callback(null);
+            });
           } else {
+            console.error("❌ Ошибка: Функция createPlayer не найдена в main.js!");
             return callback(new Error("createPlayer missing"));
           }
-        } 
-        else if (error) {
-          console.error("❌ Ошибка Supabase:", error.message);
-          return callback(error);
-        } 
-        else {
-          console.log(`✅ Прогресс успешно скачан для: ${data.name}`);
-          window.player = data; 
+        } else {
+          // Игрок найден, загружаем его сохраненный профиль
+          console.log(`✅ Прогресс успешно скачан для: ${data[0].name}`);
+          window.player = data[0]; 
           return callback(null);
         }
       })
-      .catch(err => callback(err));
+      .catch(err => {
+        console.error("❌ Непредвиденный сбой в loadGame:", err);
+        return callback(err);
+      });
       
-   } else {
-    // 3. Запасной сценарий (если открыли просто в браузере или слетели параметры)
-    console.warn("⚠️ Telegram WebApp контекст отсутствует или пуст.");
+  } else {
+    // 2. ЗАПАСНОЙ ЛОКАЛЬНЫЙ РЕЖИМ (Если открыли просто в браузере на ПК)
+    console.warn("⚠️ Telegram WebApp контекст не найден. Активирован локальный режим разработки.");
     
-    // ВЫВОДИМ ОТЛАДОЧНУЮ ИНФОРМАЦИЮ ПРЯМО НА ЭКРАН ИГРЫ
-    setTimeout(() => {
-      const titleEl = document.getElementById('current-town-name');
-      if (titleEl) {
-        const hasTG = window.Telegram ? "Есть" : "Нет";
-        const rawData = window.Telegram?.WebApp?.initData ? "Передан" : "Пусто";
-        titleEl.innerHTML = `<span style="color:red; font-size:12px; block-size:auto;">SDK: ${hasTG} | Данные: ${rawData}</span>`;
-      }
-    }, 500);
-
     const localSave = localStorage.getItem('rpg_save');
     if (localSave) {
       const savedData = JSON.parse(localSave);
       window.player = savedData.player;
+      console.log("💾 Загружен локальный персонаж из памяти браузера.");
     } else {
+      console.log("🆕 Создаем чистый профиль ПК-тестера.");
       window.player = window.createPlayer();
-      window.player.id = 999999; 
-      window.player.name = "тестер_пк";
+      window.player.id = 777777; 
+      window.player.name = "Браузерный_Тестер";
     }
     return callback(null);
   }
