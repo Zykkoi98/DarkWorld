@@ -15,9 +15,9 @@ function initSupabaseLazy() {
   if (window.supabase && typeof window.supabase.createClient === 'function') {
     try {
       window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      console.log("🔌 Подключение к Supabase готово.");
+      console.log("🔌 Инициализация Supabase успешна.");
     } catch(e) {
-      console.warn("⚠️ Ошибка бд:", e);
+      console.warn("⚠️ Сбой создания клиента базы:", e);
     }
   }
 }
@@ -29,12 +29,7 @@ window.loadGame = function(callback) {
   if (typeof window.createPlayer === 'function') {
     window.player = window.createPlayer();
   } else {
-    window.player = { 
-      id: 0, name: "Игрок", level: 1, xp: 0, gold: 50, hp: 100,
-      stats: { strength: 10, agility: 10, endurance: 10, intellect: 10, luck: 10 }, 
-      inventory: { equipment: [], consumables: [], resources: [] }, 
-      equipped: { head: null, body: null, legs: null, neck: null, gloves: null, mainHand: null, offHand: null, potion: null, scroll: null, rings: [null, null, null] } 
-    };
+    window.player = { id: 0, name: "Игрок", level: 1, xp: 0, gold: 50, hp: 100, statPoints: 5, currentTownIndex: 0, stats: { strength: 10, agility: 10, endurance: 10, intellect: 10, luck: 10 }, inventory: { equipment: [], consumables: [], resources: [] }, equipped: { rings: [null, null, null] } };
   }
 
   if (TG && tgUser) {
@@ -52,8 +47,10 @@ window.loadGame = function(callback) {
       } catch(e) {}
     }
 
+    // Мгновенный старт
     callback(null);
 
+    // Фоновая синхронизация
     setTimeout(() => {
       initSupabaseLazy();
       if (!window.sb) return;
@@ -63,15 +60,12 @@ window.loadGame = function(callback) {
           if (error) return;
           if (data && data.length > 0) {
             const cloudPlayer = data[0] || data;
-            
-            if (cloudPlayer.current_town_index !== undefined) cloudPlayer.currentTownIndex = cloudPlayer.current_town_index;
-            if (cloudPlayer.stat_points !== undefined) cloudPlayer.statPoints = cloudPlayer.stat_points;
-            
             if ((cloudPlayer.level || 1) >= (window.player.level || 1)) {
               window.player = cloudPlayer;
               if (typeof window.render === 'function') window.render();
             }
           } else {
+            // Если в БД пусто — сохраняем текущего игрока для регистрации
             window.saveGame();
           }
         }).catch(err => console.warn("Фоновый таймаут:", err));
@@ -93,6 +87,7 @@ window.saveGame = function(customData, callback) {
   const player = (customData && customData.player) ? customData.player : window.player;
   if (!player) return;
 
+  // Локальный бэкап
   localStorage.setItem('rpg_save', JSON.stringify({ player }));
   
   initSupabaseLazy();
@@ -102,25 +97,16 @@ window.saveGame = function(customData, callback) {
     return;
   }
 
-  // 🔥 СОЗДАЕМ АБСОЛЮТНО ЧИСТЫЙ ДУБЛИКАТ ОБЪЕКТА СТРОГО БЕЗ КРИТИЧЕСКИХ ПОЛЕЙ
-  const payload = JSON.parse(JSON.stringify(player));
-
-  // Подменяем camelCase на правильный snake_case для колонок бд
-  payload.current_town_index = Number(payload.currentTownIndex !== undefined ? payload.currentTownIndex : (payload.current_town_index || 0));
-  payload.stat_points = Number(payload.statPoints !== undefined ? payload.statPoints : (payload.stat_points || 0));
-
-  // 🔥 ЖЕСТКОЕ УНИЧТОЖЕНИЕ: Вырезаем свойства, которые злят Supabase
-  delete payload.currentTownIndex;
-  delete payload.statPoints;
-
+  // 🔥 ТЕПЕРЬ ВСЁ ИДЕАЛЬНО: Отправляем чистый объект плеера напрямую, 
+  // так как база полностью соответствует названиям переменных игры!
   window.sb.from('players')
-    .upsert(payload)
+    .upsert(player)
     .then(({ error }) => {
       if (error) {
         console.error("❌ Ошибка Supabase:", error.message);
         alert(`Ошибка базы данных: ${error.message}\nКод: ${error.code}`);
       } else {
-        console.log("☁️ Данные успешно синхронизированы!");
+        console.log("☁️ Прогресс успешно сохранен в новую Supabase!");
       }
       if (typeof customData === 'function') customData();
       if (typeof callback === 'function') callback();
