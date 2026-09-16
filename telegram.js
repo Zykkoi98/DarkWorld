@@ -37,36 +37,44 @@ window.loadGame = function(callback) {
   const tgUser = TG?.initDataUnsafe?.user;
 
   // 1. СЦЕНАРИЙ: УСПЕШНЫЙ ВХОД ЧЕРЕЗ TELEGRAM MINI APP (ВАШ СЛУЧАЙ!)
-  if (TG && tgUser) {
-    const userId = tgUser.id;
-    
-    // 🔥 ЖЕСТКИЙ ФИКС: Сначала создаем базовый профиль СТРОГО с данными из Telegram
-    if (typeof window.createPlayer === 'function') {
-      window.player = window.createPlayer(); 
-    } else {
-      window.player = { id: userId, name: tgUser.first_name, level: 1, xp: 0, gold: 50, stats: { strength: 10, endurance: 10 }, inventory: { equipment: [], consumables: [], resources: [] }, equipped: { rings: [null, null, null] } };
-    }
-    
-    window.player.id = userId;
-    window.player.name = tgUser.first_name || "Рыцарь";
-    console.log(`⚡ Игрок авторизован! ID: ${window.player.id}, Имя: ${window.player.name}`);
+  if (TG && tgUser) { // 🚀 МГНОВЕННЫЙ СТАРТ: Разрешаем игре мгновенно открыться (Ян сразу видит интерфейс)
+    callback(null);
 
-    // Проверяем локальный кэш устройства (если играем не первый раз)
-    const localSave = localStorage.getItem('rpg_save');
-    if (localSave) {
-      try {
-        const savedData = JSON.parse(localSave);
-        if (savedData.player && savedData.player.id === userId) {
-          window.player = savedData.player;
-          console.log("💾 Загружен локальный прогресс из памяти устройства.");
-        }
-      } catch(e) { console.error("Ошибка чтения кэша:", e); }
-    }
+    // Уходим в фоновый ленивый запрос к Supabase через 500мс
+    setTimeout(() => {
+      // 🔥 ДОБАВИЛИ ЖЕСТКИЙ ВЫЗОВ: Сначала железно инициализируем подключение!
+      if (typeof initSupabaseLazy === 'function') initSupabaseLazy();
+      
+      if (!window.sb) {
+        console.warn("⚠️ Фоновое подключение к Supabase не удалось создать.");
+        return;
+      }
+      
+      console.log("☁️ Фоновый запрос профиля из Supabase...");
+      window.sb.from('players').select('*').eq('id', Number(userId))
+        .then(({ data, error }) => {
+          if (error) {
+            console.warn("⚠️ Облачная база временно недоступна в фоне:", error.message);
+            return;
+          }
 
-    // 🔥 РАЗРЕШАЕМ ЗАПУСК ИГРЫ: Только ПОСЛЕ того, как записали имя и ID Яна!
-    return callback(null);
-
-  } else {
+          if (data && data.length > 0) {
+            console.log("☁️ Данные с облака Supabase успешно синхронизированы в фоне!");
+            const cloudPlayer = Array.isArray(data) ? data[0] : data;
+            
+            // Если на сервере уровень или опыт выше, обновляем локального персонажа
+            if ((cloudPlayer.level || 1) >= (window.player.level || 1)) {
+              window.player = cloudPlayer;
+              if (typeof window.render === 'function') window.render(); // Перерисовываем город
+            }
+          } else {
+            // 🔥 ТЕПЕРЬ ЭТО СРАБОТАЕТ НА 100% ПРИ ПЕРВОМ ВХОДЕ
+            console.log("☁️ Профиль игрока отсутствует в облаке. Создаем запись для новичка...");
+            window.saveGame();
+          }
+        })
+        .catch(err => console.warn("⚠️ Фоновый сетевой запрос сброшен по таймауту:", err));
+    }, 600);} else {
     // 2. СЦЕНАРИЙ: ЗАПУСК ПРОСТО В БРАУЗЕРЕ НА ПК
     console.warn("⚠️ Запущено вне Telegram. Включен локальный режим.");
     
