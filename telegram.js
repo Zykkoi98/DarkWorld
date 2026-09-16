@@ -43,13 +43,27 @@ initTelegram();
 window.loadGame = function(callback) {
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
   
-  // ЗАЩИТА: Если запустили в обычном браузере на ПК без Телеграма
+  // 🛠 МОДИФИКАЦИЯ: Если запустили на ПК без Телеграма, создаем тестового локального игрока
   if (!tgUser) {
-    console.warn("⚠️ Игра запущена вне Telegram. Доступ к Supabase заблокирован.");
-    alert("Пожалуйста, запустите игру через Telegram-бота, чтобы загрузить своего персонажа!");
-    return callback(new Error("Запущено вне Telegram"));
+    console.warn("⚠️ Игра запущена вне Telegram. Включен локальный тестовый режим.");
+    
+    // Пытаемся загрузить из localStorage браузера
+    const localSave = localStorage.getItem('rpg_save');
+    if (localSave) {
+      const savedData = JSON.parse(localSave);
+      window.player = savedData.player;
+      console.log("💾 Локальный прогресс успешно загружен из памяти браузера!");
+    } else {
+      console.log("🆕 Создаем нового тестового персонажа для ПК...");
+      window.player = window.createPlayer();
+      window.player.id = 999999; // Временный ID для тестов на ПК
+      window.player.name = "Тестер_ПК";
+    }
+    
+    return callback(null); // Разрешаем игре запуститься
   }
 
+  // --- Код для реального Telegram (остается без изменений) ---
   const userId = tgUser.id;
   console.log(`☁️ Запрос профиля из Supabase для реального Telegram ID: ${userId}`);
 
@@ -63,36 +77,27 @@ window.loadGame = function(callback) {
     .eq('id', Number(userId))
     .single()
     .then(({ data, error }) => {
-      // Если профиль в базе данных еще не создан (новый игрок)
       if (error && error.code === 'PGRST116') {
         console.log("🆕 Игрок зашел впервые. Генерируем стартовый профиль новичка...");
-        
         if (typeof window.createPlayer === 'function') {
           window.player = window.createPlayer(); 
-          window.player.id = userId; // Записываем в профиль НАСТОЯЩИЙ ID из Телеграма
-          
-          window.saveGame(() => {
-            return callback(null);
-          });
+          window.player.id = userId;
+          window.saveGame(() => { callback(null); });
         } else {
-          console.error("❌ Ошибка: Функция createPlayer не найдена в main.js!");
           return callback(new Error("createPlayer missing"));
         }
       } 
       else if (error) {
-        console.error("❌ Ошибка Supabase при загрузке прогресса:", error.message);
+        console.error("❌ Ошибка Supabase:", error.message);
         return callback(error);
       } 
       else {
-        console.log(`✅ Прогресс успешно скачан из Supabase для игрока: ${data.name}`);
+        console.log(`✅ Прогресс успешно скачан для: ${data.name}`);
         window.player = data; 
         return callback(null);
       }
     })
-    .catch(err => {
-      console.error("❌ Непредвиденный сбой цепочки Promise в loadGame:", err);
-      return callback(err);
-    });
+    .catch(err => callback(err));
 };
 
 /**
