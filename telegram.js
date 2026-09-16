@@ -58,23 +58,16 @@ window.loadGame = function(callback) {
           if (data && data.length > 0) {
             const cloudPlayer = data[0] || data;
             
-            // Восстанавливаем camelCase переменные в ОЗУ для main.js из любого формата БД
+            // Синхронизируем форматы
             if (cloudPlayer.currentTownIndex !== undefined) window.player.currentTownIndex = cloudPlayer.currentTownIndex;
             if (cloudPlayer.current_town_index !== undefined) window.player.currentTownIndex = cloudPlayer.current_town_index;
-            
             if (cloudPlayer.statPoints !== undefined) window.player.statPoints = cloudPlayer.statPoints;
             if (cloudPlayer.stat_points !== undefined) window.player.statPoints = cloudPlayer.stat_points;
             
-            if ((cloudPlayer.level || 1) > (window.player.level || 1)) {
-              window.player.level = cloudPlayer.level;
-              window.player.gold = cloudPlayer.gold;
-              window.player.xp = cloudPlayer.xp;
-              window.player.hp = cloudPlayer.hp;
-              window.player.stats = cloudPlayer.stats;
-              window.player.inventory = cloudPlayer.inventory;
-              window.player.equipped = cloudPlayer.equipped;
+            if ((cloudPlayer.level || 1) >= (window.player.level || 1)) {
+              window.player = cloudPlayer;
+              if (typeof window.render === 'function') window.render();
             }
-            if (typeof window.render === 'function') window.render();
           } else {
             window.saveGame();
           }
@@ -97,50 +90,60 @@ window.saveGame = function(customData, callback) {
   const player = (customData && customData.player) ? customData.player : window.player;
   if (!player) return;
 
-  // Локальный бэкап в телефон (благодаря этому статы не сбрасываются!)
+  // 1. Мгновенно пишем в память телефона (благодаря этому статы работают)
   localStorage.setItem('rpg_save', JSON.stringify({ player }));
   
-  if (typeof initSupabaseLazy === 'function') initSupabaseLazy();
+  // 🔥 ГАРАНТИРОВАННАЯ ИНИЦИАЛИЗАЦИЯ
+  initSupabaseLazy();
+  
   if (!window.sb) {
+    // Если объекта базы всё еще нет, выводим сообщение на экран
+    alert("⚠️ База данных Supabase не отвечает или заблокирована сетью смартфона.");
     if (typeof customData === 'function') customData();
     if (typeof callback === 'function') callback();
     return;
   }
 
-  // Собираем чистый гибридный пакет для отправки
+  // 🔥БЕЗОПАСНАЯ ИЗОЛЯЦИЯ ДАННЫХ: Соблюдаем чистые типы PostgreSQL,
+  // собирая объект вручную по строчкам. Это защищает от циклических ссылок JS!
   const payload = {
     id: Number(player.id),
-    name: player.name,
-    avatar: player.avatar || "assets/avatars/hero1.png",
+    name: String(player.name),
+    avatar: String(player.avatar || "assets/avatars/hero1.png"),
     level: Number(player.level || 1),
     gold: Number(player.gold || 0),
     hp: Number(player.hp || 100),
     xp: Number(player.xp || 0),
-    stats: player.stats,
-    inventory: player.inventory,
-    equipped: player.equipped,
     
-    // Передаем оба варианта колонок, чтобы база точно схавала
+    // Глубокое копирование объектов, чтобы убрать внутренний мусор JS
+    stats: JSON.parse(JSON.stringify(player.stats || {})),
+    inventory: JSON.parse(JSON.stringify(player.inventory || {})),
+    equipped: JSON.parse(JSON.stringify(player.equipped || {})),
+    
+    // Гибридный формат полей для полной совместимости с любым кэшем схемы
     currentTownIndex: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : 0),
     statPoints: Number(player.statPoints !== undefined ? player.statPoints : 0),
     current_town_index: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : 0),
     stat_points: Number(player.statPoints !== undefined ? player.statPoints : 0)
   };
 
+  console.log("📡 Отправка пакета в Supabase...", payload);
+
   window.sb.from('players')
     .upsert(payload)
     .then(({ error }) => {
       if (error) {
-        console.error("❌ Ошибка Supabase в фоне:", error.message);
-        // 🔥 ВЫВОДИМ ОШИБКУ НА ЭКРАН: Мы наконец-то увидим, почему запись не создается!
-        alert(`Фоновое сохранение не удалось!\nОшибка: ${error.message}\nКод: ${error.code}`);
+        console.error("❌ Ошибка Supabase:", error.message);
+        alert(`Ошибка базы данных: ${error.message}\nКод: ${error.code}`);
       } else {
-        console.log("☁️ Данные Яна успешно продублированы в облако Supabase!");
+        console.log("☁️ Прогресс Яна успешно записан в Supabase!");
       }
       if (typeof customData === 'function') customData();
       if (typeof callback === 'function') callback();
     })
-    .catch(e => {
+    .catch(err => {
+      console.error("❌ Сетевой краш upsert:", err);
+      alert(`Сетевой сбой при отправке: ${err.message}`);
       if (typeof customData === 'function') customData();
       if (typeof callback === 'function') callback();
     });
