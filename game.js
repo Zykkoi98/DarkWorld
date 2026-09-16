@@ -625,11 +625,6 @@ function startGame() {
         window.player = createPlayer();
       }
 
-      // Сверяем опыт и уровень на случай левелапа при загрузке
-      if (typeof window.checkLevelUp === 'function') {
-        window.checkLevelUp(true);
-      }
-
       // Отрисовываем главный мирный экран города и полоску здоровья
       if (typeof render === 'function') {
         render();
