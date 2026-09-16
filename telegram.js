@@ -7,6 +7,8 @@ const TG = window.Telegram?.WebApp;
 const SUPABASE_URL = "https://ylslpgujwgxtsabkzgbd.supabase.co"; 
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlsc2xwZ3Vqd2d4dHNhYmt6Z2JkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMDM3ODksImV4cCI6MjEwNDg3OTc4OX0.GKocc3hnVQVSYaOnm1QhHca54sBn8AsiN8mHo6J0ENY"; 
 
+window.sb = null;
+
 function initSupabaseLazy() {
   if (window.sb) return;
   if (window.supabase && typeof window.supabase.createClient === 'function') {
@@ -56,15 +58,20 @@ window.loadGame = function(callback) {
           if (data && data.length > 0) {
             const cloudPlayer = data[0] || data;
             
-            if (cloudPlayer.currentTownIndex !== undefined) window.player.currentTownIndex = cloudPlayer.currentTownIndex;
-            if (cloudPlayer.current_town_index !== undefined) window.player.currentTownIndex = cloudPlayer.current_town_index;
-            if (cloudPlayer.statPoints !== undefined) window.player.statPoints = cloudPlayer.statPoints;
-            if (cloudPlayer.stat_points !== undefined) window.player.statPoints = cloudPlayer.stat_points;
+            // 🔄 ПЕРЕВОД ДЛЯ ИГРЫ: Забираем из нижнего регистра БД и отдаем в camelCase для main.js
+            if (cloudPlayer.currenttownindex !== undefined) window.player.currentTownIndex = Number(cloudPlayer.currenttownindex);
+            if (cloudPlayer.statpoints !== undefined) window.player.statPoints = Number(cloudPlayer.statpoints);
             
             if ((cloudPlayer.level || 1) >= (window.player.level || 1)) {
-              window.player = cloudPlayer;
-              if (typeof window.render === 'function') window.render();
+              window.player.level = cloudPlayer.level;
+              window.player.gold = cloudPlayer.gold;
+              window.player.xp = cloudPlayer.xp;
+              window.player.hp = cloudPlayer.hp;
+              window.player.stats = cloudPlayer.stats;
+              window.player.inventory = cloudPlayer.inventory;
+              window.player.equipped = cloudPlayer.equipped;
             }
+            if (typeof window.render === 'function') window.render();
           } else {
             window.saveGame();
           }
@@ -96,7 +103,8 @@ window.saveGame = function(customData, callback) {
     return;
   }
 
-  // 🔥 ПРОСТАЯ И НАДЕЖНАЯ СТРУКТУРА БЕЗ КРАША СКРИПТОВ
+  // 🎯 ЧИСТЫЙ PAYLOAD СТРОГО ПО НАЗВАНИЯМ КОЛОНОК ТВОЕЙ БД
+  // Отправляем строго маленькими буквами, полностью исключив любые другие варианты
   const payload = {
     id: Number(player.id),
     name: player.name,
@@ -109,11 +117,9 @@ window.saveGame = function(customData, callback) {
     inventory: player.inventory,
     equipped: player.equipped,
     
-    // Передаем гибридные поля напрямую без удаления колонок
-    currentTownIndex: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : 0),
-    statPoints: Number(player.statPoints !== undefined ? player.statPoints : 0),
-    current_town_index: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : 0),
-    stat_points: Number(player.statPoints !== undefined ? player.statPoints : 0)
+    // Передаем строго под имена колонок в PostgreSQL
+    currenttownindex: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : 0),
+    statpoints: Number(player.statPoints !== undefined ? player.statPoints : 0)
   };
 
   window.sb.from('players')
@@ -121,8 +127,9 @@ window.saveGame = function(customData, callback) {
     .then(({ error }) => {
       if (error) {
         console.error("❌ Ошибка Supabase:", error.message);
+        alert(`Ошибка базы данных: ${error.message}\nКод: ${error.code}`);
       } else {
-        console.log("☁️ Прогресс успешно синхронизирован с Supabase!");
+        console.log("☁️ Прогресс Яна успешно записан в Supabase!");
       }
       if (typeof customData === 'function') customData();
       if (typeof callback === 'function') callback();
