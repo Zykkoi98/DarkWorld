@@ -46,19 +46,26 @@ window.loadGame = function(callback) {
       } catch(e) {}
     }
 
+    // Мгновенный запуск интерфейса для игрока
     callback(null);
 
+    // Фоновая синхронизация с облаком Supabase
     setTimeout(() => {
       initSupabaseLazy();
       if (!window.sb) return;
       
       window.sb.from('players').select('*').eq('id', Number(userId))
         .then(({ data, error }) => {
-          if (error) return;
+          if (error) {
+            console.warn("⚠️ Фоновая проверка базы не удалась:", error.message);
+            return;
+          }
+          
           if (data && data.length > 0) {
             const cloudPlayer = data[0] || data;
+            console.log("☁️ Прогресс найден в облаке, синхронизируем...");
             
-            // 🔄 ПЕРЕВОД ДЛЯ ИГРЫ: Забираем из нижнего регистра БД и отдаем в camelCase для main.js
+            // Конвертируем маленькие буквы БД обратно в camelCase для игры
             if (cloudPlayer.currenttownindex !== undefined) window.player.currentTownIndex = Number(cloudPlayer.currenttownindex);
             if (cloudPlayer.statpoints !== undefined) window.player.statPoints = Number(cloudPlayer.statpoints);
             
@@ -73,10 +80,13 @@ window.loadGame = function(callback) {
             }
             if (typeof window.render === 'function') window.render();
           } else {
+            // 🔥 ЖЕСТКИЙ ФИКС: Игрок зашел впервые. 
+            // Принудительно сохраняем локальный слепок новичка в базу данных прямо сейчас!
+            console.log("🆕 Новый пользователь Telegram. Создаем запись в Supabase...");
             window.saveGame();
           }
         }).catch(err => console.warn("Фоновый таймаут:", err));
-    }, 600);
+    }, 800); // Чуть увеличили задержку до 800мс, чтобы все скрипты успели прогрузиться в ОЗУ
 
   } else {
     const localSave = localStorage.getItem('rpg_save');
