@@ -213,7 +213,8 @@ function setupSocketListeners() {
     if (isOver) {
       const modal = document.getElementById('battle-modal');
       modal?.querySelector('#battle-controls-zone')?.style.setProperty('display', 'none', 'important');
-      
+      // 🔥 ФИКС БАГА: Мгновенно сносим инлайн-кнопку зелья, если бой закончился!
+      document.getElementById('server-inline-potion-btn')?.remove();
       const resDiv = document.createElement('div'); resDiv.style.cssText = 'margin-top:15px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.1); font-weight:bold;';
       
       const didIWin = (isAmIPlayer1 && resultType === 'p1_win') || (!isAmIPlayer1 && resultType === 'p2_win') || (currentRoomId.startsWith('pve_') && resultType === 'p1_win');
