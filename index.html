@@ -163,8 +163,21 @@
   <div id="battle-modal" class="modal-overlay" style="z-index: 2000;"></div>
   <div id="shop-modal" class="modal-overlay"></div>
 
-  <!-- ============================================================================
-       ===== ⚙️ ПОДДКЛЮЧЕНИЕ СКРИПТОВ (СТРОГИЙ ПОРЯДОК ЗАГРУЗКИ) =====
-       ============================================================================ -->
-
+  <!-- Временный монитор для просмотра логов прямо в Telegram -->
+<div id="tg-debug-monitor" style="
+  background: rgba(0, 0, 0, 0.85);
+  border-top: 2px solid #f1c40f;
+  color: #2ecc71;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 10px;
+  max-height: 120px;
+  overflow-y: auto;
+  position: fixed;
+  bottom: 0; left: 0; width: 100%;
+  z-index: 9999999;
+  pointer-events: none;
+">
+  <div>📡 Монитор ядра запущен. Ждем F5...</div>
+</div>
 </body>

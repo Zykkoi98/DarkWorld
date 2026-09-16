@@ -121,22 +121,22 @@ function createPlayer() {
 
 // Функция пересчета и проверки изменения уровня (БЕЗ сброса HP при загрузке)
 window.checkLevelUp = function(isInitialLoad = false) {
-  if (!window.player) {
-    console.error("❌ checkLevelUp: Обьект window.player пуст!");
-    return;
-  }
+  if (!window.player) return;
 
-  // Находим честный уровень по опыту
   const correctLevel = window.getCorrectLevelByXp(window.player.xp);
   
-  // 🔥 ГЛАВНЫЙ ЛОГ: Посмотрим, что игра видит в памяти прямо сейчас
-  console.log(`[ОТЛАДКА ЛЕВЕЛАПА] Текущий в памяти: ${window.player.level}, Посчитанный по XP: ${correctLevel}, Текущий опыт: ${window.player.xp}`);
+  // 🔥 Выводим лог прямо на экран твоего телефона/ТГ!
+  const monitor = document.getElementById('tg-debug-monitor');
+  if (monitor) {
+    const logRow = document.createElement('div');
+    logRow.style.marginBottom = '3px';
+    logRow.innerHTML = `[F5] Опыт: ${window.player.xp} | Ур. в памяти: <span style="color:#fff">${window.player.level}</span> | Должен быть: <span style="color:#f1c40f">${correctLevel}</span>`;
+    monitor.appendChild(logRow);
+    monitor.scrollTop = monitor.scrollHeight;
+  }
 
   if (window.player.level !== correctLevel) {
     const isLeveledDown = window.player.level > correctLevel;
-    const oldLevel = window.player.level;
-    
-    console.log(`⚠️ КОРРЕКТИРОВКА! Уровень игрока изменен с ${oldLevel} на ${correctLevel}`);
     
     window.player.level = correctLevel;
     window.player.statPoints = 5 + ((correctLevel - 1) * 5);
@@ -152,17 +152,13 @@ window.checkLevelUp = function(isInitialLoad = false) {
       if (window.player.hp > maxHp) window.player.hp = maxHp;
     }
 
-    // Сохраняем исправление
     if (window.saveGame) {
-      console.log("☁️ Отправка запроса на исправление уровня в БД...");
       window.saveGame({ player: window.player });
     }
     
     render();
     const modal = document.getElementById('profile-modal');
     if (modal && modal.classList.contains('active')) window.openProfile();
-  } else {
-    console.log("✅ Корректировка не требуется: Уровень в памяти совпадает с расчетным.");
   }
 };
 // ============================================================================
