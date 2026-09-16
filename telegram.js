@@ -94,41 +94,51 @@ window.saveGame = function(customData, callback) {
   const player = (customData && customData.player) ? customData.player : window.player;
   if (!player) return;
 
-  // 1. Мгновенно сохраняем в память устройства (локальный бэкап)
+  // 1. Сразу пишем в память телефона (локальный бэкап всегда работает)
   localStorage.setItem('rpg_save', JSON.stringify({ player }));
   
-  // 2. Лениво подключаемся к базе данных и отправляем данные на сервер в фоне
-  initSupabaseLazy();
-  if (!window.sb) {
-    if (typeof customData === 'function') customData();
-    if (typeof callback === 'function') callback();
-    return;
-  }
+  // Если ленивое подключение к базе еще не сработало, запускаем его
+  if (typeof initSupabaseLazy === 'function') initSupabaseLazy();
+  if (!window.sb) return;
 
-  window.sb.from('players').upsert({
+  console.log("☁️ Попытка отправки профиля Яна в Supabase...");
+
+  // 🔥 ДВОЙНОЙ ФОРМАТ КОЛОНОК: Страхуемся от любых ошибок регистра в вашей таблице
+  const payload = {
     id: Number(player.id),
     name: player.name,
     avatar: player.avatar || "assets/avatars/hero1.png",
     level: Number(player.level || 1),
     gold: Number(player.gold || 0),
-    current_town_index: Number(player.currentTownIndex || 0),
-    hp: Number(player.hp || 0),
+    hp: Number(player.hp || 100),
     xp: Number(player.xp || 0),
-    statPoints: Number(player.statPoints || 0),
     stats: player.stats,
     inventory: player.inventory,
-    equipped: player.equipped 
-  }).then(({ error }) => {
-    if (error) {
-      console.warn("⚠️ Ошибка фонового сохранения в Supabase:", error.message);
-    } else {
-      console.log("☁️ Прогресс игрока успешно синхронизирован с Supabase в фоне!");
-    }
-    if (typeof customData === 'function') customData();
-    if (typeof callback === 'function') callback();
-  }).catch(e => {
-    console.warn("⚠️ Сетевой сбой при сохранении в облако:", e);
-    if (typeof customData === 'function') customData();
-    if (typeof callback === 'function') callback();
-  });
+    equipped: player.equipped,
+    
+    // Вариант 1: Запись в стиле snake_case (маленькие буквы с подчеркиванием)
+    current_town_index: Number(player.currentTownIndex || player.current_town_index || 0),
+    stat_points: Number(player.statPoints || player.stat_points || 0),
+    
+    // Вариант 2: Запись в стиле camelCase (как в вашем main.js)
+    currentTownIndex: Number(player.currentTownIndex || 0),
+    statPoints: Number(player.statPoints || 0)
+  };
+
+  window.sb.from('players')
+    .upsert(payload)
+    .then(({ error }) => {
+      if (error) {
+        console.error("❌ Критическая ошибка Supabase:", error.message);
+        // 🔥 ВЫВОДИМ ОШИБКУ НА ЭКРАН: Если колонка не совпадет, Ян сразу увидит текст ошибки!
+        alert(`Ошибка базы данных: ${error.message}\nКод: ${error.code}`);
+      } else {
+        console.log("☁️ Прогресс Яна успешно записан в облако Supabase!");
+        if (typeof customData === 'function') customData();
+        if (typeof callback === 'function') callback();
+      }
+    })
+    .catch(err => {
+      console.error("❌ Сетевой сбой при отправке в Supabase:", err);
+    });
 };
