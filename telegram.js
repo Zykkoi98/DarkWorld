@@ -41,63 +41,65 @@ initTelegram();
  * Берет данные СТРОГО из реальной таблицы Supabase по настоящему Telegram ID.
  */
 window.loadGame = function(callback) {
-  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+  // 1. Проверяем наличие самого объекта Telegram WebApp
+  const TG = window.Telegram?.WebApp;
+  const tgUser = TG?.initDataUnsafe?.user;
   
-  // 🛠 МОДИФИКАЦИЯ: Если запустили на ПК без Телеграма, создаем тестового локального игрока
-  if (!tgUser) {
-    console.warn("⚠️ Игра запущена вне Telegram. Включен локальный тестовый режим.");
+  // 2. Если мы внутри реального Telegram Mini App
+  if (TG && tgUser) {
+    const userId = tgUser.id;
+    console.log(`☁️ Успешный вход через Telegram! Имя: ${tgUser.first_name}, ID: ${userId}`);
+
+    if (!window.sb) {
+      console.error("❌ База данных Supabase не инициализирована!");
+      return callback(new Error("Supabase missing"));
+    }
+
+    window.sb.from('players')
+      .select('*')
+      .eq('id', Number(userId))
+      .single()
+      .then(({ data, error }) => {
+        if (error && error.code === 'PGRST116') {
+          console.log("🆕 Новый игрок в Telegram. Создаем профиль в Supabase...");
+          if (typeof window.createPlayer === 'function') {
+            window.player = window.createPlayer(); 
+            window.player.id = userId;
+            window.player.name = tgUser.first_name || "Игрок";
+            window.saveGame(() => { callback(null); });
+          } else {
+            return callback(new Error("createPlayer missing"));
+          }
+        } 
+        else if (error) {
+          console.error("❌ Ошибка Supabase:", error.message);
+          return callback(error);
+        } 
+        else {
+          console.log(`✅ Прогресс успешно скачан для: ${data.name}`);
+          window.player = data; 
+          return callback(null);
+        }
+      })
+      .catch(err => callback(err));
+      
+  } else {
+    // 3. Запасной сценарий (если открыли просто в браузере или через обычную ссылку)
+    console.warn("⚠️ Telegram WebApp контекст не найден. Активирован локальный режим разработки.");
     
-    // Пытаемся загрузить из localStorage браузера
     const localSave = localStorage.getItem('rpg_save');
     if (localSave) {
       const savedData = JSON.parse(localSave);
       window.player = savedData.player;
-      console.log("💾 Локальный прогресс успешно загружен из памяти браузера!");
+      console.log("💾 Загружен локальный персонаж из памяти браузера.");
     } else {
-      console.log("🆕 Создаем нового тестового персонажа для ПК...");
+      console.log("🆕 Создаем чистый профиль ПК-тестера.");
       window.player = window.createPlayer();
-      window.player.id = 999999; // Временный ID для тестов на ПК
-      window.player.name = "Тестер_ПК";
+      window.player.id = 777777; 
+      window.player.name = "Браузерный_Тестер";
     }
-    
-    return callback(null); // Разрешаем игре запуститься
+    return callback(null);
   }
-
-  // --- Код для реального Telegram (остается без изменений) ---
-  const userId = tgUser.id;
-  console.log(`☁️ Запрос профиля из Supabase для реального Telegram ID: ${userId}`);
-
-  if (!window.sb) {
-    console.error("❌ База данных Supabase не инициализирована!");
-    return callback(new Error("Supabase missing"));
-  }
-
-  window.sb.from('players')
-    .select('*')
-    .eq('id', Number(userId))
-    .single()
-    .then(({ data, error }) => {
-      if (error && error.code === 'PGRST116') {
-        console.log("🆕 Игрок зашел впервые. Генерируем стартовый профиль новичка...");
-        if (typeof window.createPlayer === 'function') {
-          window.player = window.createPlayer(); 
-          window.player.id = userId;
-          window.saveGame(() => { callback(null); });
-        } else {
-          return callback(new Error("createPlayer missing"));
-        }
-      } 
-      else if (error) {
-        console.error("❌ Ошибка Supabase:", error.message);
-        return callback(error);
-      } 
-      else {
-        console.log(`✅ Прогресс успешно скачан для: ${data.name}`);
-        window.player = data; 
-        return callback(null);
-      }
-    })
-    .catch(err => callback(err));
 };
 
 /**
