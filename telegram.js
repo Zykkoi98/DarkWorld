@@ -89,20 +89,28 @@ window.loadGame = function(callback) {
       })
       .catch(err => callback(err));
       
-  } else {
-    // 3. Запасной сценарий (если открыли просто в браузере или через обычную ссылку)
-    console.warn("⚠️ Telegram WebApp контекст не найден. Активирован локальный режим разработки.");
+   } else {
+    // 3. Запасной сценарий (если открыли просто в браузере или слетели параметры)
+    console.warn("⚠️ Telegram WebApp контекст отсутствует или пуст.");
     
+    // ВЫВОДИМ ОТЛАДОЧНУЮ ИНФОРМАЦИЮ ПРЯМО НА ЭКРАН ИГРЫ
+    setTimeout(() => {
+      const titleEl = document.getElementById('current-town-name');
+      if (titleEl) {
+        const hasTG = window.Telegram ? "Есть" : "Нет";
+        const rawData = window.Telegram?.WebApp?.initData ? "Передан" : "Пусто";
+        titleEl.innerHTML = `<span style="color:red; font-size:12px; block-size:auto;">SDK: ${hasTG} | Данные: ${rawData}</span>`;
+      }
+    }, 500);
+
     const localSave = localStorage.getItem('rpg_save');
     if (localSave) {
       const savedData = JSON.parse(localSave);
       window.player = savedData.player;
-      console.log("💾 Загружен локальный персонаж из памяти браузера.");
     } else {
-      console.log("🆕 Создаем чистый профиль ПК-тестера.");
       window.player = window.createPlayer();
-      window.player.id = 777777; 
-      window.player.name = "Браузерный_Тестер";
+      window.player.id = 999999; 
+      window.player.name = "тестер_пк";
     }
     return callback(null);
   }
