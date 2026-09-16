@@ -3,12 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+  
+  <!-- Разрешаем внешние скрипты без блокировок -->
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline';">
+    <script src="https://jsdelivr.net"></script>
     <script>eruda.init();</script>
-    <script src="telegram-web-app.js"></script>
+     <!-- 2. ОФИЦИАЛЬНЫЙ SDK TELEGRAM С АНТИ-КЭШЕМ (Добавили ?v=8.0 на конце) -->
+  <script src="https://telegram.org"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
       <!-- 3. Интеграция с Telegram WebApp и обмен данными с базой Supabase -->
     <script src="telegram.js"></script>
+      <!-- 2. Глобальные константы, таблицы опыта, базы монстров и предметов -->
+  <script src="config.js"></script>
+
+  <!-- 3. Интеграция с Telegram WebApp и обмен данными с базой Supabase -->
+  <script src="telegram.js"></script>
+  <!-- 5. ПОДКЛЮЧАЕМ НАШ НОВЫЙ ФАЙЛ ЛОГИКИ СНАРЯЖЕНИЯ СЮДА -->
+  <script src="equipment.js"></script>
+   <!-- Подключаем магазин -->
+  <script src="shop.js"></script>
+  <!-- Подключаем официальный клиент сокетов -->
+  <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+  <!-- Подключаем наш новый созданный файл управления PvP -->
+  <script src="client_pvp.js"></script>
+  <!-- 6. Главное ядро игры: интерфейсы, уровни, переезды и клики -->
+  <script src="game.js"></script>
   <link rel="stylesheet" href="style.css?v=1005">
 </head>
 <body>
@@ -130,19 +149,4 @@
        ===== ⚙️ ПОДДКЛЮЧЕНИЕ СКРИПТОВ (СТРОГИЙ ПОРЯДОК ЗАГРУЗКИ) =====
        ============================================================================ -->
 
-  <!-- 2. Глобальные константы, таблицы опыта, базы монстров и предметов -->
-  <script src="config.js"></script>
-
-  <!-- 3. Интеграция с Telegram WebApp и обмен данными с базой Supabase -->
-  <script src="telegram.js"></script>
-  <!-- 5. ПОДКЛЮЧАЕМ НАШ НОВЫЙ ФАЙЛ ЛОГИКИ СНАРЯЖЕНИЯ СЮДА -->
-  <script src="equipment.js"></script>
-   <!-- Подключаем магазин -->
-  <script src="shop.js"></script>
-  <!-- Подключаем официальный клиент сокетов -->
-  <script src="http://localhost:3000/socket.io/socket.io.js"></script>
-  <!-- Подключаем наш новый созданный файл управления PvP -->
-  <script src="client_pvp.js"></script>
-  <!-- 6. Главное ядро игры: интерфейсы, уровни, переезды и клики -->
-  <script src="game.js"></script>
 </body>
