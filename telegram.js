@@ -41,19 +41,12 @@ initTelegram();
  * Берет данные СТРОГО из реальной таблицы Supabase по настоящему Telegram ID.
  */
 window.loadGame = function(callback) {
+  // 🔥 ЧИТАЕМ ОБЪЕКТ СТРОГО В МОМЕНТ ВЫЗОВА, А НЕ НА ВЕРХУ ФАЙЛА
   const TG = window.Telegram?.WebApp;
   
-  // 🔥 ЭТАП ОТЛАДКИ: Выводим на экран, что именно видит игра
-  console.log("Проверка окружения:", TG);
   if (TG) {
-    // Если объект есть, но initData пустой — выведем предупреждение прямо в интерфейс
-    if (!TG.initDataUnsafe || !TG.initDataUnsafe.user) {
-      document.body.insertAdjacentHTML('afterbegin', 
-        `<div style="background:red; color:white; padding:10px; position:fixed; top:0; z-index:999999; width:100%; font-size:12px;">
-           Telegram найден, но данные пользователя пустые! initData: "${TG.initData}"
-         </div>`
-      );
-    }
+    TG.ready(); // Явно говорим телеграму, что мы готовы
+    TG.expand();
   }
 
   const tgUser = TG?.initDataUnsafe?.user;
