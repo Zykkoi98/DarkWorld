@@ -91,6 +91,13 @@ window.loadGame = function(callback) {
           window.player.equipped = cloudPlayer.equipped || window.player.equipped;
           window.player.currentTownIndex = Number(cloudPlayer.currenttownindex !== undefined ? cloudPlayer.currenttownindex : 0);
           window.player.statPoints = Number(cloudPlayer.statpoints !== undefined ? cloudPlayer.statpoints : 0);
+          // 🔥 ДОБАВЛЯЕМ СЮДА: Жесткая проверка накрученного уровня при F5
+          if (typeof window.checkLevelUp === 'function') {
+            window.checkLevelUp(true);
+          }
+            // Сначала применили актуальные данные, затем выключаем загрузку
+          hideLoader();
+          callback(null);
         } else {
           // Если игрока нет в облаке (первый заход), создаем запись
           console.log("🆕 Новый игрок! Создаем запись в Supabase...");

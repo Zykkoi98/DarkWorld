@@ -123,19 +123,20 @@ function createPlayer() {
 window.checkLevelUp = function(isInitialLoad = false) {
   let changed = false; 
   let leveledDown = false;
+  const oldLevel = window.player.level; // Запоминаем уровень до проверок
   
-  // Проверяем повышение уровня
+  // 1. Проверяем повышение уровня
   while (window.player.xp >= xpToNext(window.player.level)) {
     window.player.level++; 
     window.player.statPoints += 5;
-    // Восстанавливаем HP только если это реальный левелап в игре, а не загрузка страницы
+    // Восстанавливаем HP только если это реальный левелап в игре
     if (!isInitialLoad) {
       window.player.hp = window.getMaxHp(window.player);
     }
     changed = true;
   }
 
-  // Проверяем понижение уровня (если применимо)
+  // 2. Проверяем понижение уровня (если вручную накрутили в БД)
   while (window.player.level > 1 && window.player.xp < window.XP_TABLE[window.player.level]) {
     window.player.level--; 
     leveledDown = true; 
@@ -143,14 +144,20 @@ window.checkLevelUp = function(isInitialLoad = false) {
   }
 
   if (leveledDown) {
+    // Мягко сбрасываем характеристики до базовых под новый правильный уровень
     window.player.stats = { strength: 10, agility: 10, endurance: 10, intellect: 10, luck: 10 };
     window.player.statPoints = 5 + ((window.player.level - 1) * 5);
     const maxHp = window.getMaxHp(window.player);
     if (window.player.hp > maxHp) window.player.hp = maxHp;
   }
 
-  if (changed && !isInitialLoad) {
-    saveGame({ player: window.player }); 
+  // 🔥 ФИКС: Если уровень изменился (даже при загрузке F5!), принудительно сохраняем изменения в Supabase
+  if (changed) {
+    console.log(`⚠️ Обнаружен рассинхрон уровня! Был ${oldLevel}, стал ${window.player.level}. Перезапись в БД...`);
+    if (window.saveGame) {
+      window.saveGame({ player: window.player }); 
+    }
+    
     render();
     const modal = document.getElementById('profile-modal');
     if (modal && modal.classList.contains('active')) window.openProfile();
