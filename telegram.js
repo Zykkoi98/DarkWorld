@@ -95,23 +95,20 @@ window.loadGame = function(callback) {
   }
 };
 
-/**
- * 💾 УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СОХРАНЕНИЯ ПРОГРЕССА
- */
 window.saveGame = function(customData, callback) {
   const player = (customData && customData.player) ? customData.player : window.player;
   if (!player) return;
 
-  // 1. Сразу пишем в память телефона (локальный бэкап всегда работает)
+  // 1. Мгновенно пишем в память телефона (локальный бэкап)
   localStorage.setItem('rpg_save', JSON.stringify({ player }));
   
-  // Если ленивое подключение к базе еще не сработало, запускаем его
+  // Активируем фоновое подключение, если оно еще не поднято
   if (typeof initSupabaseLazy === 'function') initSupabaseLazy();
   if (!window.sb) return;
 
-  console.log("☁️ Попытка отправки профиля Яна в Supabase...");
+  console.log("☁️ Фоновое сохранение профиля Яна в Supabase...");
 
-  // 🔥 ДВОЙНОЙ ФОРМАТ КОЛОНОК: Страхуемся от любых ошибок регистра в вашей таблице
+  // 🔥 ИСПРАВЛЕНИЕ: Убираем camelCase. Передаем поля строго в соответствии с колонками вашей БД
   const payload = {
     id: Number(player.id),
     name: player.name,
@@ -124,29 +121,24 @@ window.saveGame = function(customData, callback) {
     inventory: player.inventory,
     equipped: player.equipped,
     
-    // Вариант 1: Запись в стиле snake_case (маленькие буквы с подчеркиванием)
-    current_town_index: Number(player.currentTownIndex || player.current_town_index || 0),
-    stat_points: Number(player.statPoints || player.stat_points || 0),
-    
-    // Вариант 2: Запись в стиле camelCase (как в вашем main.js)
-    currentTownIndex: Number(player.currentTownIndex || 0),
-    statPoints: Number(player.statPoints || 0)
+    // Передаем строго snake_case (маленькие буквы с подчеркиванием)
+    current_town_index: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : (player.current_town_index || 0)),
+    stat_points: Number(player.statPoints !== undefined ? player.statPoints : (player.stat_points || 0))
   };
 
   window.sb.from('players')
     .upsert(payload)
     .then(({ error }) => {
       if (error) {
-        console.error("❌ Критическая ошибка Supabase:", error.message);
-        // 🔥 ВЫВОДИМ ОШИБКУ НА ЭКРАН: Если колонка не совпадет, Ян сразу увидит текст ошибки!
+        console.error("❌ Ошибка Supabase:", error.message);
         alert(`Ошибка базы данных: ${error.message}\nКод: ${error.code}`);
       } else {
-        console.log("☁️ Прогресс Яна успешно записан в облако Supabase!");
+        console.log("☁️ Прогресс успешно сохранен в Supabase!");
         if (typeof customData === 'function') customData();
         if (typeof callback === 'function') callback();
       }
     })
     .catch(err => {
-      console.error("❌ Сетевой сбой при отправке в Supabase:", err);
+      console.error("❌ Сетевой сбой отправки в базу:", err);
     });
 };
