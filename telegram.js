@@ -29,55 +29,60 @@ function initSupabaseLazy() {
 window.loadGame = function(callback) {
   const TG = window.Telegram?.WebApp;
   
-  // 🔥 ЖЕСТКИЙ ТЕСТ: Выводим сырые данные на экран до любых проверок
-  setTimeout(() => {
-    // Пробуем найти элемент или создаем свой плавающий блок поверх всей игры
-    let debugBox = document.getElementById('tg-debug-bar');
-    if (!debugBox) {
-      debugBox = document.createElement('div');
-      debugBox.id = 'tg-debug-bar';
-      debugBox.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; 
-        background: #000000e6; color: #00ff00; font-family: monospace; 
-        font-size: 11px; padding: 10px; z-index: 999999; 
-        border-bottom: 2px solid #6c5ce7; word-break: break-all;
-      `;
-      document.body.appendChild(debugBox);
-    }
-
-    const hasSDK = window.Telegram ? "✅ ДОСТУПЕН" : "❌ ОТСУТСТВУЕТ";
-    const rawInitData = TG?.initData || "ПУСТО";
-    const userObject = TG?.initDataUnsafe?.user ? JSON.stringify(TG.initDataUnsafe.user) : "НЕТ ОБЪЕКТА USER";
-
-    debugBox.innerHTML = `
-      <strong>[TG SDK]:</strong> ${hasSDK}<br>
-      <strong>[initDataUnsafe.user]:</strong> ${userObject}<br>
-      <strong>[Сырой initData]:</strong> ${rawInitData.substring(0, 100)}${rawInitData.length > 100 ? '...' : ''}
-    `;
-  }, 300);
-
-  // Стандартная быстрая инициализация игрока для работы main.js
-  if (typeof window.createPlayer === 'function') {
-    window.player = window.createPlayer();
-  } else {
-    window.player = { id: 0, name: "Игрок", level: 1, xp: 0, gold: 50, stats: { strength: 10, endurance: 10 }, inventory: { equipment: [], consumables: [], resources: [] }, equipped: { rings: [null, null, null] } };
+  if (TG) {
+    TG.ready();
+    TG.expand();
   }
 
   const tgUser = TG?.initDataUnsafe?.user;
 
-  // Логика распределения (В ТГ или на ПК)
+  // 1. СЦЕНАРИЙ: УСПЕШНЫЙ ВХОД ЧЕРЕЗ TELEGRAM MINI APP (ВАШ СЛУЧАЙ!)
   if (TG && tgUser) {
-    window.player.id = tgUser.id;
+    const userId = tgUser.id;
+    
+    // 🔥 ЖЕСТКИЙ ФИКС: Сначала создаем базовый профиль СТРОГО с данными из Telegram
+    if (typeof window.createPlayer === 'function') {
+      window.player = window.createPlayer(); 
+    } else {
+      window.player = { id: userId, name: tgUser.first_name, level: 1, xp: 0, gold: 50, stats: { strength: 10, endurance: 10 }, inventory: { equipment: [], consumables: [], resources: [] }, equipped: { rings: [null, null, null] } };
+    }
+    
+    window.player.id = userId;
     window.player.name = tgUser.first_name || "Рыцарь";
-    callback(null);
+    console.log(`⚡ Игрок авторизован! ID: ${window.player.id}, Имя: ${window.player.name}`);
+
+    // Проверяем локальный кэш устройства (если играем не первый раз)
+    const localSave = localStorage.getItem('rpg_save');
+    if (localSave) {
+      try {
+        const savedData = JSON.parse(localSave);
+        if (savedData.player && savedData.player.id === userId) {
+          window.player = savedData.player;
+          console.log("💾 Загружен локальный прогресс из памяти устройства.");
+        }
+      } catch(e) { console.error("Ошибка чтения кэша:", e); }
+    }
+
+    // 🔥 РАЗРЕШАЕМ ЗАПУСК ИГРЫ: Только ПОСЛЕ того, как записали имя и ID Яна!
+    return callback(null);
+
   } else {
+    // 2. СЦЕНАРИЙ: ЗАПУСК ПРОСТО В БРАУЗЕРЕ НА ПК
+    console.warn("⚠️ Запущено вне Telegram. Включен локальный режим.");
+    
     const localSave = localStorage.getItem('rpg_save');
     if (localSave) {
       try { window.player = JSON.parse(localSave).player; } catch(e) {}
     } else {
+      if (typeof window.createPlayer === 'function') {
+        window.player = window.createPlayer();
+      } else {
+        window.player = { id: 777777, name: "Браузерный_Тестер", level: 1, xp: 0, gold: 50, stats: { strength: 10, endurance: 10 }, inventory: { equipment: [], consumables: [], resources: [] }, equipped: { rings: [null, null, null] } };
+      }
       window.player.id = 777777;
       window.player.name = "Браузерный_Тестер";
     }
+    
     return callback(null);
   }
 };
