@@ -41,75 +41,81 @@ initTelegram();
  * Берет данные СТРОГО из реальной таблицы Supabase по настоящему Telegram ID.
  */
 window.loadGame = function(callback) {
+  // Читаем объект строго в момент вызова функции
   const TG = window.Telegram?.WebApp;
   
   if (TG) {
     TG.ready();
-    TG.expand();
+    TG.expand(); // Разворачиваем игру во весь экран
   }
 
   const tgUser = TG?.initDataUnsafe?.user;
   
-  // 1. ЕСЛИ МЫ ВНУТРИ РЕАЛЬНОГО TELEGRAM MINI APP
+  // 1. ЕСЛИ МЫ ВНУТРИ РЕАЛЬНОГО TELEGRAM MINI APP — СТАРТУЕМ МГНОВЕННО БЕЗ ОЖИДАНИЯ
   if (TG && tgUser) {
     const userId = tgUser.id;
-    console.log(`☁️ Запрос профиля из Supabase для Telegram ID: ${userId}`);
+    console.log(`⚡ Мгновенный вход через Telegram. ID: ${userId}, Имя: ${tgUser.first_name}`);
 
-    if (!window.sb) {
-      console.error("❌ База данных Supabase не инициализирована!");
-      return callback(new Error("Supabase missing"));
+    // Шаг А: Сразу создаем локального персонажа в памяти устройства, чтобы убрать надпись "Загрузка..."
+    if (typeof window.createPlayer === 'function') {
+      window.player = window.createPlayer(); 
+      window.player.id = userId; 
+      window.player.name = tgUser.first_name || "Рыцарь";
     }
 
-    // 🔥 ИСПРАВЛЕНИЕ: Вместо .single() используем обычный select, чтобы избежать краша скрипта
-    window.sb.from('players')
-      .select('*')
-      .eq('id', Number(userId))
-      .then(({ data, error }) => {
-        if (error) {
-          console.error("❌ Ошибка Supabase при загрузке:", error.message);
-          return callback(error);
+    // Проверяем, есть ли кэш с прошлого захода в памяти телефона
+    const localSave = localStorage.getItem('rpg_save');
+    if (localSave) {
+      try {
+        const savedData = JSON.parse(localSave);
+        if (savedData.player && savedData.player.id === userId) {
+          window.player = savedData.player; // Подгружаем локальный прогресс
+          console.log("💾 Загружен кэш персонажа из памяти телефона.");
         }
+      } catch(e) { console.error("Ошибка чтения локального кэша", e); }
+    }
 
-        // Если массив данных пустой, значит игрока еще нет в базе данных
-        if (!data || data.length === 0) {
-          console.log("🆕 Игрок зашел впервые. Генерируем стартовый профиль...");
-          
-          if (typeof window.createPlayer === 'function') {
-            window.player = window.createPlayer(); 
-            window.player.id = userId; // Записываем реальный ID
-            window.player.name = tgUser.first_name || "Герой"; // Записываем реальное имя из ТГ
-            
-            // Сохраняем в Supabase
-            window.saveGame(() => {
-              return callback(null);
-            });
-          } else {
-            console.error("❌ Ошибка: Функция createPlayer не найдена в main.js!");
-            return callback(new Error("createPlayer missing"));
+    // 🔥 САМЫЙ ВАЖНЫЙ МОМЕНТ: Мгновенно разрешаем игре запуститься!
+    // Имя игрока сразу появится на экране, 20 секунд ждать больше не нужно.
+    callback(null);
+
+    // Шаг Б: Уходим в фоновый запрос к Supabase, не заставляя игрока ждать экран загрузки
+    if (window.sb) {
+      console.log("☁️ Фоновое подключение к Supabase...");
+      window.sb.from('players')
+        .select('*')
+        .eq('id', Number(userId))
+        .then(({ data, error }) => {
+          if (error) {
+            console.warn("⚠️ Supabase недоступен в фоне:", error.message);
+            return;
           }
-        } else {
-          // Игрок найден, загружаем его сохраненный профиль
-          console.log(`✅ Прогресс успешно скачан для: ${data[0].name}`);
-          window.player = data[0]; 
-          return callback(null);
-        }
-      })
-      .catch(err => {
-        console.error("❌ Непредвиденный сбой в loadGame:", err);
-        return callback(err);
-      });
+
+          if (data && data.length > 0) {
+            console.log("☁️ Данные с облака успешно скачаны в фоне!");
+            // Синхронизируем: берем данные из облака, только если там уровень или золото выше
+            const cloudPlayer = data[0] || data;
+            if ((cloudPlayer.level || 1) >= (window.player.level || 1)) {
+              window.player = cloudPlayer;
+              if (typeof window.render === 'function') window.render(); // Перерисовываем экран с новыми данными
+            }
+          } else {
+            // Если в облаке пусто, сохраняем нашего текущего персонажа туда
+            console.log("☁️ Создаем запись для нового игрока в облаке...");
+            window.saveGame();
+          }
+        })
+        .catch(err => console.warn("⚠️ Сетевой сбой фонового запроса к базе:", err));
+    }
       
   } else {
-    // 2. ЗАПАСНОЙ ЛОКАЛЬНЫЙ РЕЖИМ (Если открыли просто в браузере на ПК)
-    console.warn("⚠️ Telegram WebApp контекст не найден. Активирован локальный режим разработки.");
+    // 2. ЗАПАСНОЙ ЛОКАЛЬНЫЙ РЕЖИМ ДЛЯ ПК БРАУЗЕРА
+    console.warn("⚠️ Запущено вне Telegram. Включен тестовый режим.");
     
     const localSave = localStorage.getItem('rpg_save');
     if (localSave) {
-      const savedData = JSON.parse(localSave);
-      window.player = savedData.player;
-      console.log("💾 Загружен локальный персонаж из памяти браузера.");
+      window.player = JSON.parse(localSave).player;
     } else {
-      console.log("🆕 Создаем чистый профиль ПК-тестера.");
       window.player = window.createPlayer();
       window.player.id = 777777; 
       window.player.name = "Браузерный_Тестер";
