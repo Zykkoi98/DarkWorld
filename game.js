@@ -121,46 +121,48 @@ function createPlayer() {
 
 // Функция пересчета и проверки изменения уровня (БЕЗ сброса HP при загрузке)
 window.checkLevelUp = function(isInitialLoad = false) {
-  let changed = false; 
-  let leveledDown = false;
-  const oldLevel = window.player.level; // Запоминаем уровень до проверок
+  if (!window.player) {
+    console.error("❌ checkLevelUp: Обьект window.player пуст!");
+    return;
+  }
+
+  // Находим честный уровень по опыту
+  const correctLevel = window.getCorrectLevelByXp(window.player.xp);
   
-  // 1. Проверяем повышение уровня
-  while (window.player.xp >= xpToNext(window.player.level)) {
-    window.player.level++; 
-    window.player.statPoints += 5;
-    // Восстанавливаем HP только если это реальный левелап в игре
-    if (!isInitialLoad) {
-      window.player.hp = window.getMaxHp(window.player);
+  // 🔥 ГЛАВНЫЙ ЛОГ: Посмотрим, что игра видит в памяти прямо сейчас
+  console.log(`[ОТЛАДКА ЛЕВЕЛАПА] Текущий в памяти: ${window.player.level}, Посчитанный по XP: ${correctLevel}, Текущий опыт: ${window.player.xp}`);
+
+  if (window.player.level !== correctLevel) {
+    const isLeveledDown = window.player.level > correctLevel;
+    const oldLevel = window.player.level;
+    
+    console.log(`⚠️ КОРРЕКТИРОВКА! Уровень игрока изменен с ${oldLevel} на ${correctLevel}`);
+    
+    window.player.level = correctLevel;
+    window.player.statPoints = 5 + ((correctLevel - 1) * 5);
+    
+    if (isLeveledDown) {
+      window.player.stats = { strength: 10, agility: 10, endurance: 10, intellect: 10, luck: 10 };
     }
-    changed = true;
-  }
 
-  // 2. Проверяем понижение уровня (если вручную накрутили в БД)
-  while (window.player.level > 1 && window.player.xp < window.XP_TABLE[window.player.level]) {
-    window.player.level--; 
-    leveledDown = true; 
-    changed = true;
-  }
+    if (!isInitialLoad && !isLeveledDown) {
+      window.player.hp = window.getMaxHp(window.player);
+    } else {
+      const maxHp = window.getMaxHp(window.player);
+      if (window.player.hp > maxHp) window.player.hp = maxHp;
+    }
 
-  if (leveledDown) {
-    // Мягко сбрасываем характеристики до базовых под новый правильный уровень
-    window.player.stats = { strength: 10, agility: 10, endurance: 10, intellect: 10, luck: 10 };
-    window.player.statPoints = 5 + ((window.player.level - 1) * 5);
-    const maxHp = window.getMaxHp(window.player);
-    if (window.player.hp > maxHp) window.player.hp = maxHp;
-  }
-
-  // 🔥 ФИКС: Если уровень изменился (даже при загрузке F5!), принудительно сохраняем изменения в Supabase
-  if (changed) {
-    console.log(`⚠️ Обнаружен рассинхрон уровня! Был ${oldLevel}, стал ${window.player.level}. Перезапись в БД...`);
+    // Сохраняем исправление
     if (window.saveGame) {
-      window.saveGame({ player: window.player }); 
+      console.log("☁️ Отправка запроса на исправление уровня в БД...");
+      window.saveGame({ player: window.player });
     }
     
     render();
     const modal = document.getElementById('profile-modal');
     if (modal && modal.classList.contains('active')) window.openProfile();
+  } else {
+    console.log("✅ Корректировка не требуется: Уровень в памяти совпадает с расчетным.");
   }
 };
 // ============================================================================
