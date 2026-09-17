@@ -63,12 +63,24 @@ async function createMyRequest() {
 
 async function cancelMyRequest() {
   if (!sb || !localPlayer) return;
+
+  // 1. Удаляем строчку нашей заявки из таблицы arena_lobby в Supabase
   const { error } = await sb.from('arena_lobby').delete().eq('id', Number(localPlayer.id));
   if (error) return alert("Ошибка отмены: " + error.message);
+
+  // 2. Отправляем сигнал на сервер, чтобы бэкенд обновил доски объявлений у всех игроков
   if (socket) socket.emit('cancel_arena_request', { userId: localPlayer.id });
+
+  // 3. Железно останавливаем тикающий локальный таймер обратного отсчета
   if (myTimerInterval) clearInterval(myTimerInterval);
-  document.getElementById('my-search-panel').style.setProperty('display', 'none');
-  document.getElementById('my-create-panel').style.setProperty('display', 'block');
+  
+  // 4. 🔥 ФИКС: Надежно и безопасно возвращаем зеленую кнопку создания вызова
+  const sPanel = document.getElementById('my-search-panel');
+  const cPanel = document.getElementById('my-create-panel');
+  if (sPanel) sPanel.style.display = 'none';
+  if (cPanel) cPanel.style.display = 'block';
+
+  // 5. Перерисовываем список, чтобы очистить доску объявлений
   refreshArenaLobby();
 }
 
