@@ -306,7 +306,7 @@ window.upgradeStat = function(statName) {
 };
 
 window.openProfile = function() {
-const modal = document.getElementById('profile-modal'); 
+  const modal = document.getElementById('profile-modal'); 
   if (!modal) return;
   modal.classList.add('active'); 
   modal.style.display = 'flex';
@@ -315,22 +315,19 @@ const modal = document.getElementById('profile-modal');
 
   const labels = { strength: '💪 Сила', agility: '🏹 Ловкость', endurance: '🛡️ Выносливость', intellect: '🔮 Интеллект', luck: '🍀 Удача' };
   
-  // Очищаем контейнер абсолютно безопасно
   statsBody.textContent = '';
   
   const nextXp = xpToNext(window.player.level);
   const currentXp = (window.player.xp !== undefined) ? window.player.xp : 0;
 
-  // 🔥 ИСПРАВЛЕНИЕ: Гарантируем, что ХП в строке профиля всегда рассчитывается на лету
   const rowsData = [
-    { label: '💰 Золото', value: `${window.player.gold} монет` },
-    { label: '❤️ Здоровье', value: `${window.player.hp} / ${window.getMaxHp(window.player)}` }, // Пересчитывается честно со шмотом!
-    { label: '✨ Опыт', value: `${currentXp}/${nextXp}` },
-    { label: '⚔️ Атака', value: `${window.getAtk(window.player)}` },
-    { label: '🛡️ Защита', value: `${window.getDef ? window.getDef(window.player) : 0} ед.` }
+    { label: '💰 Золото', value: window.player.gold + ' монет' },
+    { label: '❤️ Здоровье', value: window.player.hp + ' / ' + window.getMaxHp(window.player) }, 
+    { label: '✨ Опыт', value: currentXp + '/' + nextXp },
+    { label: '⚔️ Атака', value: window.getAtk(window.player) + '' },
+    { label: '🛡️ Защита', value: (window.getDef ? window.getDef(window.player) : 0) + ' ед.' }
   ];
 
-  // Генерируем строки общей информации
   rowsData.forEach(data => {
     const row = document.createElement('div'); row.className = 'profile-row';
     const lSpan = document.createElement('span'); lSpan.textContent = data.label;
@@ -338,18 +335,16 @@ const modal = document.getElementById('profile-modal');
     row.appendChild(lSpan); row.appendChild(vSpan); statsBody.appendChild(row);
   });
 
-  // Заголовок доступных очков навыков
   const pointsDiv = document.createElement('div');
   pointsDiv.style.cssText = 'margin:15px 0 5px 0; font-weight:bold; font-size:16px; color:#f1c40f; text-align:center;';
-  pointsDiv.textContent = `Доступно очков: ${window.player.statPoints}`;
+  pointsDiv.textContent = 'Доступно очков: ' + window.player.statPoints;
   statsBody.appendChild(pointsDiv);
 
-  // Разделительная линия
   const hr = document.createElement('hr');
   hr.style.cssText = 'border:0; border-top:1px solid rgba(255,255,255,0.1); margin:12px 0;';
   statsBody.appendChild(hr);
 
-   // Генерируем строки базовых характеристик со скобками и цветами
+  // 🔥 ПОЛНОСТЬЮ БЕЗОПАСНАЯ ГЕНЕРАЦИЯ СТРОК (ФИКС ДЛЯ ПК)
   Object.keys(window.player.stats).forEach(key => {
     const row = document.createElement('div'); 
     row.className = 'profile-row';
@@ -361,30 +356,24 @@ const modal = document.getElementById('profile-modal');
     vSpan.style.display = 'flex'; 
     vSpan.style.alignItems = 'center'; 
     
-    // Получаем базовое значение из объекта игрока
     const baseVal = Number(window.player.stats[key] || 1);
-    
-    // Считаем бонус вещей специально для этого стата через getEquipmentBonus
     const gearBonus = typeof getEquipmentBonus === 'function' ? getEquipmentBonus(window.player, key) : 0;
-    
-    // Общее значение стата (база + шмот)
     const totalVal = baseVal + gearBonus;
 
-    // Создаем красивую разметку со скобками и цветами
     const textContainer = document.createElement('span');
     textContainer.style.marginRight = '8px';
     
-    let htmlContent = `<strong style="color: #ffffff; font-size: 15px;">${totalVal}</strong> `;
-    htmlContent += `<span style="color: #9aa0b5; font-size: 12px;">(</span><span style="color: #f1c40f; font-size: 12px; font-weight: normal;">${baseVal}</span><span style="color: #9aa0b5; font-size: 12px;">)</span>`;
+    // Переписано на чистый стандарт склейки без опасного экранирования символов
+    let htmlContent = '<strong style="color: #ffffff; font-size: 15px;">' + totalVal + '</strong> ';
+    htmlContent += '<span style="color: #9aa0b5; font-size: 12px;">(</span><span style="color: #f1c40f; font-size: 12px; font-weight: normal;">' + baseVal + '</span><span style="color: #9aa0b5; font-size: 12px;">)</span>';
     
     if (gearBonus > 0) {
-      htmlContent += ` <span style="color: #2ecc71; font-size: 12px; font-weight: normal;">(+${gearBonus})</span>`;
+      htmlContent += ' <span style="color: #2ecc71; font-size: 12px; font-weight: normal;">(+' + gearBonus + ')</span>';
     }
     
     textContainer.innerHTML = htmlContent;
     vSpan.appendChild(textContainer);
 
-    // Если есть свободные очки распределения статов, рисуем кнопку плюс
     if (window.player.statPoints > 0) {
       const plusBtn = document.createElement('button'); 
       plusBtn.textContent = '+';
