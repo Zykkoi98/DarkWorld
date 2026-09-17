@@ -143,29 +143,30 @@ async function cancelMyRequest() {
 }
 
 async function acceptChallenge(opponentId, opponentMaxHp) {
-  if (!sb || !localPlayer || !socket) return;
+  if (!sb || !localPlayer) return;
   if (Number(localPlayer.hp || 0) <= 0) return alert("Вы слишком слабы! Излечитесь в городе.");
 
   console.log(`🎯 Клик зафиксирован! Пытаюсь удалить заявку врага ID: ${opponentId}`);
 
   try {
-    // 🔥 ФИКС: Передаем opponentId как чистую СТРОКУ, Supabase сам сопоставит её с int8 без искажения разрядов JS
+    // 1. Удаляем чужую заявку из таблицы лобби
     const { error } = await sb.from('arena_lobby').delete().eq('id', String(opponentId));
     if (error) return alert("Вызов уже принят другим игроком!");
 
-    // Берем выносливость из правильного места
     const baseEndurance = Number(localPlayer.stats?.endurance !== undefined ? localPlayer.stats.endurance : 1);
     const myRealMaxHp = baseEndurance * 10; 
 
-    console.log(`📡 Отправляю сокет accept_arena_challenge для боя с ID ${opponentId}...`);
+    console.log(`📡 Отправляю postMessage в город, чтобы запустить сокет Арены на главной странице...`);
 
-    // 🔥 ФИКС: Принудительно передаем ID как строки, чтобы Socket.io не обрезал цифры длинного Telegram ID
-    socket.emit('accept_arena_challenge', {
+    // 🔥 ФИКС: Передаем строковые параметры напрямую в родительское окно index.html
+    window.parent.postMessage({ 
+      type: 'EXECUTE_ARENA_CHALLENGE', 
       myId: String(localPlayer.id), 
-      opponentId: String(opponentId), 
-      myMaxHp: myRealMaxHp, 
+      opponentId: String(opponentId),
+      myMaxHp: myRealMaxHp,
       oppMaxHp: Number(opponentMaxHp || 100)
-    });
+    }, '*');
+
   } catch (err) {
     console.error("Ошибка в acceptChallenge:", err.message);
   }

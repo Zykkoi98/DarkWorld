@@ -713,20 +713,39 @@ function initCSPEvents() {
 function startGame() {
   console.log("🚀 Инициализация ядра игры...");
 
-  // 🔥 ДОБАВЬ ЭТОТ БЛОК: Слушатель сигналов от страницы Арены
+  // 🔥 ДОБАВЬ/ОБНОВИ ЭТОТ БЛОК: Слушатель сигналов от страницы Арены
   window.addEventListener('message', function(event) {
-    if (event.data && event.data.type === 'START_ARENA_BATTLE') {
-      console.log(`📡 Ядро города поймало сигнал Арены! Закрываю оверлей и пингую сервер для ID ${event.data.userId}...`);
+    if (!event.data) return;
+
+    // Сигнал А: Принятие вызова (В БОЙ!)
+    if (event.data.type === 'EXECUTE_ARENA_CHALLENGE') {
+      console.log(`📡 Главное окно поймало команду запуска боя от Арены!`);
       
-      // 1. Прячем фрейм Арены с экрана города
+      // Забираем живой сокет главной страницы
+      const mainSocket = typeof socket !== 'undefined' && socket ? socket : window.socket;
+      
+      if (mainSocket) {
+        // 🔥 Отправляем сигнал на сервер через ОФИЦИАЛЬНЫЙ и рабочий сокет города!
+        mainSocket.emit('accept_arena_challenge', {
+          myId: String(event.data.myId),
+          opponentId: String(event.data.opponentId),
+          myMaxHp: Number(event.data.myMaxHp),
+          oppMaxHp: Number(event.data.oppMaxHp)
+        });
+      } else {
+        console.error("❌ Критическая ошибка: На главной странице не найден активный Web-сокет!");
+      }
+    }
+
+    // Сигнал Б: Редирект в бой (уже существующий у тебя код)
+    if (event.data.type === 'START_ARENA_BATTLE') {
+      console.log(`📡 Ядро города поймало сигнал Арены! Закрываю оверлей и пингую сервер...`);
       const iframeWrapper = document.getElementById('arena-iframe-wrapper');
       if (iframeWrapper) iframeWrapper.style.display = 'none';
       
-      // 2. Дёргаем главный сокет города, который на 100% подключен и работает прямо на этой странице
-      if (typeof socket !== 'undefined' && socket) {
-        socket.emit('check_active_battle', { userId: event.data.userId });
-      } else if (window.socket) {
-        window.socket.emit('check_active_battle', { userId: event.data.userId });
+      const mainSocket = typeof socket !== 'undefined' && socket ? socket : window.socket;
+      if (mainSocket) {
+        mainSocket.emit('check_active_battle', { userId: event.data.userId });
       }
     }
   });
