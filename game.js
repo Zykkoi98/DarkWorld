@@ -141,8 +141,8 @@ window.checkLevelUp = function(isInitialLoad = false) {
     monitor.scrollTop = monitor.scrollHeight;
   }
 
-  // ============================================================================
-  // 🛡️ ГЛОБАЛЬНЫЙ УМНЫЙ СБРОС И СИНХРОНИЗАЦИЯ (ФИКС НАКРУТКИ И 20 ОЧКОВ)
+// ============================================================================
+  // 🛡️ ГЛОБАЛЬНЫЙ УМНЫЙ СБРОС И СИНХРОНИЗАЦИЯ (ИСПРАВЛЕНИЕ ДЛЯ ЛЮБЫХ УРОВНЕЙ)
   // ============================================================================
   if (window.player.stats) {
     const p = window.player;
@@ -154,26 +154,29 @@ window.checkLevelUp = function(isInitialLoad = false) {
     const lck = Number(p.stats.luck || 1);
 
     // Считаем сумму очков, которые игрок уже распределил
-    // Вычитаем 5, так как теперь базовые характеристики на старте равны 1 (1*5 = 5)
     const distributedPoints = (str + agi + end + int + lck) - 5;
     
-    // Текущие свободные очки, сохраненные в профиле
+    // Текущие свободные очки, пришедшие из базы данных
     const currentStatPoints = Number(p.statPoints || 0);
     
-    // Абсолютный максимум очков, доступный персонажу на его НАСТОЯЩЕМ уровне (correctLevel)
-    const maxPossibleTotalPoints = 5 + ((correctLevel - 1) * 5);
+    // Абсолютная легальная норма очков для твоего НАСТОЯЩЕГО уровня (correctLevel)
+    const oughtToHaveTotalPoints = 5 + ((correctLevel - 1) * 5);
 
-    // Если сумма вкачанных характеристик и свободных очков превышает легальную норму,
-    // или если в памяти до сих пор лежат старые десятки (str === 10), принудительно сбрасываем!
-    if ((distributedPoints + currentStatPoints > maxPossibleTotalPoints) || (str === 10)) {
-      console.warn(`🚨 МИГРАЦИЯ: Статы игрока не соответствуют лимитам уровня ${correctLevel}. Сброс на базу 1.`);
-      
+    // 🔥 ФИКС: Если у игрока старые десятки (str === 10) ИЛИ распределено больше, чем надо
+    if ((distributedPoints + currentStatPoints > oughtToHaveTotalPoints) || (str === 10)) {
+      console.warn(`🚨 МИГРАЦИЯ: Статы превышают лимиты. Сброс на базу 1.`);
       p.stats = { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 };
-      
-      // Честно вычисляем свободные очки строго по его АКТУАЛЬНОМУ уровню (correctLevel)
-      p.statPoints = maxPossibleTotalPoints;
+      p.statPoints = oughtToHaveTotalPoints;
       p.hp = 10; 
-
+      if (window.saveGame) window.saveGame({ player: p });
+    } 
+    // 🔥 ФИКС БАГА РУЧНОЙ ПРАВКИ: Если ты руками вкачал опыт в БД, и очков в сумме МЕНЬШЕ, чем должно быть по уровню
+    else if (distributedPoints + currentStatPoints < oughtToHaveTotalPoints) {
+      console.log(`✨ СИНХРОНИЗАЦИЯ: Обнаружен скачок уровня. Доначисление свободных очков до нормы.`);
+      
+      // Выдаем игроку все оставшиеся свободные очки (норма минус то, что уже распределено)
+      p.statPoints = oughtToHaveTotalPoints - distributedPoints;
+      
       if (window.saveGame) window.saveGame({ player: p });
     }
   }
