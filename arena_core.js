@@ -120,11 +120,24 @@ async function cancelMyRequest() {
 async function acceptChallenge(opponent) {
   if (!sb || !localPlayer || !socket) return;
   if (Number(localPlayer.hp || 0) <= 0) return alert("Вы слишком слабы! Излечитесь в городе.");
+
+  // 1. Удаляем чужую заявку из таблицы лобби, так как мы её приняли
   const { error } = await sb.from('arena_lobby').delete().eq('id', Number(opponent.id));
-  if (error) return alert("Вызов уже принят кем-то другим!");
-  const myRealMaxHp = (Number(localPlayer.endurance || 1) * 10); 
+  if (error) return alert("Вызов уже принят другим игроком!");
+
+  // 🔥 ФИКС: Читаем endurance напрямую из плоской структуры localPlayer.endurance!
+  // Вычисляем макс ХП: выносливость умножить на 10
+  const baseEndurance = Number(localPlayer.endurance !== undefined ? localPlayer.endurance : 1);
+  const myRealMaxHp = baseEndurance * 10; 
+
+  console.log(`📡 Отправляю сокет accept_arena_challenge для боя с ID ${opponent.id}...`);
+
+  // 2. Отправляем сигнал на сервер для сборки комнаты и старта раундов
   socket.emit('accept_arena_challenge', {
-    myId: localPlayer.id, opponentId: opponent.id, myMaxHp: myRealMaxHp, oppMaxHp: opponent.maxHp
+    myId: localPlayer.id, 
+    opponentId: opponent.id, 
+    myMaxHp: myRealMaxHp, 
+    oppMaxHp: opponent.maxHp
   });
 }
 
