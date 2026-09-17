@@ -51,37 +51,58 @@ function initArenaPage() {
 
 function setupSocketListeners() {
   if (!socket) return;
-  socket.on('connect', () => { socket.emit('check_active_battle', { userId: localPlayer.id }); });
-  socket.on('reconnect_battle_success', () => { location.href = 'index.html'; });
-  socket.on('battle_start', () => { location.href = 'index.html'; });
-// 🔥 ИСПРАВЛЕННЫЙ ПЕРЕХВАТЧИК БОЯ: Убираем перезагрузку location.href!
-    socket.on('arena_redirect_to_battle', ({ opponentId, challengerId, roomId }) => {
-        const myId = Number(localPlayer.id);
-        if (myId === Number(opponentId) || myId === Number(challengerId)) {
-        if (myTimerInterval) clearInterval(myTimerInterval);
-        if (globalLobbyInterval) clearInterval(globalLobbyInterval);
-        
-        console.log("⚔️ Бой подтвержден! Скрываем Арену...");
-        
-        // 1. Скрываем фрейм Арены с экрана города
-        const parentDoc = window.parent.document;
-        const iframeWrapper = parentDoc.getElementById('arena-iframe-wrapper');
-        if (iframeWrapper) {
-            iframeWrapper.style.display = 'none';
-        }
-
-        // 2. Обращаемся напрямую к главному сокету в городе (index.html)
-        const mainSocket = window.parent.socket;
-        if (mainSocket) {
-            console.log("📡 Отправляем триггер восстановления боя из города в ОЗУ сервера...");
-            mainSocket.emit('check_active_battle', { userId: myId });
-        } else {
-            console.error("❌ Критическая ошибка: Главный сокет города не найден в window.parent!");
-        }
-        }
-    });
+  
+  // 1. При коннекте сокета внутри Арены мы больше НЕ вызываем check_active_battle!
+  // Позволяем главному окну города самому управлять проверкой боев при старте.
+  socket.on('connect', () => { 
+    console.log("📡 Сокет Арены подключен к бэкенду."); 
+  });
+  
+  // 2. 🔥 ФИКС: Если пришел сигнал, что бой успешно возобновлен (для F5)
+  socket.on('reconnect_battle_success', () => { 
+    console.log("⚔️ Обнаружен активный бой! Прячем Арену и даем команду городу...");
+    closeArenaAndStartBattle();
+  });
+  
+  // 3. 🔥 ФИКС: Если пришел сигнал, что PvP бой только что начался (нажали "В БОЙ")
+  socket.on('battle_start', () => { 
+    console.log("⚔️ PvP Гладиаторский бой начался! Закрываем лобби...");
+    closeArenaAndStartBattle();
+  });
+  
+  // Перехватчик прямого редиректа от сервера
+  socket.on('arena_redirect_to_battle', ({ opponentId, challengerId }) => {
+    const myId = Number(localPlayer.id);
+    if (myId === Number(opponentId) || myId === Number(challengerId)) {
+      closeArenaAndStartBattle();
+    }
+  });
+  
   socket.on('arena_lobby_updated', () => { refreshArenaLobby(); });
   socket.on('error', (msg) => { alert(`⚠️ Арена: ${msg}`); });
+}
+
+/**
+ * 🔥 УНИВЕРСАЛЬНАЯ УТИЛИТА ЗАКРЫТИЯ АРЕНЫ И ПЕРЕДАЧИ УПРАВЛЕНИЯ ГОРОДУ
+ */
+function closeArenaAndStartBattle() {
+  // Выключаем тикающие интервалы лобби, чтобы не грузить процессор
+  if (myTimerInterval) clearInterval(myTimerInterval);
+  if (globalLobbyInterval) clearInterval(globalLobbyInterval);
+  
+  // Находим контейнер фрейма Арены в главном окне index.html и скрываем его
+  const parentDoc = window.parent.document;
+  const iframeWrapper = parentDoc.getElementById('arena-iframe-wrapper');
+  if (iframeWrapper) {
+    iframeWrapper.style.display = 'none'; // Арена исчезает, игрок видит чистый город
+  }
+
+  // Напрямую пингаем сокет города. Он отправит серверу check_active_battle,
+  // сервер найдет только что созданную комнату и развернет боевой экран прямо в городе!
+  if (window.parent.socket && localPlayer) {
+    console.log("📡 Пингуем сокет города для моментального развертывания боевого экрана...");
+    window.parent.socket.emit('check_active_battle', { userId: localPlayer.id });
+  }
 }
 
 function setupClickListeners() {
