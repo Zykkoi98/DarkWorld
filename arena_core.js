@@ -54,12 +54,27 @@ function setupSocketListeners() {
   socket.on('connect', () => { socket.emit('check_active_battle', { userId: localPlayer.id }); });
   socket.on('reconnect_battle_success', () => { location.href = 'index.html'; });
   socket.on('battle_start', () => { location.href = 'index.html'; });
-  socket.on('arena_redirect_to_battle', ({ opponentId, challengerId }) => {
+// 🔥 ИСПРАВЛЕННЫЙ ПЕРЕХВАТЧИК БОЯ: Убираем перезагрузку location.href!
+  socket.on('arena_redirect_to_battle', ({ opponentId, challengerId, roomId }) => {
     const myId = Number(localPlayer.id);
     if (myId === Number(opponentId) || myId === Number(challengerId)) {
       if (myTimerInterval) clearInterval(myTimerInterval);
       if (globalLobbyInterval) clearInterval(globalLobbyInterval);
-      location.href = 'index.html';
+      
+      console.log("⚔️ Бой подтвержден! Сигнализируем материнскому окну города...");
+      
+      // 1. Прячем тактический фрейм Арены с экрана, возвращая игрока в город
+      const parentDoc = window.parent.document;
+      const iframeWrapper = parentDoc.getElementById('arena-iframe-wrapper');
+      if (iframeWrapper) {
+        iframeWrapper.style.display = 'none';
+      }
+
+      // 2. Напрямую пингаем сокет-модуль города (index.html), чтобы он запустил твой боевой экран!
+      if (window.parent.socket) {
+        // Заставляем сокет в городе отправить серверу запрос на моментальный вход в созданную комнату
+        window.parent.socket.emit('check_active_battle', { userId: myId });
+      }
     }
   });
   socket.on('arena_lobby_updated', () => { refreshArenaLobby(); });

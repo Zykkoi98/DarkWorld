@@ -120,22 +120,34 @@ function setupSocketListeners() {
    * 🔥 НАДЕЖНЫЙ СЛУШАТЕЛЬ RECONNECT ПОСЛЕ F5
    * Синхронизирует раунды и ХП. Дает 100мс на прогрузку window.player на ПК
    */
-  socket.on('reconnect_battle_success', ({ roomId, isPve, opponent, myMaxHp, oppMaxHp, myCurrentHp, oppCurrentHp, turnCount }) => {
-    currentRoomId = roomId; 
-    serverMyMaxHp = myMaxHp; 
-    serverOppMaxHp = oppMaxHp;
-    window.player.hp = myCurrentHp; 
-
-    const finalOppName = opponent.name || opponent.playerData?.name || "Соперник";
-    const startMsg = `🔄 ВЫ УСПЕШНО ВЕРНУЛИСЬ В БИТВУ!`;
+   // 🔥 ГЛАВНЫЙ ФИКС PvP: Закрываем Арену и даем команду городу открыть бой!
+  socket.on('arena_redirect_to_battle', ({ opponentId, challengerId, roomId }) => {
+    const myId = Number(localPlayer.id);
     
-    setTimeout(() => {
-      if (window.player) {
-        initBattleScreen(finalOppName, opponent.icon || '🐺', myMaxHp, oppMaxHp, startMsg, oppCurrentHp, turnCount);
+    // Проверяем, касается ли этот бой текущего игрока
+    if (myId === Number(opponentId) || myId === Number(challengerId)) {
+      // 1. Очищаем тикающие фоновые таймеры лобби Арены
+      if (myTimerInterval) clearInterval(myTimerInterval);
+      if (globalLobbyInterval) clearInterval(globalLobbyInterval);
+      
+      console.log("⚔️ Бой подтвержден! Закрываем Арену и пингаем город...");
+      
+      // 2. Обращаемся к родительскому окну города (index.html) и прячем фрейм Арены с экрана
+      const parentDoc = window.parent.document;
+      const iframeWrapper = parentDoc.getElementById('arena-iframe-wrapper');
+      if (iframeWrapper) {
+        iframeWrapper.style.display = 'none'; // Арена мгновенно исчезает, мы снова видим город
       }
-    }, 100);
-  });
 
+      // 3. Напрямую вызываем сокет города, который ни на секунду не отключался!
+      if (window.parent.socket) {
+        console.log("📡 Запускаем триггер восстановления боя в городе...");
+        // Заставляем город отправить серверу check_active_battle. 
+        // Сервер увидит, что комната только что создана, и пришлет твой рабочий reconnect_battle_success!
+        window.parent.socket.emit('check_active_battle', { userId: myId });
+      }
+    }
+  });
 /**
    * 🔥 ВОЗВРАЩЕННЫЙ СЛУШАТЕЛЬ: НАЧАЛО PvP ПОЕДИНКА (АРЕНА)
    */
