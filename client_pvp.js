@@ -172,9 +172,16 @@ function setupSocketListeners() {
   /**
    * Прием результатов раунда от сервера и разделение полосок ХП
    */
-  socket.on('round_result', ({ p1Hp, p2Hp, logs, isOver, resultType, turnCount, serverGold, serverXp }) => {
+/**
+   * Прием результатов раунда от сервера и разделение полосок ХП
+   */
+  socket.on('round_result', ({ myHp, enemyHp, logs, isOver, resultType, turnCount, serverGold, serverXp }) => {
     const log = document.getElementById('battle-log');
     if (!log) return;
+
+    // 🔥 ИСПРАВЛЕНИЕ: Если сервер прислал пустые или некорректные значения, защищаем клиент от NaN
+    const safeMyHp = isNaN(myHp) || myHp === undefined ? 0 : Number(myHp);
+    const safeEnemyHp = isNaN(enemyHp) || enemyHp === undefined ? 0 : Number(enemyHp);
 
     const currentRound = turnCount || window._battleTurnCount || 1;
     const tDiv = document.createElement('div'); 
@@ -188,15 +195,11 @@ function setupSocketListeners() {
       log.appendChild(d);
     });
 
-    // Честно распределяем здоровье на основе того, кто открыл эту вкладку ПК
-    const isAmIPlayer1 = currentRoomId && currentRoomId.startsWith(`room_${window.player.id}_`);
-
-    if (isAmIPlayer1 || currentRoomId.startsWith('pve_')) {
-      window.player.hp = p1Hp; 
-      if (window._activeMonster) window._activeMonster.hp = p2Hp; 
-    } else {
-      window.player.hp = p2Hp; 
-      if (window._activeMonster) window._activeMonster.hp = p1Hp; 
+    // 🔥 ИСПРАВЛЕНИЕ: Сервер уже присылает ЛИЧНО для этого сокета его ХП (myHp) и врага (enemyHp). 
+    // Больше не нужно сверять строки room_id и путаться в P1/P2! Назначаем напрямую:
+    window.player.hp = safeMyHp; 
+    if (window._activeMonster) {
+      window._activeMonster.hp = safeEnemyHp; 
     }
 
     if (typeof window._updateBars === 'function') window._updateBars();
@@ -213,11 +216,16 @@ function setupSocketListeners() {
     if (isOver) {
       const modal = document.getElementById('battle-modal');
       modal?.querySelector('#battle-controls-zone')?.style.setProperty('display', 'none', 'important');
+      
       // 🔥 ФИКС БАГА: Мгновенно сносим инлайн-кнопку зелья, если бой закончился!
       document.getElementById('server-inline-potion-btn')?.remove();
       const resDiv = document.createElement('div'); resDiv.style.cssText = 'margin-top:15px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.1); font-weight:bold;';
       
-      const didIWin = (isAmIPlayer1 && resultType === 'p1_win') || (!isAmIPlayer1 && resultType === 'p2_win') || (currentRoomId.startsWith('pve_') && resultType === 'p1_win');
+      // Честно проверяем победу: в PvE или PvP если у нас осталось > 0 HP или сервер прислал нужный флаг
+      const isAmIPlayer1 = currentRoomId && currentRoomId.startsWith(`room_${window.player.id}_`);
+      const didIWin = (isAmIPlayer1 && resultType === 'p1_win') || 
+                      (!isAmIPlayer1 && resultType === 'p2_win') || 
+                      (currentRoomId.startsWith('pve_') && resultType === 'p1_win');
       
       resDiv.textContent = didIWin ? "🏁 ПОБЕДА! Награда зачислена." : "🏁 ВАС ОДОЛЕЛИ. Воскрешение в городе (20% HP).";
       resDiv.className = didIWin ? 'battle-msg-hit' : 'battle-msg-damage-player';
