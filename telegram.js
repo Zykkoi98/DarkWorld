@@ -66,7 +66,6 @@ window.loadGame = function(callback) {
     // Подключаем базу данных Supabase
     initSupabaseLazy();
     if (!window.sb) {
-      if (monitor) monitor.innerHTML += "<div>⚠️ База Supabase не подключена</div>";
       hideLoader();
       return callback(null);
     }
@@ -75,7 +74,6 @@ window.loadGame = function(callback) {
     window.sb.from('players').select('*').eq('id', Number(userId))
       .then(({ data, error }) => {
         if (error) {
-          if (monitor) monitor.innerHTML += `<div>❌ Ошибка Supabase: ${error.message}</div>`;
           hideLoader();
           return callback(null);
         }
@@ -112,7 +110,6 @@ window.loadGame = function(callback) {
           
         } else {
           // Если игрока в базе еще нет — создаем для него первую строчку
-          if (monitor) monitor.innerHTML += "<div>🆕 Создаем новый профиль в облаке...</div>";
           window.saveGame();
         }
         
@@ -121,7 +118,7 @@ window.loadGame = function(callback) {
         if (typeof window.render === 'function') window.render();
       })
       .catch(err => {
-        if (monitor) monitor.innerHTML += `<div>⚠️ Краш обработки данных: ${err.message || err}</div>`;
+  
         hideLoader();
         callback(null);
       });
