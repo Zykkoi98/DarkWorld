@@ -24,7 +24,6 @@ function initSupabaseLazy() {
 window.loadGame = function(callback) {
   const TG = window.Telegram?.WebApp;
   const tgUser = TG?.initDataUnsafe?.user;
-  const monitor = document.getElementById('tg-debug-monitor');
   
   // Создаем базовый пустой шаблон персонажа, если конструктор не подтянулся
   if (typeof window.createPlayer === 'function') {
