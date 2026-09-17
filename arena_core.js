@@ -149,19 +149,20 @@ async function acceptChallenge(opponentId, opponentMaxHp) {
   console.log(`🎯 Клик зафиксирован! Пытаюсь удалить заявку врага ID: ${opponentId}`);
 
   try {
-    // 1. Удаляем чужую заявку из таблицы лобби
-    const { error } = await sb.from('arena_lobby').delete().eq('id', Number(opponentId));
+    // 🔥 ФИКС: Передаем opponentId как чистую СТРОКУ, Supabase сам сопоставит её с int8 без искажения разрядов JS
+    const { error } = await sb.from('arena_lobby').delete().eq('id', String(opponentId));
     if (error) return alert("Вызов уже принят другим игроком!");
 
-    const baseEndurance = Number(localPlayer.endurance !== undefined ? localPlayer.endurance : 1);
+    // Берем выносливость из правильного места
+    const baseEndurance = Number(localPlayer.stats?.endurance !== undefined ? localPlayer.stats.endurance : 1);
     const myRealMaxHp = baseEndurance * 10; 
 
     console.log(`📡 Отправляю сокет accept_arena_challenge для боя с ID ${opponentId}...`);
 
-    // 2. Отправляем сигнал на сервер для сборки комнаты
+    // 🔥 ФИКС: Принудительно передаем ID как строки, чтобы Socket.io не обрезал цифры длинного Telegram ID
     socket.emit('accept_arena_challenge', {
-      myId: localPlayer.id, 
-      opponentId: Number(opponentId), 
+      myId: String(localPlayer.id), 
+      opponentId: String(opponentId), 
       myMaxHp: myRealMaxHp, 
       oppMaxHp: Number(opponentMaxHp || 100)
     });
