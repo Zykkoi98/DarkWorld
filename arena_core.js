@@ -15,10 +15,7 @@ function initArenaPage() {
   const parentWindow = window.parent;
   
   if (parentWindow && parentWindow.supabase) {
-    sb = parentWindow.sb || parentWindow.supabase.createClient(
-      "https://supabase.co", 
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlsc2xwZ3Vqd2d4dHNhYmt6Z2JkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMDM3ODksImV4cCI6MjEwNDg3OTc4OX0.GKocc3hnVQVSYaOnm1QhHca54sBn8AsiN8mHo6J0ENY"
-    );
+    sb = parentWindow.sb || parentWindow.supabase.createClientparentWindow.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
   }
 
   // Забираем уже подключенный живой сокет из города, чтобы не рвать соединение при F5
@@ -164,19 +161,17 @@ async function acceptChallenge(opponent) {
   const { error } = await sb.from('arena_lobby').delete().eq('id', Number(opponent.id));
   if (error) return alert("Вызов уже принят другим игроком!");
 
-  // 🔥 ФИКС: Читаем endurance напрямую из плоской структуры localPlayer.endurance!
-  // Вычисляем макс ХП: выносливость умножить на 10
+  // 🔥 СТАЛО:
   const baseEndurance = Number(localPlayer.endurance !== undefined ? localPlayer.endurance : 1);
   const myRealMaxHp = baseEndurance * 10; 
 
   console.log(`📡 Отправляю сокет accept_arena_challenge для боя с ID ${opponent.id}...`);
 
-  // 2. Отправляем сигнал на сервер для сборки комнаты и старта раундов
   socket.emit('accept_arena_challenge', {
     myId: localPlayer.id, 
     opponentId: opponent.id, 
     myMaxHp: myRealMaxHp, 
-    oppMaxHp: opponent.maxHp
+    oppMaxHp: Number(opponent.maxHp || 100) // Передаем извлеченное число
   });
 }
 
