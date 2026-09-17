@@ -26,10 +26,16 @@ window.loadGame = function(callback) {
   const tgUser = TG?.initDataUnsafe?.user;
   const monitor = document.getElementById('tg-debug-monitor');
   
+  // Создаем базовый пустой шаблон персонажа, если конструктор не подтянулся
   if (typeof window.createPlayer === 'function') {
     window.player = window.createPlayer();
   } else {
-    window.player = { id: 0, name: "Игрок", level: 1, xp: 0, gold: 50, hp: 100, statPoints: 5, currentTownIndex: 0, stats: { strength: 10, agility: 10, endurance: 10, intellect: 10, luck: 10 }, inventory: { equipment: [], consumables: [], resources: [] }, equipped: { rings: [null, null, null] } };
+    window.player = { 
+      id: 0, name: "Игрок", level: 1, xp: 0, gold: 50, hp: 10, statPoints: 5, currentTownIndex: 0, 
+      stats: { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 }, 
+      inventory: { equipment: [], consumables: [], resources: [] }, 
+      equipped: { rings: [null, null, null] } 
+    };
   }
 
   const hideLoader = () => {
@@ -41,11 +47,13 @@ window.loadGame = function(callback) {
     }
   };
 
+  // ЕСЛИ СТАРТУЕМ ВНУТРИ ТЕЛЕГРАМА (ЖИВОЙ ИГРОК)
   if (TG && tgUser) {
     const userId = tgUser.id;
     window.player.id = Number(userId);
     window.player.name = tgUser.first_name || "Рыцарь";
 
+    // Пытаемся быстро прочитать кэш телефона для мгновенного старта интерфейса
     const localSave = localStorage.getItem('rpg_save');
     if (localSave) {
       try {
@@ -56,6 +64,7 @@ window.loadGame = function(callback) {
       } catch(e) {}
     }
 
+    // Подключаем базу данных Supabase
     initSupabaseLazy();
     if (!window.sb) {
       if (monitor) monitor.innerHTML += "<div>⚠️ База Supabase не подключена</div>";
@@ -63,6 +72,7 @@ window.loadGame = function(callback) {
       return callback(null);
     }
     
+    // Стучимся в облако за актуальным сохранением
     window.sb.from('players').select('*').eq('id', Number(userId))
       .then(({ data, error }) => {
         if (error) {
@@ -72,29 +82,38 @@ window.loadGame = function(callback) {
         }
         
         if (data && data.length > 0) {
-          // 🔥 ЖЕСТКИЙ ФИКС: Берем нулевой элемент ИЗ МАССИВА данных базы!
           const cloudPlayer = data[0]; 
           if (monitor) monitor.innerHTML += `<div>☁️ Успешно скачан профиль из Supabase.</div>`;
           
           window.player.level = Number(cloudPlayer.level || 1);
           window.player.gold = Number(cloudPlayer.gold || 0);
           window.player.xp = Number(cloudPlayer.xp || 0);
-          window.player.hp = Number(cloudPlayer.hp || 100);
+          window.player.hp = Number(cloudPlayer.hp || 10);
           
-          window.player.stats = cloudPlayer.stats || window.player.stats;
+          // 🔥 ИСПРАВЛЕНИЕ: Парсим статы напрямую из независимых колонок БД
+          window.player.stats = {
+            strength: Number(cloudPlayer.strength !== undefined ? cloudPlayer.strength : 1),
+            agility: Number(cloudPlayer.agility !== undefined ? cloudPlayer.agility : 1),
+            endurance: Number(cloudPlayer.endurance !== undefined ? cloudPlayer.endurance : 1),
+            intellect: Number(cloudPlayer.intellect !== undefined ? cloudPlayer.intellect : 1),
+            luck: Number(cloudPlayer.luck !== undefined ? cloudPlayer.luck : 1)
+          };
+          
           window.player.inventory = cloudPlayer.inventory || window.player.inventory;
           window.player.equipped = cloudPlayer.equipped || window.player.equipped;
           
-          // Восстанавливаем регистр полей БД
+          // Восстанавливаем регистр полей бэкенда
           window.player.currentTownIndex = Number(cloudPlayer.currenttownindex !== undefined ? cloudPlayer.currenttownindex : 0);
           window.player.statPoints = Number(cloudPlayer.statpoints !== undefined ? cloudPlayer.statpoints : 0);
           
-          // 🔥 Запуск проверки уровня строго ПОСЛЕ применения всех полей
+          // 🔥 Запуск аудита уровней и очков строго ПОСЛЕ полной сборки профиля
           if (typeof window.checkLevelUp === 'function') {
-            window.checkLevelUp(true);
+            console.log("🎯 Вызываю аудит checkLevelUp из loadGame...");
+            window.checkLevelUp(true); // true означает initial load (первый запуск)
           }
           
         } else {
+          // Если игрока в базе еще нет — создаем для него первую строчку
           if (monitor) monitor.innerHTML += "<div>🆕 Создаем новый профиль в облаке...</div>";
           window.saveGame();
         }
@@ -110,6 +129,7 @@ window.loadGame = function(callback) {
       });
 
   } else {
+    // РЕЖИМ ДЛЯ ПК БРАУЗЕРА (ЛОКАЛЬНЫЙ ТЕСТЕР ВНЕ ТЕЛЕГРАМА)
     const localSave = localStorage.getItem('rpg_save');
     if (localSave) {
       try { window.player = JSON.parse(localSave).player; } catch(e) {}
@@ -123,11 +143,14 @@ window.loadGame = function(callback) {
   }
 };
 window.saveGame = function(customData, callback) {
+  // Определяем, какой объект игрока сохранять (переданный или глобальный)
   const player = (customData && customData.player) ? customData.player : window.player;
   if (!player) return;
 
-  localStorage.setItem('rpg_save', JSON.stringify({ player }));
+  // 1. Мгновенно обновляем локальный кэш устройства для быстрой работы интерфейса
+  localStorage.setItem('rpg_save', JSON.stringify({ player: player }));
   
+  // Проверяем, подключена ли база данных Supabase
   initSupabaseLazy();
   if (!window.sb) {
     if (typeof customData === 'function') customData();
@@ -135,35 +158,47 @@ window.saveGame = function(customData, callback) {
     return;
   }
 
+  // 2. 🔥 СУПЕР-БЫСТРЫЙ ПАКЕТ ДЛЯ ОТПРАВКИ: РАЗБИВАЕМ ОБЪЕКТ НА ЧИСЛОВЫЕ КОЛОНКИ
   const payload = {
     id: Number(player.id),
     name: player.name,
     avatar: player.avatar || "assets/avatars/hero1.png",
     level: Number(player.level || 1),
     gold: Number(player.gold || 0),
-    hp: Number(player.hp || 100),
+    hp: Number(player.hp || 10),
     xp: Number(player.xp || 0),
-    stats: player.stats,
+    
+    // Пишем характеристики персонажа напрямую в плоские ячейки таблицы PostgreSQL
+    strength: Number(player.stats?.strength !== undefined ? player.stats.strength : 1),
+    agility: Number(player.stats?.agility !== undefined ? player.stats.agility : 1),
+    endurance: Number(player.stats?.endurance !== undefined ? player.stats.endurance : 1),
+    intellect: Number(player.stats?.intellect !== undefined ? player.stats.intellect : 1),
+    luck: Number(player.stats?.luck !== undefined ? player.stats.luck : 1),
+
+    // jsonb-колонки инвентаря и надетых вещей остаются изолированными и в безопасности
     inventory: player.inventory,
     equipped: player.equipped,
     
-    // Пишем строго в нижний регистр для базы данных
+    // Системные переменные пишем строго в нижнем регистре, как требует структура БД
     currenttownindex: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : 0),
     statpoints: Number(player.statPoints !== undefined ? player.statPoints : 0)
   };
 
+  // 3. Отправляем атомарный запрос upsert в облако
   window.sb.from('players')
     .upsert(payload)
     .then(({ error }) => {
       if (error) {
-        console.error("❌ Ошибка Supabase:", error.message);
+        console.error("❌ Ошибка сохранения в Supabase:", error.message);
       } else {
-        console.log("☁️ Прогресс успешно сохранен.");
+        console.log("☁️ Производительный плоский сейв успешно синхронизирован с Supabase.");
       }
+      // Безопасно вызываем колбэки, если они были переданы
       if (typeof customData === 'function') customData();
       if (typeof callback === 'function') callback();
     })
     .catch(e => {
+      console.error("❌ Критический сбой сети при сохранении:", e);
       if (typeof customData === 'function') customData();
       if (typeof callback === 'function') callback();
     });
