@@ -121,31 +121,35 @@ function setupSocketListeners() {
    * Синхронизирует раунды и ХП. Дает 100мс на прогрузку window.player на ПК
    */
    // 🔥 ГЛАВНЫЙ ФИКС PvP: Закрываем Арену и даем команду городу открыть бой!
+  // 🔥 ГЛАВНЫЙ ФИКС PvP: Закрываем Арену и даем команду городу открыть бой!
+ // 🔥 ГЛАВНЫЙ ФИКС PvP: Закрываем Арену и даем команду городу открыть бой!
   socket.on('arena_redirect_to_battle', ({ opponentId, challengerId, roomId }) => {
-    const myId = Number(localPlayer.id);
+    // 🛡️ Защита от ReferenceError: используем window.player вместо localPlayer
+    if (!window.player || !window.player.id) {
+      console.warn("⚠️ Сбой: window.player не найден в памяти при редиректе.");
+      return;
+    }
     
-    // Проверяем, касается ли этот бой текущего игрока
-    if (myId === Number(opponentId) || myId === Number(challengerId)) {
-      // 1. Очищаем тикающие фоновые таймеры лобби Арены
-      if (myTimerInterval) clearInterval(myTimerInterval);
-      if (globalLobbyInterval) clearInterval(globalLobbyInterval);
+    // 🔥 Железобетонное приведение к строке для защиты от рассинхронизации типов int8
+    const myId = String(window.player.id);
+    const strOpponentId = String(opponentId);
+    const strChallengerId = String(challengerId);
+    
+    console.log(`🔍 Сверка участников боя: Мой ID=${myId}, Создатель=${strOpponentId}, Принявший=${strChallengerId}`);
+    
+    // Проверяем, касается ли этот только что созданный бой текущего игрока
+    if (myId === strOpponentId || myId === strChallengerId) {
+      console.log("⚔️ Бой подтвержден для вашего аккаунта! Сворачиваем лобби...");
       
-      console.log("⚔️ Бой подтвержден! Закрываем Арену и пингаем город...");
-      
-      // 2. Обращаемся к родительскому окну города (index.html) и прячем фрейм Арены с экрана
-      const parentDoc = window.parent.document;
-      const iframeWrapper = parentDoc.getElementById('arena-iframe-wrapper');
+      // 1. Прячем iframe Арены с экрана города
+      const iframeWrapper = document.getElementById('arena-iframe-wrapper');
       if (iframeWrapper) {
-        iframeWrapper.style.display = 'none'; // Арена мгновенно исчезает, мы снова видим город
+        iframeWrapper.style.display = 'none'; // Арена исчезает, открывается город
       }
 
-      // 3. Напрямую вызываем сокет города, который ни на секунду не отключался!
-      if (window.parent.socket) {
-        console.log("📡 Запускаем триггер восстановления боя в городе...");
-        // Заставляем город отправить серверу check_active_battle. 
-        // Сервер увидит, что комната только что создана, и пришлет твой рабочий reconnect_battle_success!
-        window.parent.socket.emit('check_active_battle', { userId: myId });
-      }
+      // 2. Запрашиваем у сервера боевые пакеты (battle_start) через сокет города
+      console.log("📡 Отправляем check_active_battle для инициализации экрана поединка...");
+      socket.emit('check_active_battle', { userId: myId });
     }
   });
 /**
