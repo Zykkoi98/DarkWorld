@@ -15,8 +15,8 @@ function initArenaPage() {
   const parentWindow = window.parent;
   
   if (parentWindow && parentWindow.supabase) {
-    sb = parentWindow.sb || parentWindow.supabase.createClientparentWindow.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-  }
+  sb = parentWindow.sb || parentWindow.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
 
   // Забираем уже подключенный живой сокет из города, чтобы не рвать соединение при F5
   if (parentWindow && parentWindow.socket) {
