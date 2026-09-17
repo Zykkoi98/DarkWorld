@@ -125,11 +125,11 @@ function createPlayer() {
   return newPlayer;
 }
 
-// 🔥 ПОЛНОСТЬЮ ПЕРЕПИСАННАЯ ФУНКЦИЯ ПРОВЕРКИ С АНТИЧИТОМ И АВТОМАТИЧЕСКИМ СБРОСОМ
+// 🔥 ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ФУНКЦИЯ ПРОВЕРКИ УРОВНЕЙ И СВОБОДНЫХ ОЧКОВ
 window.checkLevelUp = function(isInitialLoad = false) {
   if (!window.player) return;
 
-  // 1. Вычисляем единственно верный и правильный уровень на основе текущего опыта
+  // 1. Вычисляем правильный уровень на основе текущего опыта
   const correctLevel = window.getCorrectLevelByXp(window.player.xp);
   
   const monitor = document.getElementById('tg-debug-monitor');
@@ -141,72 +141,67 @@ window.checkLevelUp = function(isInitialLoad = false) {
     monitor.scrollTop = monitor.scrollHeight;
   }
 
-// ============================================================================
-  // 🛡️ ГЛОБАЛЬНЫЙ УМНЫЙ СБРОС И СИНХРОНИЗАЦИЯ (ИСПРАВЛЕНИЕ ДЛЯ ЛЮБЫХ УРОВНЕЙ)
+  // ============================================================================
+  // 🛡️ ГЛОБАЛЬНЫЙ УМНЫЙ СБРОС СТАРЫХ СЕЙВОВ И АНТИЧИТ
   // ============================================================================
   if (window.player.stats) {
     const p = window.player;
-    
     const str = Number(p.stats.strength || 1);
     const agi = Number(p.stats.agility || 1);
     const end = Number(p.stats.endurance || 1);
     const int = Number(p.stats.intellect || 1);
     const lck = Number(p.stats.luck || 1);
 
-    // Считаем сумму очков, которые игрок уже распределил
+    // Считаем сумму распределенных в характеристики очков (вычитаем 5 базовых единиц)
     const distributedPoints = (str + agi + end + int + lck) - 5;
     
-    // Текущие свободные очки, пришедшие из базы данных
+    // Текущие свободные очки игрока в памяти
     const currentStatPoints = Number(p.statPoints || 0);
     
-    // Абсолютная легальная норма очков для твоего НАСТОЯЩЕГО уровня (correctLevel)
-    const oughtToHaveTotalPoints = 5 + ((correctLevel - 1) * 5);
+    // Вычисляем, какой максимум очков ВООБЩЕ легален для этого правильного уровня (correctLevel)
+    const maxLegalTotalPoints = 5 + ((correctLevel - 1) * 5);
 
-    // 🔥 ФИКС: Если у игрока старые десятки (str === 10) ИЛИ распределено больше, чем надо
-    if ((distributedPoints + currentStatPoints > oughtToHaveTotalPoints) || (str === 10)) {
-      console.warn(`🚨 МИГРАЦИЯ: Статы превышают лимиты. Сброс на базу 1.`);
+    // Если у игрока накрутка статов или старые десятки (str === 10), сбрасываем в лимит уровня
+    if ((distributedPoints + currentStatPoints > maxLegalTotalPoints) || (str === 10)) {
+      console.warn(`🚨 МИГРАЦИЯ: Обнаружены старые статы или превышение лимита. Сброс на базу 1.`);
       p.stats = { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 };
-      p.statPoints = oughtToHaveTotalPoints;
+      p.statPoints = maxLegalTotalPoints; // Сбрасываем ровно до нормы (например, 30 очков для 6 лвл)
       p.hp = 10; 
-      if (window.saveGame) window.saveGame({ player: p });
-    } 
-    // 🔥 ФИКС БАГА РУЧНОЙ ПРАВКИ: Если ты руками вкачал опыт в БД, и очков в сумме МЕНЬШЕ, чем должно быть по уровню
-    else if (distributedPoints + currentStatPoints < oughtToHaveTotalPoints) {
-      console.log(`✨ СИНХРОНИЗАЦИЯ: Обнаружен скачок уровня. Доначисление свободных очков до нормы.`);
-      
-      // Выдаем игроку все оставшиеся свободные очки (норма минус то, что уже распределено)
-      p.statPoints = oughtToHaveTotalPoints - distributedPoints;
-      
       if (window.saveGame) window.saveGame({ player: p });
     }
   }
   // ============================================================================
 
-  // 2. Логика изменения уровня в процессе игры (после PvE/PvP поединков)
+  // 2. Логика изменения уровня персонажа (и при загрузке, и после боя)
   if (window.player.level !== correctLevel) {
     const oldLevel = window.player.level;
     const isLeveledDown = oldLevel > correctLevel;
     
     window.player.level = correctLevel;
 
-    if (!isInitialLoad) {
-      if (!isLeveledDown) {
-        // Начисляем по +5 свободных статов за каждый полученный уровень
-        const levelsGained = correctLevel - oldLevel;
-        window.player.statPoints = (window.player.statPoints || 0) + (levelsGained * 5);
-        window.player.hp = window.getMaxHp(window.player);
-      } else {
-        window.player.stats = { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 };
-        window.player.statPoints = 5 + ((correctLevel - 1) * 5);
-      }
+    // 🔥 ФИКС БАГА РУЧНОЙ ПРАВКИ ОПЫТА:
+    // Если уровень вырос (неважно, при загрузке F5 или после победы в бою), 
+    // мы вычисляем разницу уровней и честно ДОНАЧИСЛЯЕМ по +5 очков за каждый новый левел!
+    if (!isLeveledDown) {
+      const levelsGained = correctLevel - oldLevel;
+      window.player.statPoints = (window.player.statPoints || 0) + (levelsGained * 5);
+      
+      // Полностью восстанавливаем здоровье, так как уровень персонажа повысился
+      window.player.hp = window.getMaxHp(window.player);
+    } else {
+      // На случай штрафного понижения уровня
+      window.player.stats = { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 };
+      window.player.statPoints = 5 + ((correctLevel - 1) * 5);
     }
 
     const maxHp = window.getMaxHp(window.player);
     if (window.player.hp > maxHp) window.player.hp = maxHp;
 
+    // Мгновенно синхронизируем начисленные очки с локальным кэшем и Supabase
     if (window.saveGame) window.saveGame({ player: window.player });
   }
 
+  // Отрисовка интерфейса
   if (typeof render === 'function') render();
   const modal = document.getElementById('profile-modal');
   if (modal && modal.classList.contains('active')) window.openProfile();
