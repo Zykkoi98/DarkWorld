@@ -157,22 +157,27 @@ async function acceptChallenge(opponent) {
   if (!sb || !localPlayer || !socket) return;
   if (Number(localPlayer.hp || 0) <= 0) return alert("Вы слишком слабы! Излечитесь в городе.");
 
-  // 1. Удаляем чужую заявку из таблицы лобби, так как мы её приняли
-  const { error } = await sb.from('arena_lobby').delete().eq('id', Number(opponent.id));
-  if (error) return alert("Вызов уже принят другим игроком!");
+  try {
+    // 1. Удаляем чужую заявку из таблицы лобби, так как мы её приняли
+    const { error } = await sb.from('arena_lobby').delete().eq('id', Number(opponent.id));
+    if (error) return alert("Вызов уже принят другим игроком!");
 
-  // 🔥 СТАЛО:
-  const baseEndurance = Number(localPlayer.endurance !== undefined ? localPlayer.endurance : 1);
-  const myRealMaxHp = baseEndurance * 10; 
+    // 🔥 ИСПРАВЛЕНО: Безопасный расчет максимального ХП без дублирования const
+    const baseEndurance = Number(localPlayer.endurance !== undefined ? localPlayer.endurance : 1);
+    const myRealMaxHp = baseEndurance * 10; 
 
-  console.log(`📡 Отправляю сокет accept_arena_challenge для боя с ID ${opponent.id}...`);
+    console.log(`📡 Отправляю сокет accept_arena_challenge для боя с ID ${opponent.id}...`);
 
-  socket.emit('accept_arena_challenge', {
-    myId: localPlayer.id, 
-    opponentId: opponent.id, 
-    myMaxHp: myRealMaxHp, 
-    oppMaxHp: Number(opponent.maxHp || 100) // Передаем извлеченное число
-  });
+    // 2. Отправляем сигнал на сервер для сборки комнаты и старта раундов
+    socket.emit('accept_arena_challenge', {
+      myId: localPlayer.id, 
+      opponentId: opponent.id, 
+      myMaxHp: myRealMaxHp, 
+      oppMaxHp: Number(opponent.maxHp || 100)
+    });
+  } catch (err) {
+    console.error("Ошибка в acceptChallenge:", err.message);
+  }
 }
 
 async function refreshArenaLobby() {
