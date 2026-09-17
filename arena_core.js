@@ -8,20 +8,44 @@ let sb = null; let socket = null; let localPlayer = null;
 let myTimerInterval = null; let globalLobbyInterval = null;
 
 function initArenaPage() {
-  console.log("🚀 Запуск лобби Арены...");
-  if (window.supabase && typeof window.supabase.createClient === 'function') {
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  console.log("🚀 Запуск лобби Арены через родительский мост...");
+  
+  // 🔥 ФИКС: Берем уже скачанные и готовые библиотеки прямо из index.html (window.parent)
+  // Это убирает 20 секунд сетевого ожидания и запускает страницу мгновенно!
+  const parentWindow = window.parent;
+  
+  if (parentWindow && parentWindow.supabase) {
+    sb = parentWindow.sb || parentWindow.supabase.createClient(
+      "https://supabase.co", 
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlsc2xwZ3Vqd2d4dHNhYmt6Z2JkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMDM3ODksImV4cCI6MjEwNDg3OTc4OX0.GKocc3hnVQVSYaOnm1QhHca54sBn8AsiN8mHo6J0ENY"
+    );
   }
+
+  // Забираем уже подключенный живой сокет из города, чтобы не рвать соединение при F5
+  if (parentWindow && parentWindow.socket) {
+    socket = parentWindow.socket;
+    setupSocketListeners();
+  } else {
+    console.warn("⚠️ Прямое сокет-соединение отсутствует, пробуем локально...");
+    if (typeof io === 'function') {
+      socket = io('https://darkworld-server.onrender.com');
+      setupSocketListeners();
+    }
+  }
+  
+  // Достаем игрока
   const localSave = localStorage.getItem('rpg_save');
   if (localSave) {
     try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
   }
+  
   if (!localPlayer) {
-    alert("❌ Герой не найден! Возврат в город.");
+    alert("❌ Профиль персонажа не найден! Вернитесь в город.");
     location.href = 'index.html'; return;
   }
-  socket = io('https://darkworld-server.onrender.com');
-  setupSocketListeners(); setupClickListeners(); refreshArenaLobby();
+  
+  setupClickListeners();
+  refreshArenaLobby();
   globalLobbyInterval = setInterval(refreshArenaLobby, 4000);
 }
 

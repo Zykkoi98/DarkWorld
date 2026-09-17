@@ -271,7 +271,15 @@ function renderTown() {
         console.error("❌ Ошибка: Функция openShop не найдена!");
       }
       } else if (loc.name === "Арена PvP") {
-        location.href = 'arena.html';} else { 
+      console.log("🔗 Разворачиваю тактический фрейм Арены...");
+      
+      const wrapper = document.getElementById('arena-iframe-wrapper');
+      const frame = document.getElementById('arena-iframe-frame');
+      
+      if (wrapper && frame) {
+        frame.src = 'arena.html'; // Загружаем страницу локально внутри родителя
+        wrapper.style.display = 'block'; // Мгновенно показываем экран Арены
+      }} else { 
         alert(`Вы зашли в здание: ${loc.name}`); 
       }
     });
