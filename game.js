@@ -108,11 +108,11 @@ function createPlayer() {
     currentTownIndex: 0, 
     statPoints: 5, // Свободные очки для распределения характеристик
     stats: { 
-      strength: 10, 
-      agility: 10, 
-      endurance: 10, 
-      intellect: 10, 
-      luck: 10 
+      strength: 1, 
+      agility: 1, 
+      endurance: 1, 
+      intellect: 1, 
+      luck: 1 
     },
     inventory: { equipment: [], resources: [], consumables: [] },
     equipped: {
@@ -139,7 +139,6 @@ window.checkLevelUp = function(isInitialLoad = false) {
 
   const correctLevel = window.getCorrectLevelByXp(window.player.xp);
   
-  // 🔥 Выводим лог прямо на экран твоего телефона/ТГ!
   const monitor = document.getElementById('tg-debug-monitor');
   if (monitor) {
     const logRow = document.createElement('div');
@@ -149,28 +148,42 @@ window.checkLevelUp = function(isInitialLoad = false) {
     monitor.scrollTop = monitor.scrollHeight;
   }
 
+  // 🔥 ФИКС: Проверяем факт изменения уровня
   if (window.player.level !== correctLevel) {
-    const isLeveledDown = window.player.level > correctLevel;
+    const oldLevel = window.player.level;
+    const isLeveledDown = oldLevel > correctLevel;
     
     window.player.level = correctLevel;
-    window.player.statPoints = 5 + ((correctLevel - 1) * 5);
-    
-    if (isLeveledDown) {
-      window.player.stats = { strength: 10, agility: 10, endurance: 10, intellect: 10, luck: 10 };
+
+    if (isInitialLoad) {
+      // При первой загрузке (F5) берем очки из базы. Если там пусто — даем базу.
+      if (window.player.statPoints === undefined || window.player.statPoints === null) {
+        window.player.statPoints = (correctLevel - 1) * 5;
+      }
+    } else {
+      // Живой игровой процесс (левелап после победы в бою)
+      if (!isLeveledDown) {
+        // 🔥 ФИКС БАГА: Вычисляем, на сколько уровней поднялся игрок, и даем строго по +5 за каждый!
+        const levelsGained = correctLevel - oldLevel;
+        window.player.statPoints = (window.player.statPoints || 0) + (levelsGained * 5);
+        
+        // Полностью лечим героя при получении уровня
+        window.player.hp = window.getMaxHp(window.player);
+      } else {
+        // Если уровень упал (штраф), сбрасываем характеристики
+        window.player.stats = { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 };
+        window.player.statPoints = (correctLevel - 1) * 5;
+      }
     }
 
-    if (!isInitialLoad && !isLeveledDown) {
-      window.player.hp = window.getMaxHp(window.player);
-    } else {
-      const maxHp = window.getMaxHp(window.player);
-      if (window.player.hp > maxHp) window.player.hp = maxHp;
-    }
+    const maxHp = window.getMaxHp(window.player);
+    if (window.player.hp > maxHp) window.player.hp = maxHp;
 
     if (window.saveGame) {
       window.saveGame({ player: window.player });
     }
     
-    render();
+    if (typeof render === 'function') render();
     const modal = document.getElementById('profile-modal');
     if (modal && modal.classList.contains('active')) window.openProfile();
   }
