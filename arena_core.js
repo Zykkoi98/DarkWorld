@@ -79,27 +79,16 @@ function setupSocketListeners() {
   socket.on('error', (msg) => { alert(`⚠️ Арена: ${msg}`); });
 }
 
-/**
- * 🔥 УНИВЕРСАЛЬНАЯ УТИЛИТА ЗАКРЫТИЯ АРЕНЫ И ПЕРЕДАЧИ УПРАВЛЕНИЯ ГОРОДУ
- */
 function closeArenaAndStartBattle() {
   // Выключаем тикающие интервалы лобби, чтобы не грузить процессор
   if (myTimerInterval) clearInterval(myTimerInterval);
   if (globalLobbyInterval) clearInterval(globalLobbyInterval);
   
-  // Находим контейнер фрейма Арены в главном окне index.html и скрываем его
-  const parentDoc = window.parent.document;
-  const iframeWrapper = parentDoc.getElementById('arena-iframe-wrapper');
-  if (iframeWrapper) {
-    iframeWrapper.style.display = 'none'; // Арена исчезает, игрок видит чистый город
-  }
-
-  // Напрямую пингаем сокет города. Он отправит серверу check_active_battle,
-  // сервер найдет только что созданную комнату и развернет боевой экран прямо в городе!
-  if (window.parent.socket && localPlayer) {
-    console.log("📡 Пингуем сокет города для моментального развертывания боевого экрана...");
-    window.parent.socket.emit('check_active_battle', { userId: localPlayer.id });
-  }
+  console.log("⚔️ Бой подтвержден! Отправляю безопасный postMessage в город...");
+  
+  // 🔥 СТАЛО: Безопасно отправляем текстовый сигнал в главное окно города index.html
+  // Он легко проходит сквозь любые блокировки безопасности браузера Telegram
+  window.parent.postMessage({ type: 'START_ARENA_BATTLE', userId: localPlayer.id }, '*');
 }
 
 function setupClickListeners() {

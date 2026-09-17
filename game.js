@@ -713,6 +713,23 @@ function initCSPEvents() {
 function startGame() {
   console.log("🚀 Инициализация ядра игры...");
 
+  // 🔥 ДОБАВЬ ЭТОТ БЛОК: Слушатель сигналов от страницы Арены
+  window.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'START_ARENA_BATTLE') {
+      console.log(`📡 Ядро города поймало сигнал Арены! Закрываю оверлей и пингую сервер для ID ${event.data.userId}...`);
+      
+      // 1. Прячем фрейм Арены с экрана города
+      const iframeWrapper = document.getElementById('arena-iframe-wrapper');
+      if (iframeWrapper) iframeWrapper.style.display = 'none';
+      
+      // 2. Дёргаем главный сокет города, который на 100% подключен и работает прямо на этой странице
+      if (typeof socket !== 'undefined' && socket) {
+        socket.emit('check_active_battle', { userId: event.data.userId });
+      } else if (window.socket) {
+        window.socket.emit('check_active_battle', { userId: event.data.userId });
+      }
+    }
+  });
   // Инициализируем безопасные CSP-слушатели кликов по кнопкам и вкладкам
   if (typeof initCSPEvents === 'function') initCSPEvents();
 
