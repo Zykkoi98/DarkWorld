@@ -765,7 +765,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // ===== ⏰ АСИНХРОННЫЙ АВТО-БУДИЛЬНИК ДЛЯ СЕРВЕРА RENDER (БЕЗОПАСНЫЙ) =====
 // ============================================================================
 function wakeUpServer() {
-  const SERVER_URL = "https://onrender.com";
+  const SERVER_URL = "https://darkworld-server.onrender.com";
   
   // 🔥 ИСПРАВЛЕНИЕ: Выносим fetch в фоновый режим, чтобы он не вешал браузер Яна
   setTimeout(() => {
