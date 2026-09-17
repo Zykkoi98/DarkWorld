@@ -262,224 +262,180 @@ function setupSocketListeners() {
 // ============================================================================
 
 /**
- * РЕНДЕРИНГ ЭКРАНА БОЯ (ЗАГРУЗКА ШАБЛОНА, БАНКИ, ХАРАКТЕРИСТИКИ И ХП)
+ * РЕНДЕРИНГ ЭКРАНА БОЯ С ПРЕДВАРИТЕЛЬНОЙ ЗАГРУЗКОЙ (ГЛАВНЫЙ МОДУЛЬ)
  */
 function initBattleScreen(oppName, oppIcon, myMaxHp, oppMaxHp, startLogText, currentOppHp, serverTurn) {
-  fetch('battle_template.html').then(res => res.text()).then(htmlText => {
-    const modal = document.getElementById('battle-modal');
-    if (!modal) return;
-    
-    // Инжектим HTML структуру арены из шаблона
-    modal.innerHTML = htmlText;
+  const modal = document.getElementById('battle-modal');
+  if (!modal) return;
 
-    // 🔥 ФИКС: Жестко берем переданное серверное здоровье без оглядки на старые сессии
-    const targetOppHp = (currentOppHp !== undefined && currentOppHp !== null) ? Number(currentOppHp) : Number(oppMaxHp);
-    
-    window._activeMonster = { 
-      name: oppName, 
-      icon: oppIcon, 
-      hp: targetOppHp, // Записываем точное текущее здоровье!
-      maxHp: oppMaxHp,
-      stats: window.MONSTER_DATABASE ? Object.values(window.MONSTER_DATABASE).find(m => m.name === oppName)?.stats : null
-    };
-    window._battleTurnCount = serverTurn || 1;
+  // Включаем пустую модалку (пользователь видит встроенную в index/CSS шторку или пустую область)
+  modal.classList.add('active'); 
+  modal.style.setProperty('display', 'flex');
 
-    // 🔥 ИСПРАВЛЕНИЕ НИКНЕЙМОВ: Ищем текстовые блоки "Вы" и "Монстр" и меняем их на РЕАЛЬНЫЕ ИМЕНА ИГРОКОВ
-    let allElements = modal.querySelectorAll('div, span, p, h3, h4');
-    let playerCard = null;
-    let monsterCard = null;
+  // Скачиваем HTML-шаблон
+  fetch('battle_template.html')
+    .then(res => res.text())
+    .then(htmlText => {
+      modal.innerHTML = htmlText; // Вставляем верстку с загрузчиком
 
-    allElements.forEach(el => {
-      let txt = el.textContent.trim();
-      if (txt === 'Вы' || el.id === 'bf-player-name') {
-        el.textContent = window.player ? window.player.name : "Вы"; 
-        playerCard = el.closest('.battle-character-card') || el.parentNode || el;
-      }
-      if (txt === 'Монстр' || txt === 'Противник' || el.id === 'bf-monster-name') {
-        el.textContent = oppName; 
-        monsterCard = el.closest('.battle-character-card') || el.parentNode || el;
-      }
-    });
-
-    // Безопасно очищаем лог боя и выводим приветственную строку раунда
-    const log = modal.querySelector('#battle-log');
-    if (log) log.innerHTML = `<div class="battle-msg-start">${startLogText}</div>`;
-
-    // Сносим старые встроенные поповеры из шаблона, чтобы они больше не ломали верстку экрана
-    modal.querySelector('#player-stats-popover')?.remove();
-    modal.querySelector('#monster-stats-popover')?.remove();
-
-    /**
-     * 🔥 ФУНКЦИЯ ДИНАМИЧЕСКИХ ОКНО СТАТОВ: Генерирует красивый ровный поповер на чистом JS
-     * Защищает от Event Bubbling (всплытия кликов), из-за которого закрывался весь бой при клике на крестик!
-     */
-    function createCleanPopover(title, contentHtml, isMonster = false) {
-      document.getElementById('custom-battle-popover')?.remove(); // Чистим старые окна
-
-      const pop = document.createElement('div');
-      pop.id = 'custom-battle-popover';
-      pop.style.cssText = `
-        position: fixed !important; top: 50% !important; left: 50% !important;
-        transform: translate(-50%, -50%) !important; width: 80% !important; max-width: 300px !important;
-        background: #111a2e !important; border: 2px solid ${isMonster ? '#e74c3c' : '#6c5ce7'} !important;
-        border-radius: 14px !important; padding: 16px !important; z-index: 999999 !important;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 0 2000px rgba(0,0,0,0.5) !important;
-      `;
-
-      pop.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:6px; margin-bottom:8px;">
-          <span style="font-weight:bold; color:#fff; font-size:14px;">${title}</span>
-          <button id="close-custom-pop" style="background:rgba(255,255,255,0.1); border:none; color:#fff; border-radius:50%; width:26px; height:26px; cursor:pointer; font-weight:bold;">✕</button>
-        </div>
-        <div style="color:#fff; font-size:13px; line-height:1.4;">${contentHtml}</div>
-      `;
-
-      document.body.appendChild(pop);
-
-      // Крестик закрытия удаляет ТОЛЬКО сам поповер, бой больше не сбрасывается!
-      document.getElementById('close-custom-pop').onclick = function(ev) {
-        ev.preventDefault(); ev.stopPropagation();
-        pop.remove();
+      // Записываем точные слепки ХП
+      const targetOppHp = (currentOppHp !== undefined && currentOppHp !== null) ? Number(currentOppHp) : Number(oppMaxHp);
+      window._activeMonster = { 
+        name: oppName, icon: oppIcon, hp: targetOppHp, maxHp: oppMaxHp,
+        stats: window.MONSTER_DATABASE ? Object.values(window.MONSTER_DATABASE).find(m => m.name === oppName)?.stats : null
       };
-    }
+      window._battleTurnCount = serverTurn || 1;
 
-    // Привязываем вызов характеристик к клику по никнейму игрока
-    if (playerCard) {
-      playerCard.style.cursor = 'pointer';
-      playerCard.onclick = function(e) {
-        if (e.target.textContent === '✕' || e.target.closest('button')) return;
-        e.preventDefault(); e.stopPropagation();
-        
-        const pStats = window.player?.stats || { strength: 10, agility: 10, endurance: 10, intellect: 10, luck: 10 };
-        const atk = window.getAtk ? window.getAtk(window.player) : '???';
-        const def = window.getDef ? window.getDef(window.player) : '???';
+      // Запускаем сборку интерфейса (вызов функции из Части 2)
+      initBattleUIElements(modal, oppName, startLogText);
 
-        const html = `
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>💪 Сила:</span><strong>${pStats.strength}</strong></div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🏹 Ловкость:</span><strong>${pStats.agility}</strong></div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🛡️ Выносливость:</span><strong>${pStats.endurance}</strong></div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🔮 Интеллект:</span><strong>${pStats.intellect}</strong></div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🍀 Удача:</span><strong>${pStats.luck}</strong></div>
-          <hr style="border:0; border-top:1px solid rgba(255,255,255,0.08); margin:6px 0;">
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>⚔️ Атака:</span><span style="color:#2ecc71; font-weight:bold;">${atk}</span></div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🛡️ Защита:</span><span style="color:#3498db; font-weight:bold;">${def} ед.</span></div>
-        `;
-        createCleanPopover(`Характеристики: ${window.player?.name || 'Вы'}`, html, false);
-      };
-    }
+      // Идеально пересчитываем полоски здоровья до скрытия лоадера
+      window._updateBars();
 
-    // Привязываем вызов характеристик к клику по никнейму врага
-    if (monsterCard) {
-      monsterCard.style.cursor = 'pointer';
-      monsterCard.onclick = function(e) {
-        if (e.target.textContent === '✕' || e.target.closest('button')) return;
-        e.preventDefault(); e.stopPropagation();
-        
-        const mStats = window._activeMonster?.stats;
-        const html = mStats ? `
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>💪 Сила:</span><strong>${mStats.strength}</strong></div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🏹 Ловкость:</span><strong>${mStats.agility}</strong></div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🛡️ Выносливость:</span><strong>${mStats.endurance}</strong></div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🔮 Интеллект:</span><strong>${mStats.intellect}</strong></div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🍀 Удача:</span><strong>${mStats.luck}</strong></div>
-        ` : `<div style="text-align:center; color:#9aa0b5; padding:4px;">Характеристики игрока скрыты туманом войны!</div>`;
-        
-        createCleanPopover(`Параметры: ${oppName}`, html, true);
-      };
-    }
-    // ============================================================================
-// ===== 🌐 КЛИЕНТСКИЙ МОДУЛЬ БОЯ: ЧАСТЬ 3.2 — ЗЕЛЬЯ, ТАКТИКА И ШКАЛЫ ХП =====
-// ============================================================================
-
-    // Разворачиваем тактическую панель выбора зон раунда
-    if (modal.querySelector('#battle-controls-zone')) {
-      modal.querySelector('#battle-controls-zone').style.setProperty('display', 'flex', 'important');
-    }
-    setupTacticalControls();
-
-    // 🧪 ЖЕЛЕЗНЫЙ ВЫВОД ИНЛАЙН-КНОПКИ ЗЕЛЬЯ ЛЕЧЕНИЯ СЛЕДОМ ЗА ОТРИСОВКОЙ ЛОГА
-    try {
-      let bSlot = modal.querySelector('#bf-player-potion-slot') || modal.querySelector('#player-potion-slot');
-      let potId = window.player?.equipped?.potion;
-      modal.querySelector('#server-inline-potion-btn')?.remove(); // Чистим старые дубликаты
-
-      if (potId) {
-        const pData = window.getItemData ? window.getItemData(potId) : null;
-        
-        if (pData && log && log.parentNode) {
-          if (bSlot) {
-            bSlot.textContent = pData.icon;
-            bSlot.style.cssText = `display:flex!important; background:#222f3e!important; border:2px solid #2ecc71!important; border-radius:10px!important; font-size:26px!important; width:50px!important; height:50px!important; align-items:center; justify-content:center; cursor:pointer;`;
-          }
-
-          // Генерируем инлайн-кнопку лечения прямо над текстовой историей поединка
-          let btn = document.createElement('button'); btn.id = 'server-inline-potion-btn';
-          btn.style.cssText = `margin:10px 0; width:100%; background:#2ecc71; border:none; color:#fff; padding:12px; font-weight:bold; border-radius:10px; cursor:pointer; display:block!important;`;
-          btn.innerHTML = `🧪 Выпить: ${pData.name} (+${pData.heal} HP)`;
-          log.parentNode.insertBefore(btn, log);
-
-            btn.onclick = function(e) {
-            if (e) e.stopPropagation();
-            
-            // 🔥 ФИКС: Если игрок уже погиб, запрещаем пить зелье!
-            if (window.player.hp <= 0) {
-              alert("Вы не можете пить зелье, будучи поверженным!");
-              btn.remove();
-              return;
-            }
-
-            btn.remove();
-            window.player.hp = Math.min(serverMyMaxHp, window.player.hp + pData.heal);
-            window._updateBars();
-            if (window.player.equipped) window.player.equipped.potion = null;
-            if (bSlot) { bSlot.textContent = '💨'; bSlot.style.cssText = `display:flex; opacity:0.2; pointer-events:none;`; }
-            socket.emit('instant_use_potion', { roomId: currentRoomId });
-          };
-          if (bSlot) bSlot.onclick = (e) => { if (e) e.stopPropagation(); document.getElementById('server-inline-potion-btn')?.click(); };
-        }
-      } else if (bSlot) {
-        bSlot.textContent = '💨';
-        bSlot.style.cssText = 'opacity:0.2!important; display:flex!important; width:50px; height:50px; align-items:center; justify-content:center; border:1px dashed rgba(255,255,255,0.2); border-radius:10px; pointer-events:none;';
+      // Гасим и плавно удаляем шторку загрузки боя из DOM
+      const battleLoader = document.getElementById('battle-loader-screen');
+      if (battleLoader) {
+        battleLoader.style.opacity = "0";
+        setTimeout(() => { battleLoader.remove(); }, 250);
       }
-    } catch(e) { console.error("Ошибка рендеринга зелья здоровья:", e); }
+    })
+    .catch(e => console.error("❌ Ошибка Fetch:", e));
+}
+/**
+ * ГЛОБАЛЬНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ ШКАЛ ЗДОРОВЬЯ НА АРЕНЕ
+ */
+window._updateBars = function() {
+  const modal = document.getElementById('battle-modal');
+  if (!modal) return;
 
-    // Логика кнопок тактики поединка
-    if (modal.querySelector('#battle-random-strike-btn')) modal.querySelector('#battle-random-strike-btn').onclick = window.processServerRandomBattleTurn;
-    
-    const strikeBtn = modal.querySelector('#battle-strike-btn');
-    if (strikeBtn) {
-      strikeBtn.onclick = function() {
-        if (!selectedAttackZone || selectedDefendZones.length !== 2) return alert("Выберите 1 зону атаки и 2 зоны защиты!");
-        this.style.background = '#57606f'; 
-        this.textContent = "Расчет сервером...";
-        
-        // Отправляем чистую плоскую структуру полей
-        socket.emit('submit_turn', { roomId: currentRoomId, attack: selectedAttackZone, defends: selectedDefendZones });
-      };
+  const pFill = modal.querySelector('#bf-player-hp-fill') || document.getElementById('bf-player-hp-fill');
+  const pText = modal.querySelector('#bf-player-hp-text') || document.getElementById('bf-player-hp-text');
+  const mFill = modal.querySelector('#bf-monster-hp-fill') || document.getElementById('bf-monster-hp-fill');
+  const mText = modal.querySelector('#bf-monster-hp-text') || document.getElementById('bf-monster-hp-text');
+  
+  const currentLocalHp = window.player ? window.player.hp : 0;
+  const currentMonsterHp = window._activeMonster ? window._activeMonster.hp : 0;
+
+  if (pFill) pFill.style.width = `${(Math.max(0, currentLocalHp) / serverMyMaxHp) * 100}%`;
+  if (pText) pText.textContent = `${Math.max(0, currentLocalHp)} / ${serverMyMaxHp}`;
+  if (mFill) mFill.style.width = `${(Math.max(0, currentMonsterHp) / serverOppMaxHp) * 100}%`;
+  if (mText) mText.textContent = `${Math.max(0, currentMonsterHp)} / ${serverOppMaxHp}`;
+
+  // Если кто-то погиб, мгновенно убираем кнопку лечения
+  if (currentLocalHp <= 0 || currentMonsterHp <= 0) {
+    document.getElementById('server-inline-potion-btn')?.remove();
+  }
+};
+/**
+ * ВНУТРЕННЯЯ НАСТРОЙКА ИНТЕРФЕЙСА БОЯ И СЛУШАТЕЛЕЙ КЛИКОВ
+ */
+function initBattleUIElements(modal, oppName, startLogText) {
+  // 1. Прописываем реальные никнеймы сторон вместо заглушек
+  let allElements = modal.querySelectorAll('div, span, p, h3, h4');
+  let playerCard = null; let monsterCard = null;
+
+  allElements.forEach(el => {
+    let txt = el.textContent.trim();
+    if (txt === 'Вы' || el.id === 'bf-player-name') {
+      el.textContent = window.player ? window.player.name : "Вы"; 
+      playerCard = el.closest('.battle-character-card') || el.parentNode || el;
     }
-
-    // Функция отрисовки шкал ХП
-    window._updateBars = function() {
-      const pFill = modal.querySelector('#bf-player-hp-fill'), pText = modal.querySelector('#bf-player-hp-text');
-      const mFill = modal.querySelector('#bf-monster-hp-fill'), mText = modal.querySelector('#bf-monster-hp-text');
-      
-      const currentLocalHp = window.player ? window.player.hp : 0;
-      const currentMonsterHp = window._activeMonster ? window._activeMonster.hp : 0;
-
-      if (pFill) pFill.style.width = `${(Math.max(0, currentLocalHp) / serverMyMaxHp) * 100}%`;
-      if (pText) pText.textContent = `${Math.max(0, currentLocalHp)} / ${serverMyMaxHp}`;
-      if (mFill) mFill.style.width = `${(Math.max(0, currentMonsterHp) / serverOppMaxHp) * 100}%`;
-      if (mText) mText.textContent = `${Math.max(0, currentMonsterHp)} / ${serverOppMaxHp}`;
-
-      // 🔥 ФИКС: Если кто-то погиб (игрок или монстр), мгновенно удаляем инлайн-кнопку лечения с экрана!
-      if (currentLocalHp <= 0 || currentMonsterHp <= 0) {
-        document.getElementById('server-inline-potion-btn')?.remove();
-      }
-    };
-    
-    window._updateBars();
-    modal.classList.add('active'); modal.style.setProperty('display', 'flex');
+    if (txt === 'Монстр' || txt === 'Противник' || el.id === 'bf-monster-name') {
+      el.textContent = oppName; 
+      monsterCard = el.closest('.battle-character-card') || el.parentNode || el;
+    }
   });
+
+  // 2. Настройка стартового лога раунда
+  const log = modal.querySelector('#battle-log');
+  if (log) log.innerHTML = `<div class="battle-msg-start">${startLogText}</div>`;
+
+  if (modal.querySelector('#battle-controls-zone')) {
+    modal.querySelector('#battle-controls-zone').style.setProperty('display', 'flex', 'important');
+  }
+  setupTacticalControls();
+
+  // Сносим старые поповеры из шаблона
+  modal.querySelector('#player-stats-popover')?.remove();
+  modal.querySelector('#monster-stats-popover')?.remove();
+
+  // Функция создания кастомных окон стат (защита от баг-клик сброса боя)
+  function createCleanPopover(title, contentHtml, isMonster = false) {
+    document.getElementById('custom-battle-popover')?.remove(); 
+    const pop = document.createElement('div'); pop.id = 'custom-battle-popover';
+    pop.style.cssText = `position:fixed!important; top:50%!important; left:50%!important; transform:translate(-50%,-50%)!important; width:80%!important; max-width:300px!important; background:#111a2e!important; border:2px solid ${isMonster ? '#e74c3c' : '#6c5ce7'}!important; border-radius:14px!important; padding:16px!important; z-index:999999!important; box-shadow:0 10px 30px rgba(0,0,0,0.8), 0 0 0 2000px rgba(0,0,0,0.5)!important;`;
+    pop.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; width:100%; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:6px; margin-bottom:8px;"><span style="font-weight:bold; color:#fff; font-size:14px;">${title}</span><button id="close-custom-pop" style="background:rgba(255,255,255,0.1); border:none; color:#fff; border-radius:50%; width:26px; height:26px; cursor:pointer; font-weight:bold;">✕</button></div><div style="color:#fff; font-size:13px; line-height:1.4;">${contentHtml}</div>`;
+    document.body.appendChild(pop);
+    document.getElementById('close-custom-pop').onclick = function(ev) { ev.preventDefault(); ev.stopPropagation(); pop.remove(); };
+  }
+
+  if (playerCard) {
+    playerCard.style.cursor = 'pointer';
+    playerCard.onclick = function(e) {
+      if (e.target.textContent === '✕' || e.target.closest('button')) return;
+      e.preventDefault(); e.stopPropagation();
+      const pStats = window.player?.stats || { strength: 10, agility: 10, endurance: 10, intellect: 10, luck: 10 };
+      const html = `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>💪 Сила:</span><strong>${pStats.strength}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🏹 Ловкость:</span><strong>${pStats.agility}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🛡️ Выносливость:</span><strong>${pStats.endurance}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🔮 Интеллект:</span><strong>${pStats.intellect}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🍀 Удача:</span><strong>${pStats.luck}</strong></div><hr style="border:0; border-top:1px solid rgba(255,255,255,0.08); margin:6px 0;"><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>⚔️ Атака:</span><span style="color:#2ecc71; font-weight:bold;">${window.getAtk ? window.getAtk(window.player) : '???'}</span></div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🛡️ Защита:</span><span style="color:#3498db; font-weight:bold;">${window.getDef ? window.getDef(window.player) : '???'} ед.</span></div>`;
+      createCleanPopover(`Характеристики: ${window.player?.name || 'Вы'}`, html, false);
+    };
+  }
+
+  if (monsterCard) {
+    monsterCard.style.cursor = 'pointer';
+    monsterCard.onclick = function(e) {
+      if (e.target.textContent === '✕' || e.target.closest('button')) return;
+      e.preventDefault(); e.stopPropagation();
+      const mStats = window._activeMonster?.stats;
+      const html = mStats ? `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>💪 Сила:</span><strong>${mStats.strength}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🏹 Ловкость:</span><strong>${mStats.agility}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🛡️ Выносливость:</span><strong>${mStats.endurance}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🔮 Интеллект:</span><strong>${mStats.intellect}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>🍀 Удача:</span><strong>${mStats.luck}</strong></div>` : `<div style="text-align:center; color:#9aa0b5; padding:4px;">Характеристики врага скрыты!</div>`;
+      createCleanPopover(`Параметры: ${oppName}`, html, true);
+    };
+  }
+
+  // 3. Вывод инлайн-кнопки зелья
+  try {
+    let bSlot = modal.querySelector('#bf-player-potion-slot') || modal.querySelector('#player-potion-slot');
+    let potId = window.player?.equipped?.potion;
+    modal.querySelector('#server-inline-potion-btn')?.remove();
+
+    if (potId) {
+      const pData = window.getItemData ? window.getItemData(potId) : null;
+      if (pData && log && log.parentNode) {
+        if (bSlot) {
+          bSlot.textContent = pData.icon;
+          bSlot.style.cssText = `display:flex!important; background:#222f3e!important; border:2px solid #2ecc71!important; border-radius:10px!important; font-size:26px!important; width:50px!important; height:50px!important; align-items:center; justify-content:center; cursor:pointer;`;
+        }
+        let btn = document.createElement('button'); btn.id = 'server-inline-potion-btn';
+        btn.style.cssText = `margin:10px 0; width:100%; background:#2ecc71; border:none; color:#fff; padding:12px; font-weight:bold; border-radius:10px; cursor:pointer; display:block!important;`;
+        btn.innerHTML = `🧪 Выпить: ${pData.name} (+${pData.heal} HP)`;
+        log.parentNode.insertBefore(btn, log);
+
+        btn.onclick = function(e) {
+          if (e) e.stopPropagation();
+          if (window.player.hp <= 0) { alert("Вы повержены!"); btn.remove(); return; }
+          btn.remove();
+          window.player.hp = Math.min(serverMyMaxHp, window.player.hp + pData.heal);
+          window._updateBars();
+          if (window.player.equipped) window.player.equipped.potion = null;
+          if (bSlot) { bSlot.textContent = '💨'; bSlot.style.cssText = `display:flex; opacity:0.2; pointer-events:none;`; }
+          socket.emit('instant_use_potion', { roomId: currentRoomId });
+        };
+        if (bSlot) bSlot.onclick = (e) => { if (e) e.stopPropagation(); document.getElementById('server-inline-potion-btn')?.click(); };
+      }
+    } else if (bSlot) {
+      bSlot.textContent = '💨'; bSlot.style.cssText = 'opacity:0.2!important; display:flex!important; width:50px; height:50px; align-items:center; justify-content:center; border:1px dashed rgba(255,255,255,0.2); border-radius:10px; pointer-events:none;';
+    }
+  } catch(e) { console.error("Зелье:", e); }
+
+  if (modal.querySelector('#battle-random-strike-btn')) modal.querySelector('#battle-random-strike-btn').onclick = window.processServerRandomBattleTurn;
+  
+  const strikeBtn = modal.querySelector('#battle-strike-btn');
+  if (strikeBtn) {
+    strikeBtn.onclick = function() {
+      if (!selectedAttackZone || selectedDefendZones.length !== 2) return alert("Выберите тактику!");
+      this.style.background = '#57606f'; this.textContent = "Расчет сервером...";
+      socket.emit('submit_turn', { roomId: currentRoomId, attack: selectedAttackZone, defends: selectedDefendZones });
+    };
+  }
 }
 
 function setupTacticalControls() {
