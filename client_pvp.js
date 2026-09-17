@@ -168,11 +168,26 @@ function setupSocketListeners() {
     if (log) { const d = document.createElement('div'); d.style.color = '#3498db'; d.textContent = "⏱️ Противник сделал ход!"; log.appendChild(d); log.scrollTop = log.scrollHeight; }
   });
 
-  socket.on('opponent_healed_instant', ({ oppHp, logMsg }) => {
-    if (window._activeMonster) window._activeMonster.hp = oppHp;
-    if (typeof window._updateBars === 'function') window._updateBars();
+ socket.on('opponent_healed_instant', ({ oppHp, logMsg }) => {
+    // Выводим текст лечилки в лог боя
     const log = document.getElementById('battle-log');
-    if (log) { const d = document.createElement('div'); d.style.color = '#e67e22'; d.textContent = logMsg; log.appendChild(d); log.scrollTop = log.scrollHeight; }
+    if (log) { 
+      const d = document.createElement('div'); 
+      d.style.color = '#e67e22'; 
+      d.textContent = logMsg; 
+      log.appendChild(d); 
+      log.scrollTop = log.scrollHeight; 
+    }
+
+    // 🔥 ФИКС: Проверяем по тексту лога, кто именно лечился — мы или соперник
+    if (logMsg.includes('Вы выпили')) {
+      window.player.hp = Number(oppHp);
+    } else {
+      if (window._activeMonster) window._activeMonster.hp = Number(oppHp);
+    }
+
+    // Перерисовываем полоски ХП на экране боя
+    if (typeof window._updateBars === 'function') window._updateBars();
   });
 
   socket.on('error', (errorMsg) => { alert(`❌ Ошибка: ${errorMsg}`); });
