@@ -52,12 +52,21 @@ function setupClickListeners() {
 async function createMyRequest() {
   if (!sb || !localPlayer) return;
   if (Number(localPlayer.hp || 0) <= 0) return alert("Вы слишком слабы для боя! Излечитесь в городе.");
-  const duration = 180000; const expiresAt = new Date(Date.now() + duration).toISOString();
+  
+  const duration = 180000; // 3 минуты
+  const expiresAt = new Date(Date.now() + duration).toISOString();
+  
   const { error } = await sb.from('arena_lobby').upsert({
-    id: Number(localPlayer.id), name: localPlayer.name, level: Number(localPlayer.level || 1), hp: Number(localPlayer.hp), arena_expires_at: expiresAt
+    id: Number(localPlayer.id), 
+    name: localPlayer.name, 
+    level: Number(localPlayer.level || 1), 
+    hp: Number(localPlayer.hp), 
+    arena_expires_at: expiresAt
   });
+  
   if (error) return alert("Ошибка: " + error.message);
   if (socket) socket.emit('create_arena_request', { userId: localPlayer.id });
+  
   refreshArenaLobby();
 }
 
