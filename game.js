@@ -308,13 +308,21 @@ window.openProfile = function() {
   let statsBody = modal.querySelector('.modal-body-stats'); 
   if (!statsBody) return;
 
-  const labels = { strength: '💪 Сила', agility: '🏹 Ловкость', endurance: '🛡️ Выносливость', intellect: '🔮 Интеллект', luck: '🍀 Удача' };
+  const labels = { 
+    strength: '💪 Сила', 
+    agility: '🏹 Ловкость', 
+    endurance: '🛡️ Выносливость', 
+    intellect: '🔮 Интеллект', 
+    luck: '🍀 Удача' 
+  };
   
+  // Абсолютно безопасно очищаем контейнер перед отрисовкой
   statsBody.textContent = '';
   
   const nextXp = xpToNext(window.player.level);
   const currentXp = (window.player.xp !== undefined) ? window.player.xp : 0;
 
+  // Блок общей информации (Золото, ХП, Опыт, Атака, Защита)
   const rowsData = [
     { label: '💰 Золото', value: window.player.gold + ' монет' },
     { label: '❤️ Здоровье', value: window.player.hp + ' / ' + window.getMaxHp(window.player) }, 
@@ -324,12 +332,18 @@ window.openProfile = function() {
   ];
 
   rowsData.forEach(data => {
-    const row = document.createElement('div'); row.className = 'profile-row';
-    const lSpan = document.createElement('span'); lSpan.textContent = data.label;
-    const vSpan = document.createElement('span'); vSpan.textContent = data.value;
-    row.appendChild(lSpan); row.appendChild(vSpan); statsBody.appendChild(row);
+    const row = document.createElement('div'); 
+    row.className = 'profile-row';
+    const lSpan = document.createElement('span'); 
+    lSpan.textContent = data.label;
+    const vSpan = document.createElement('span'); 
+    vSpan.textContent = data.value;
+    row.appendChild(lSpan); 
+    row.appendChild(vSpan); 
+    statsBody.appendChild(row);
   });
 
+  // Строка со свободными очками характеристик
   const pointsDiv = document.createElement('div');
   pointsDiv.style.cssText = 'margin:15px 0 5px 0; font-weight:bold; font-size:16px; color:#f1c40f; text-align:center;';
   pointsDiv.textContent = 'Доступно очков: ' + window.player.statPoints;
@@ -339,8 +353,16 @@ window.openProfile = function() {
   hr.style.cssText = 'border:0; border-top:1px solid rgba(255,255,255,0.1); margin:12px 0;';
   statsBody.appendChild(hr);
 
-  // 🔥 ПОЛНОСТЬЮ БЕЗОПАСНАЯ ГЕНЕРАЦИЯ СТРОК (ФИКС ДЛЯ ПК)
-  Object.keys(window.player.stats).forEach(key => {
+  // ============================================================================
+  // 🏆 ЖЕСТКИЙ ФИКС ПОРЯДКА СТАТОВ И ЦВЕТОВОГО РАЗДЕЛЕНИЯ (ВЕЩИ / БАЗА)
+  // ============================================================================
+  const fixedOrderKeys = ['strength', 'agility', 'endurance', 'intellect', 'luck'];
+
+  // Идем строго по нашему эталонному массиву порядка строк
+  fixedOrderKeys.forEach(key => {
+    // Страховка на случай отсутствия ключа в объекте
+    if (window.player.stats[key] === undefined) window.player.stats[key] = 1;
+
     const row = document.createElement('div'); 
     row.className = 'profile-row';
     
@@ -351,24 +373,31 @@ window.openProfile = function() {
     vSpan.style.display = 'flex'; 
     vSpan.style.alignItems = 'center'; 
     
+    // 1. Получаем чистый базовый стат персонажа (то, что качаем за свободные очки)
     const baseVal = Number(window.player.stats[key] || 1);
+    
+    // 2. Считаем бонус от надетых предметов через встроенный калькулятор
     const gearBonus = typeof getEquipmentBonus === 'function' ? getEquipmentBonus(window.player, key) : 0;
+    
+    // 3. Вычисляем итоговое боевое значение (база + вещи)
     const totalVal = baseVal + gearBonus;
 
     const textContainer = document.createElement('span');
     textContainer.style.marginRight = '8px';
     
-    // Переписано на чистый стандарт склейки без опасного экранирования символов
+    // Собираем безопасную HTML-строку без опасных символов экранирования
     let htmlContent = '<strong style="color: #ffffff; font-size: 15px;">' + totalVal + '</strong> ';
-    htmlContent += '<span style="color: #9aa0b5; font-size: 12px;">(</span><span style="color: #f1c40f; font-size: 12px; font-weight: normal;">' + baseVal + '</span><span style="color: #9aa0b5; font-size: 12px;">)</span>';
+    htmlContent += '<span style="color: #9aa0b5; font-size: 12px;">(</span><span style="color: #f1c40f; font-size: 12px; font-weight: bold;">' + baseVal + '</span><span style="color: #9aa0b5; font-size: 12px;">)</span>';
     
+    // Если на персонаже есть шмот с бонусом к этому стату, дорисовываем зеленый тег
     if (gearBonus > 0) {
-      htmlContent += ' <span style="color: #2ecc71; font-size: 12px; font-weight: normal;">(+' + gearBonus + ')</span>';
+      htmlContent += ' <span style="color: #2ecc71; font-size: 12px; font-weight: bold;">(+' + gearBonus + ')</span>';
     }
     
     textContainer.innerHTML = htmlContent;
     vSpan.appendChild(textContainer);
 
+    // Отрисовываем кнопку «+» прокачки характеристик, если есть свободные очки
     if (window.player.statPoints > 0) {
       const plusBtn = document.createElement('button'); 
       plusBtn.textContent = '+';
