@@ -136,23 +136,31 @@ function setupSocketListeners() {
     }, 100);
   });
 
-  /**
+/**
    * 🔥 ВОЗВРАЩЕННЫЙ СЛУШАТЕЛЬ: НАЧАЛО PvP ПОЕДИНКА (АРЕНА)
    */
-  socket.on('battle_start', ({ roomId, opponent, myMaxHp, oppMaxHp }) => {
-    document.getElementById('battle-search-notice')?.remove(); // Сносим плашку поиска
-    currentRoomId = roomId; serverMyMaxHp = myMaxHp; serverOppMaxHp = oppMaxHp;
+  socket.on('battle_start', ({ roomId, opponent, myMaxHp, oppMaxHp, oppCurrentHp }) => {
+    document.getElementById('battle-search-notice')?.remove(); 
+    currentRoomId = roomId; 
+    serverMyMaxHp = myMaxHp; 
+    serverOppMaxHp = oppMaxHp;
     
     const finalOppName = opponent.name || opponent.playerData?.name || "Соперник";
-    initBattleScreen(finalOppName, '👤', myMaxHp, oppMaxHp, `⚡ ПОЕДИНОК НАЧАЛСЯ!`, oppMaxHp, 1);
+    // 🔥 ФИКС: Передаем oppCurrentHp вместо oppMaxHp в качестве текущего здоровья
+    const startOppHp = (oppCurrentHp !== undefined) ? oppCurrentHp : oppMaxHp;
+    initBattleScreen(finalOppName, '👤', myMaxHp, oppMaxHp, `⚡ ПОЕДИНОК НАЧАЛСЯ!`, startOppHp, 1);
   });
 
   /**
    * 🔥 ВОЗВРАЩЕННЫЙ СЛУШАТЕЛЬ: НАЧАЛО PvE ПОЕДИНКА (ЛЕС)
    */
-  socket.on('pve_battle_start', ({ roomId, monster, myMaxHp, monsterMaxHp }) => {
-    currentRoomId = roomId; serverMyMaxHp = myMaxHp; serverOppMaxHp = monsterMaxHp;
-    initBattleScreen(monster.name, monster.icon || '👹', myMaxHp, monsterMaxHp, `⚔️ БОЙ НАЧАЛСЯ! ВРАГ: ${monster.name}`, monsterMaxHp, 1);
+  socket.on('pve_battle_start', ({ roomId, monster, myMaxHp, monsterMaxHp, monsterCurrentHp }) => {
+    currentRoomId = roomId; 
+    serverMyMaxHp = myMaxHp; 
+    serverOppMaxHp = monsterMaxHp;
+    // 🔥 ФИКС: Передаем monsterCurrentHp (или monsterMaxHp, если бой абсолютно новый)
+    const startMonsterHp = (monsterCurrentHp !== undefined) ? monsterCurrentHp : monsterMaxHp;
+    initBattleScreen(monster.name, monster.icon || '👹', myMaxHp, monsterMaxHp, `⚔️ БОЙ НАЧАЛСЯ! ВРАГ: ${monster.name}`, startMonsterHp, 1);
   });
 
   socket.on('opponent_submitted', () => {
@@ -264,15 +272,15 @@ function initBattleScreen(oppName, oppIcon, myMaxHp, oppMaxHp, startLogText, cur
     // Инжектим HTML структуру арены из шаблона
     modal.innerHTML = htmlText;
 
-    // СИНХРОНИЗАЦИЯ ХП ВРАГА: Четко фиксируем текущее раненое здоровье, присланное сервером
-    const targetOppHp = (currentOppHp !== undefined) ? currentOppHp : oppMaxHp;
+    // 🔥 ФИКС: Жестко берем переданное серверное здоровье без оглядки на старые сессии
+    const targetOppHp = (currentOppHp !== undefined && currentOppHp !== null) ? Number(currentOppHp) : Number(oppMaxHp);
+    
     window._activeMonster = { 
       name: oppName, 
       icon: oppIcon, 
-      hp: targetOppHp, 
+      hp: targetOppHp, // Записываем точное текущее здоровье!
       maxHp: oppMaxHp,
-      // Сохраняем слепок статов монстра из пакета сервера для отображения по клику
-      stats: window._activeMonster?.stats || (window.MONSTER_DATABASE ? Object.values(window.MONSTER_DATABASE).find(m => m.name === oppName)?.stats : null)
+      stats: window.MONSTER_DATABASE ? Object.values(window.MONSTER_DATABASE).find(m => m.name === oppName)?.stats : null
     };
     window._battleTurnCount = serverTurn || 1;
 
