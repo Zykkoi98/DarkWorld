@@ -271,13 +271,7 @@ function renderTown() {
         console.error("❌ Ошибка: Функция openShop не найдена!");
       }
       } else if (loc.name === "Арена PvP") {
-      // <-- ДОБАВИЛИ ЭТОТ БЛОК ДЛЯ СВЯЗИ С СЕРВЕРОМ
-      if (typeof window.openServerPvp === 'function') {
-        window.openServerPvp(); 
-      } else {
-        console.error("❌ Ошибка: Модуль client_pvp.js не подключен к index.html!");
-      }
-      } else { 
+        location.href = 'arena.html';} else { 
         alert(`Вы зашли в здание: ${loc.name}`); 
       }
     });

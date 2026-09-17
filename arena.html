@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Арена Чести — Dark World</title>
+  
+  <!-- Подключаем Socket.io клиента -->
+  <script src="https://socket.io"></script>
+  <!-- Подключаем Supabase клиента -->
+  <script src="https://jsdelivr.net"></script>
+
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --text: #ffffff;
+      --hint: #9aa0b5;
+      --btn: #6c5ce7;
+      --danger: #e74c3c;
+      --success: #2ecc71;
+      --card: rgba(255, 255, 255, 0.05);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; padding: 16px;
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+    }
+    .arena-container { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+    
+    /* Шапка Арены с кнопкой назад */
+    .arena-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; }
+    .back-btn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 8px 16px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 13px; }
+    
+    /* Будущая система вкладок (Tabs) */
+    .arena-tabs { display: flex; gap: 6px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 12px; }
+    .arena-tab { flex: 1; background: transparent; border: none; color: var(--hint); padding: 10px; font-weight: bold; font-size: 13px; border-radius: 8px; cursor: pointer; text-align: center; }
+    .arena-tab.active { background: var(--btn); color: #fff; }
+    .arena-tab.disabled { opacity: 0.4; cursor: not-allowed; font-weight: normal; }
+
+    /* Зона личной заявки игрока */
+    .my-request-box { background: rgba(108, 92, 231, 0.08); border: 2px dashed var(--btn); border-radius: 16px; padding: 16px; text-align: center; box-shadow: 0 0 15px rgba(108, 92, 231, 0.15); }
+    .pulse-icon { font-size: 26px; animation: arenaPulse 1.5s infinite; margin-bottom: 4px; }
+    .timer-text { font-size: 24px; font-family: monospace; font-weight: bold; color: #ffc048; margin: 6px 0 12px; }
+    
+    /* Универсальные кнопки */
+    .action-btn { width: 100%; border: none; color: #fff; padding: 14px; font-weight: bold; font-size: 15px; border-radius: 12px; cursor: pointer; transition: transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .action-btn:active { transform: scale(0.98); }
+    .btn-create { background: var(--success); box-shadow: 0 4px 12px rgba(46,204,113,0.2); }
+    .btn-cancel { background: var(--danger); }
+    .btn-accept { background: var(--btn); padding: 8px 14px; font-size: 13px; border-radius: 8px; width: auto; }
+
+    /* Карточки других заявок на доске объявлений */
+    .lobby-list { display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow-y: auto; }
+    .user-card { display: flex; align-items: center; justify-content: space-between; background: var(--card); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 12px 14px; }
+    .empty-msg { text-align: center; color: var(--hint); font-size: 14px; padding: 32px 0; border: 1px dashed rgba(255,255,255,0.05); border-radius: 14px; }
+
+    @keyframes arenaPulse { 0% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 0.7; } }
+  </style>
+</head>
+<body>
+
+  <div class="arena-container">
+    
+    <!-- Шапка страницы -->
+    <div class="arena-header">
+      <div>
+        <h3 style="margin: 0; color: #f1c40f; font-size: 20px;">🏆 АРЕНА PvP</h3>
+        <span style="font-size: 12px; color: var(--hint);">Доска гладиаторских вызовов</span>
+      </div>
+      <!-- Кнопка возврата в главный файл index.html (город) -->
+      <button class="back-btn" onclick="location.href='index.html'">🔙 В город</button>
+    </div>
+
+    <!-- ТАБЫ: Задел на будущее проекта -->
+    <div class="arena-tabs">
+      <button class="arena-tab active">⚔️ Дуэли 1х1</button>
+      <button class="arena-tab disabled" disabled>👥 2х2 (Скоро)</button>
+      <button class="arena-tab disabled" disabled>🏆 Турниры</button>
+    </div>
+
+    <!-- ЗОНА 1: ЕСЛИ МОЯ ЗАЯВКА УЖЕ ИЩЕТ БОЙ (По умолчанию скрыта) -->
+    <div id="my-search-panel" style="display: none;" class="my-request-box">
+      <div class="pulse-icon">👁️‍🗨️</div>
+      <div style="font-weight: bold; font-size: 14px; letter-spacing: 0.5px;">ВАШ ВЫЗОВ ОПУБЛИКОВАН</div>
+      <div id="my-timer-display" class="timer-text">⏱️ 03:00</div>
+      <button id="cancel-request-btn" class="action-btn btn-cancel">✕ ОСТАНОВИТЬ ПОИСК</button>
+    </div>
+
+    <!-- ЗОНА 2: ЕСЛИ ИГРОК СВОБОДЕН И ГОТОВ СОЗДАТЬ ЗАЯВКУ -->
+    <div id="my-create-panel" style="display: block;">
+      <button id="create-request-btn" class="action-btn btn-create">
+        <span>⚔️</span> ОПУБЛИКОВАТЬ СВОЙ ВЫЗОВ (3 МИН)
+      </button>
+    </div>
+
+    <!-- ДОСКА ОБЪЯВЛЕНИЙ -->
+    <div style="font-weight: bold; font-size: 13px; color: var(--hint); display: flex; justify-content: space-between; padding: 0 4px; margin-top: 4px;">
+      <span>ОТКРЫТЫЕ ВЫЗОВЫ ДРУГИХ ИГРОКОВ:</span>
+      <span id="total-requests-counter" style="color: var(--btn);">Всего: 0</span>
+    </div>
+
+    <!-- Контейнер для динамического списка -->
+    <div id="lobby-list-viewport" class="lobby-list">
+      <div id="arena-empty-placeholder" class="empty-msg">
+        🏰 На Арене тишина... Будь первым, брось вызов!
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Сюда в следующем шаге мы подключим скрипт управления лобби arena_core.js -->
+  <script src="js/arena_core.js"></script>
+</body>
+</html>
