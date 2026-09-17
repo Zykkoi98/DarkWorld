@@ -83,7 +83,6 @@ window.loadGame = function(callback) {
         
         if (data && data.length > 0) {
           const cloudPlayer = data[0]; 
-          if (monitor) monitor.innerHTML += `<div>☁️ Успешно скачан профиль из Supabase.</div>`;
           
           window.player.level = Number(cloudPlayer.level || 1);
           window.player.gold = Number(cloudPlayer.gold || 0);

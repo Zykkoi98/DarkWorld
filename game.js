@@ -132,14 +132,17 @@ window.checkLevelUp = function(isInitialLoad = false) {
   // 1. Вычисляем правильный уровень на основе текущего опыта
   const correctLevel = window.getCorrectLevelByXp(window.player.xp);
   
-  const monitor = document.getElementById('tg-debug-monitor');
-  if (monitor) {
-    const logRow = document.createElement('div');
-    logRow.style.marginBottom = '3px';
-    logRow.innerHTML = `[F5] Опыт: ${window.player.xp} | Ур. в памяти: <span style="color:#fff">${window.player.level}</span> | Должен быть: <span style="color:#f1c40f">${correctLevel}</span>`;
-    monitor.appendChild(logRow);
-    monitor.scrollTop = monitor.scrollHeight;
-  }
+// 👇 ПОЛНОСТЬЮ УДАЛИ ИЛИ ЗАКОММЕНТИРУЙ ЭТОТ КУСОК КОДА:
+/*
+const monitor = document.getElementById('tg-debug-monitor');
+if (monitor) {
+  const logRow = document.createElement('div');
+  logRow.style.marginBottom = '3px';
+  logRow.innerHTML = `[F5] Опыт: ${window.player.xp} | Ур. в памяти: <span style="color:#fff">${window.player.level}</span> | Должен быть: <span style="color:#f1c40f">${correctLevel}</span>`;
+  monitor.appendChild(logRow);
+  monitor.scrollTop = monitor.scrollHeight;
+}
+*/
 
   // ============================================================================
   // 🛡️ ГЛОБАЛЬНЫЙ УМНЫЙ СБРОС СТАРЫХ СЕЙВОВ И АНТИЧИТ
