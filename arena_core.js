@@ -86,45 +86,70 @@ async function acceptChallenge(opponent) {
 async function refreshArenaLobby() {
   if (!sb || !localPlayer) return;
   const nowISO = new Date().toISOString();
+  
+  // Скачиваем все заявки из таблицы arena_lobby, которые еще не сгорели
   const { data: lobbyData, error } = await sb.from('arena_lobby').select('*').gt('arena_expires_at', nowISO);
-  if (error) return console.error(error.message);
-  const container = document.getElementById('lobby-list-viewport'); if (!container) return;
+  if (error) return console.error("Ошибка обновления лобби:", error.message);
+  
+  const container = document.getElementById('lobby-list-viewport'); 
+  if (!container) return;
 
   const myId = Number(localPlayer.id);
   const myActiveRequest = lobbyData.find(item => Number(item.id) === myId);
 
+  const sPanel = document.getElementById('my-search-panel');
+  const cPanel = document.getElementById('my-create-panel');
+
+  // 🔥 ИСПРАВЛЕННЫЙ БЛОК: Надежное переключение панелей БЕЗ .style.style
   if (myActiveRequest) {
-    document.getElementById('my-create-panel').style.setProperty('display', 'none');
-    document.getElementById('my-search-panel').style.setProperty('display', 'block');
+    if (cPanel) cPanel.style.display = 'none';
+    if (sPanel) sPanel.style.display = 'block';
+    
     let timeLeft = Math.max(0, Math.floor((new Date(myActiveRequest.arena_expires_at) - Date.now()) / 1000));
     if (myTimerInterval) clearInterval(myTimerInterval);
+    
     const updateMyTimerText = () => {
-      if (timeLeft <= 0) { clearInterval(myTimerInterval); cancelMyRequest(); return; }
-      const mins = Math.floor(timeLeft / 60); const secs = timeLeft % 60;
-      document.getElementById('my-timer-display').textContent = `⏱️ 0${mins}:${secs < 10 ? '0' + secs : secs}`;
+      if (timeLeft <= 0) { 
+        clearInterval(myTimerInterval); 
+        cancelMyRequest(); 
+        return; 
+      }
+      const mins = Math.floor(timeLeft / 60); 
+      const secs = timeLeft % 60;
+      const tDisplay = document.getElementById('my-timer-display');
+      if (tDisplay) tDisplay.textContent = `⏱️ 0${mins}:${secs < 10 ? '0' + secs : secs}`;
       timeLeft--;
     };
-    updateMyTimerText(); myTimerInterval = setInterval(updateMyTimerText, 1000);
+    updateMyTimerText(); 
+    myTimerInterval = setInterval(updateMyTimerText, 1000);
   } else {
     if (myTimerInterval) clearInterval(myTimerInterval);
-    document.getElementById('my-search-panel').style.setProperty('display', 'none');
-    document.getElementById('my-create-panel').style.setProperty('display', 'block');
+    if (sPanel) sPanel.style.display = 'none';
+    if (cPanel) cPanel.style.display = 'block';
   }
 
+  // Фильтруем список для вывода чужих заявок
   const opponentsRequests = lobbyData.filter(item => Number(item.id) !== myId);
-  document.getElementById('total-requests-counter').textContent = `Всего: ${opponentsRequests.length}`;
+  const counter = document.getElementById('total-requests-counter');
+  if (counter) counter.textContent = `Всего: ${opponentsRequests.length}`;
+  
   container.innerHTML = '';
 
   if (opponentsRequests.length === 0) {
-    const placeholder = document.createElement('div'); placeholder.className = 'empty-msg';
-    placeholder.textContent = '🏰 На Арене тишина... Будь первым, брось вызов!'; container.appendChild(placeholder); return;
+    const placeholder = document.createElement('div'); 
+    placeholder.className = 'empty-msg';
+    placeholder.textContent = '🏰 На Арене тишина... Будь первым, брось вызов!'; 
+    container.appendChild(placeholder); 
+    return;
   }
 
   opponentsRequests.forEach(opp => {
     const oppMaxHp = Number(opp.level * 30 + 70);
     const timeLeft = Math.max(0, Math.floor((new Date(opp.arena_expires_at) - Date.now()) / 1000));
     const mins = Math.floor(timeLeft / 60); const secs = timeLeft % 60;
-    const card = document.createElement('div'); card.className = 'user-card';
+    
+    const card = document.createElement('div'); 
+    card.className = 'user-card';
     card.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 2px;">
         <div style="font-weight: bold; font-size: 15px; color: #ffffff;">${opp.name} <span style="color: #f1c40f; font-size: 12px; font-weight: normal; margin-left: 4px;">Lv. ${opp.level}</span></div>
@@ -136,7 +161,10 @@ async function refreshArenaLobby() {
       </div>
     `;
     container.appendChild(card);
-    document.getElementById(`btn-challenge-${opp.id}`)?.addEventListener('click', () => { acceptChallenge({ id: opp.id, maxHp: oppMaxHp }); });
+    
+    document.getElementById(`btn-challenge-${opp.id}`)?.addEventListener('click', () => { 
+      acceptChallenge({ id: opp.id, maxHp: oppMaxHp }); 
+    });
   });
 }
 
