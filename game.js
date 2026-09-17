@@ -9,13 +9,14 @@ let currentTab = 'equipment'; // Текущая активная вкладка 
 window.rand = function(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };
-// 🔥 ФИКС: Жестко и явно объявляем функцию на объекте window в самом начале файла!
+
+// Жестко и явно объявляем функцию на объекте window
 window.getCorrectLevelByXp = function(xp) {
   if (!window.XP_TABLE || !Array.isArray(window.XP_TABLE)) {
     console.error("❌ XP_TABLE не найден в window!");
     return 1;
   }
-   // Идем с конца таблицы опыта к началу
+  // Идем с конца таблицы опыта к началу
   for (let lvl = window.XP_TABLE.length - 1; lvl >= 1; lvl--) {
     if (xp >= window.XP_TABLE[lvl]) {
       return lvl; 
@@ -32,7 +33,8 @@ function xpToNext(level) {
   }
   return nextLevel * 1000; 
 }
-// Расчет характеристик
+
+// Расчет характеристик от экипировки
 function getEquipmentBonus(playerData, bonusKey) {
   if (!playerData.equipped) return 0;
   let totalBonus = 0;
@@ -88,25 +90,22 @@ window.getMaxHp = function(playerData) {
 };
 
 // ============================================================================
-// ===== 👤 СТАНДАРТНЫЙ КОНСТРУКТОР СТАРТОВОГО ПЕРСОНАЖА (НОВИЧОК) =====
+// ===== 👤 СТАНДАРТНЫЙ КОНСТРУКТОР СТАРТОВОГО ПЕРСОНАЖА (БАЗА СТАТОВ = 1) =====
 // ============================================================================
 function createPlayer() {
-  // Пытаемся вытянуть реальные данные пользователя из WebApp Telegram
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-  
   const name = tgUser?.first_name || 'Новичок';
-  const uniqueId = tgUser?.id || 0; // Настоящий ID запишется при первой синхронизации в loadGame
+  const uniqueId = tgUser?.id || 0; 
 
-  // Генерируем чистый профиль 1-го уровня для записи в Supabase
   const newPlayer = {
     id: uniqueId,
     name: name,
     avatar: window.DEFAULT_AVATAR || 'assets/default_hero.png',
     level: 1, 
     xp: 0, 
-    gold: 50, // Стартовые монеты новичка
+    gold: 50, 
     currentTownIndex: 0, 
-    statPoints: 5, // Свободные очки для распределения характеристик
+    statPoints: 5, 
     stats: { 
       strength: 1, 
       agility: 1, 
@@ -122,21 +121,15 @@ function createPlayer() {
     }
   };
 
-  // Стартовое здоровье: базовая выносливость умноженная на 10 (10 * 10 = 100 HP)
   newPlayer.hp = newPlayer.stats.endurance * 10;
-
-  // Если функция расчета максимального здоровья еще не объявлена, создаем резервную
-  if (!window.getMaxHp) {
-    window.getMaxHp = function(p) { return (p?.stats?.endurance || 10) * 10; };
-  }
-
   return newPlayer;
 }
 
-// Функция пересчета и проверки изменения уровня (БЕЗ сброса HP при загрузке)
+// 🔥 ПОЛНОСТЬЮ ПЕРЕПИСАННАЯ ФУНКЦИЯ ПРОВЕРКИ С АНТИЧИТОМ И АВТОМАТИЧЕСКИМ СБРОСОМ
 window.checkLevelUp = function(isInitialLoad = false) {
   if (!window.player) return;
 
+  // 1. Вычисляем единственно верный и правильный уровень на основе текущего опыта
   const correctLevel = window.getCorrectLevelByXp(window.player.xp);
   
   const monitor = document.getElementById('tg-debug-monitor');
@@ -148,45 +141,72 @@ window.checkLevelUp = function(isInitialLoad = false) {
     monitor.scrollTop = monitor.scrollHeight;
   }
 
-  // 🔥 ФИКС: Проверяем факт изменения уровня
+  // ============================================================================
+  // 🛡️ ГЛОБАЛЬНЫЙ УМНЫЙ СБРОС И СИНХРОНИЗАЦИЯ (ФИКС НАКРУТКИ И 20 ОЧКОВ)
+  // ============================================================================
+  if (window.player.stats) {
+    const p = window.player;
+    
+    const str = Number(p.stats.strength || 1);
+    const agi = Number(p.stats.agility || 1);
+    const end = Number(p.stats.endurance || 1);
+    const int = Number(p.stats.intellect || 1);
+    const lck = Number(p.stats.luck || 1);
+
+    // Считаем сумму очков, которые игрок уже распределил
+    // Вычитаем 5, так как теперь базовые характеристики на старте равны 1 (1*5 = 5)
+    const distributedPoints = (str + agi + end + int + lck) - 5;
+    
+    // Текущие свободные очки, сохраненные в профиле
+    const currentStatPoints = Number(p.statPoints || 0);
+    
+    // Абсолютный максимум очков, доступный персонажу на его НАСТОЯЩЕМ уровне (correctLevel)
+    const maxPossibleTotalPoints = 5 + ((correctLevel - 1) * 5);
+
+    // Если сумма вкачанных характеристик и свободных очков превышает легальную норму,
+    // или если в памяти до сих пор лежат старые десятки (str === 10), принудительно сбрасываем!
+    if ((distributedPoints + currentStatPoints > maxPossibleTotalPoints) || (str === 10)) {
+      console.warn(`🚨 МИГРАЦИЯ: Статы игрока не соответствуют лимитам уровня ${correctLevel}. Сброс на базу 1.`);
+      
+      p.stats = { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 };
+      
+      // Честно вычисляем свободные очки строго по его АКТУАЛЬНОМУ уровню (correctLevel)
+      p.statPoints = maxPossibleTotalPoints;
+      p.hp = 10; 
+
+      if (window.saveGame) window.saveGame({ player: p });
+    }
+  }
+  // ============================================================================
+
+  // 2. Логика изменения уровня в процессе игры (после PvE/PvP поединков)
   if (window.player.level !== correctLevel) {
     const oldLevel = window.player.level;
     const isLeveledDown = oldLevel > correctLevel;
     
     window.player.level = correctLevel;
 
-    if (isInitialLoad) {
-      // При первой загрузке (F5) берем очки из базы. Если там пусто — даем базу.
-      if (window.player.statPoints === undefined || window.player.statPoints === null) {
-        window.player.statPoints = (correctLevel - 1) * 5;
-      }
-    } else {
-      // Живой игровой процесс (левелап после победы в бою)
+    if (!isInitialLoad) {
       if (!isLeveledDown) {
-        // 🔥 ФИКС БАГА: Вычисляем, на сколько уровней поднялся игрок, и даем строго по +5 за каждый!
+        // Начисляем по +5 свободных статов за каждый полученный уровень
         const levelsGained = correctLevel - oldLevel;
         window.player.statPoints = (window.player.statPoints || 0) + (levelsGained * 5);
-        
-        // Полностью лечим героя при получении уровня
         window.player.hp = window.getMaxHp(window.player);
       } else {
-        // Если уровень упал (штраф), сбрасываем характеристики
         window.player.stats = { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 };
-        window.player.statPoints = (correctLevel - 1) * 5;
+        window.player.statPoints = 5 + ((correctLevel - 1) * 5);
       }
     }
 
     const maxHp = window.getMaxHp(window.player);
     if (window.player.hp > maxHp) window.player.hp = maxHp;
 
-    if (window.saveGame) {
-      window.saveGame({ player: window.player });
-    }
-    
-    if (typeof render === 'function') render();
-    const modal = document.getElementById('profile-modal');
-    if (modal && modal.classList.contains('active')) window.openProfile();
+    if (window.saveGame) window.saveGame({ player: window.player });
   }
+
+  if (typeof render === 'function') render();
+  const modal = document.getElementById('profile-modal');
+  if (modal && modal.classList.contains('active')) window.openProfile();
 };
 // ============================================================================
 // ===== ЧАСТЬ 2: ЛОГИКА ГОРОДОВ, ИНВЕНТАРЯ И БЕЗОПАСНЫЕ СЛУШАТЕЛИ КЛИКОВ =====
@@ -326,21 +346,53 @@ const modal = document.getElementById('profile-modal');
   hr.style.cssText = 'border:0; border-top:1px solid rgba(255,255,255,0.1); margin:12px 0;';
   statsBody.appendChild(hr);
 
-  // Генерируем строки базовых характеристик с безопасными кнопками «+»
+   // Генерируем строки базовых характеристик со скобками и цветами
   Object.keys(window.player.stats).forEach(key => {
-    const row = document.createElement('div'); row.className = 'profile-row';
-    const lSpan = document.createElement('span'); lSpan.textContent = labels[key];
-    const vSpan = document.createElement('span'); vSpan.style.display = 'flex'; vSpan.style.alignItems = 'center'; vSpan.textContent = window.player.stats[key] + ' ';
+    const row = document.createElement('div'); 
+    row.className = 'profile-row';
+    
+    const lSpan = document.createElement('span'); 
+    lSpan.textContent = labels[key];
+    
+    const vSpan = document.createElement('span'); 
+    vSpan.style.display = 'flex'; 
+    vSpan.style.alignItems = 'center'; 
+    
+    // Получаем базовое значение из объекта игрока
+    const baseVal = Number(window.player.stats[key] || 1);
+    
+    // Считаем бонус вещей специально для этого стата через getEquipmentBonus
+    const gearBonus = typeof getEquipmentBonus === 'function' ? getEquipmentBonus(window.player, key) : 0;
+    
+    // Общее значение стата (база + шмот)
+    const totalVal = baseVal + gearBonus;
 
+    // Создаем красивую разметку со скобками и цветами
+    const textContainer = document.createElement('span');
+    textContainer.style.marginRight = '8px';
+    
+    let htmlContent = `<strong style="color: #ffffff; font-size: 15px;">${totalVal}</strong> `;
+    htmlContent += `<span style="color: #9aa0b5; font-size: 12px;">(</span><span style="color: #f1c40f; font-size: 12px; font-weight: normal;">${baseVal}</span><span style="color: #9aa0b5; font-size: 12px;">)</span>`;
+    
+    if (gearBonus > 0) {
+      htmlContent += ` <span style="color: #2ecc71; font-size: 12px; font-weight: normal;">(+${gearBonus})</span>`;
+    }
+    
+    textContainer.innerHTML = htmlContent;
+    vSpan.appendChild(textContainer);
+
+    // Если есть свободные очки распределения статов, рисуем кнопку плюс
     if (window.player.statPoints > 0) {
-      const plusBtn = document.createElement('button'); plusBtn.textContent = '+';
-      plusBtn.style.cssText = 'margin-left:12px; background:var(--btn); border:none; color:#fff; border-radius:6px; padding:3px 9px; font-weight:bold; cursor:pointer;';
-      
-      // Напрямую привязываем клик, обходя строковые вызовы
+      const plusBtn = document.createElement('button'); 
+      plusBtn.textContent = '+';
+      plusBtn.style.cssText = 'background:var(--btn); border:none; color:#fff; border-radius:6px; padding:3px 9px; font-weight:bold; cursor:pointer;';
       plusBtn.addEventListener('click', function() { window.upgradeStat(key); });
       vSpan.appendChild(plusBtn);
     }
-    row.appendChild(lSpan); row.appendChild(vSpan); statsBody.appendChild(row);
+    
+    row.appendChild(lSpan); 
+    row.appendChild(vSpan); 
+    statsBody.appendChild(row);
   });
 };
 
