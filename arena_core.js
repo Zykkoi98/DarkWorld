@@ -142,27 +142,28 @@ async function cancelMyRequest() {
   refreshArenaLobby();
 }
 
-async function acceptChallenge(opponent) {
+async function acceptChallenge(opponentId, opponentMaxHp) {
   if (!sb || !localPlayer || !socket) return;
   if (Number(localPlayer.hp || 0) <= 0) return alert("Вы слишком слабы! Излечитесь в городе.");
 
+  console.log(`🎯 Клик зафиксирован! Пытаюсь удалить заявку врага ID: ${opponentId}`);
+
   try {
-    // 1. Удаляем чужую заявку из таблицы лобби, так как мы её приняли
-    const { error } = await sb.from('arena_lobby').delete().eq('id', Number(opponent.id));
+    // 1. Удаляем чужую заявку из таблицы лобби
+    const { error } = await sb.from('arena_lobby').delete().eq('id', Number(opponentId));
     if (error) return alert("Вызов уже принят другим игроком!");
 
-    // 🔥 ИСПРАВЛЕНО: Безопасный расчет максимального ХП без дублирования const
     const baseEndurance = Number(localPlayer.endurance !== undefined ? localPlayer.endurance : 1);
     const myRealMaxHp = baseEndurance * 10; 
 
-    console.log(`📡 Отправляю сокет accept_arena_challenge для боя с ID ${opponent.id}...`);
+    console.log(`📡 Отправляю сокет accept_arena_challenge для боя с ID ${opponentId}...`);
 
-    // 2. Отправляем сигнал на сервер для сборки комнаты и старта раундов
+    // 2. Отправляем сигнал на сервер для сборки комнаты
     socket.emit('accept_arena_challenge', {
       myId: localPlayer.id, 
-      opponentId: opponent.id, 
+      opponentId: Number(opponentId), 
       myMaxHp: myRealMaxHp, 
-      oppMaxHp: Number(opponent.maxHp || 100)
+      oppMaxHp: Number(opponentMaxHp || 100)
     });
   } catch (err) {
     console.error("Ошибка в acceptChallenge:", err.message);
@@ -219,14 +220,12 @@ async function refreshArenaLobby() {
   const counter = document.getElementById('total-requests-counter');
   if (counter) counter.textContent = `Всего: ${opponentsRequests.length}`;
   
+  // Очищаем старую сетку доски объявлений
   container.innerHTML = '';
 
   if (opponentsRequests.length === 0) {
-    const placeholder = document.createElement('div'); 
-    placeholder.className = 'empty-msg';
-    placeholder.textContent = '🏰 На Арене тишина... Будь первым, брось вызов!'; 
-    container.appendChild(placeholder); 
-    return;
+    const placeholder = document.createElement('div'); placeholder.className = 'empty-msg';
+    placeholder.textContent = '🏰 На Арене тишина... Будь первым, брось вызов!'; container.appendChild(placeholder); return;
   }
 
   opponentsRequests.forEach(opp => {
@@ -234,8 +233,10 @@ async function refreshArenaLobby() {
     const timeLeft = Math.max(0, Math.floor((new Date(opp.arena_expires_at) - Date.now()) / 1000));
     const mins = Math.floor(timeLeft / 60); const secs = timeLeft % 60;
     
-    const card = document.createElement('div'); 
-    card.className = 'user-card';
+    const card = document.createElement('div'); card.className = 'user-card';
+    
+    // 🔥 ФИКС: Зашиваем параметры прямо в инлайн onclick! 
+    // Экранируем кавычки, чтобы длинный ID передавался как чистая строка/число безопасно.
     card.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 2px;">
         <div style="font-weight: bold; font-size: 15px; color: #ffffff;">${opp.name} <span style="color: #f1c40f; font-size: 12px; font-weight: normal; margin-left: 4px;">Lv. ${opp.level}</span></div>
@@ -243,14 +244,10 @@ async function refreshArenaLobby() {
       </div>
       <div style="display: flex; align-items: center; gap: 12px;">
         <span style="font-family: monospace; font-size: 14px; color: #ffc048; font-weight: bold;">⏱️ 0${mins}:${secs < 10 ? '0' + secs : secs}</span>
-        <button class="action-btn btn-accept" id="btn-challenge-${opp.id}">В БОЙ</button>
+        <button class="action-btn btn-accept" onclick="acceptChallenge('${opp.id}', ${oppMaxHp})">В БОЙ</button>
       </div>
     `;
     container.appendChild(card);
-    
-    document.getElementById(`btn-challenge-${opp.id}`)?.addEventListener('click', () => { 
-      acceptChallenge({ id: opp.id, maxHp: oppMaxHp }); 
-    });
   });
 }
 
