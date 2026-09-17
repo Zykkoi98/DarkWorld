@@ -55,28 +55,31 @@ function setupSocketListeners() {
   socket.on('reconnect_battle_success', () => { location.href = 'index.html'; });
   socket.on('battle_start', () => { location.href = 'index.html'; });
 // 🔥 ИСПРАВЛЕННЫЙ ПЕРЕХВАТЧИК БОЯ: Убираем перезагрузку location.href!
-  socket.on('arena_redirect_to_battle', ({ opponentId, challengerId, roomId }) => {
-    const myId = Number(localPlayer.id);
-    if (myId === Number(opponentId) || myId === Number(challengerId)) {
-      if (myTimerInterval) clearInterval(myTimerInterval);
-      if (globalLobbyInterval) clearInterval(globalLobbyInterval);
-      
-      console.log("⚔️ Бой подтвержден! Сигнализируем материнскому окну города...");
-      
-      // 1. Прячем тактический фрейм Арены с экрана, возвращая игрока в город
-      const parentDoc = window.parent.document;
-      const iframeWrapper = parentDoc.getElementById('arena-iframe-wrapper');
-      if (iframeWrapper) {
-        iframeWrapper.style.display = 'none';
-      }
+    socket.on('arena_redirect_to_battle', ({ opponentId, challengerId, roomId }) => {
+        const myId = Number(localPlayer.id);
+        if (myId === Number(opponentId) || myId === Number(challengerId)) {
+        if (myTimerInterval) clearInterval(myTimerInterval);
+        if (globalLobbyInterval) clearInterval(globalLobbyInterval);
+        
+        console.log("⚔️ Бой подтвержден! Скрываем Арену...");
+        
+        // 1. Скрываем фрейм Арены с экрана города
+        const parentDoc = window.parent.document;
+        const iframeWrapper = parentDoc.getElementById('arena-iframe-wrapper');
+        if (iframeWrapper) {
+            iframeWrapper.style.display = 'none';
+        }
 
-      // 2. Напрямую пингаем сокет-модуль города (index.html), чтобы он запустил твой боевой экран!
-      if (window.parent.socket) {
-        // Заставляем сокет в городе отправить серверу запрос на моментальный вход в созданную комнату
-        window.parent.socket.emit('check_active_battle', { userId: myId });
-      }
-    }
-  });
+        // 2. Обращаемся напрямую к главному сокету в городе (index.html)
+        const mainSocket = window.parent.socket;
+        if (mainSocket) {
+            console.log("📡 Отправляем триггер восстановления боя из города в ОЗУ сервера...");
+            mainSocket.emit('check_active_battle', { userId: myId });
+        } else {
+            console.error("❌ Критическая ошибка: Главный сокет города не найден в window.parent!");
+        }
+        }
+    });
   socket.on('arena_lobby_updated', () => { refreshArenaLobby(); });
   socket.on('error', (msg) => { alert(`⚠️ Арена: ${msg}`); });
 }
