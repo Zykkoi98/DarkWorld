@@ -239,8 +239,8 @@ function renderFighters() {
   const isBattleOver = strikeBtn && strikeBtn.textContent.includes('ГОРОД');
 
   // Относительные пути к стандартным картинкам-заглушкам в корне проекта
-  const DEFAULT_HERO_IMG = "../assets/default_hero.jpg";
-  const DEFAULT_MONSTER_IMG = "../assets/default_monster.jpg";
+  const DEFAULT_HERO_IMG = "../assets/avatars/hero5.jpg";
+  const DEFAULT_MONSTER_IMG = "../assets/monsters/monster1.jpg";
 
   // -------------------------------------------------------------------------
   // 1. ОТРИСОВКА ВАШЕГО ГЕРОЯ (ЛЕВАЯ КАРТОЧКА С ХУДОЖЕСТВЕННЫМ ФОНОМ)
