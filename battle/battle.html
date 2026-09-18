@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Битва Чести — Dark World</title>
-  <!-- Официальный клиент Socket.io (версия 4.8.3, как в городе) -->
-  <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
   <script src="../config.js" defer></script>
   <script src="client_battle.js" defer></script>
   
@@ -21,35 +20,34 @@
       --border: rgba(255, 255, 255, 0.08);
     }
 
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; margin: 0; padding: 0; }
 
     body {
-      margin: 0; padding: 8px;
+      padding: 8px;
       font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
       background: var(--bg); color: var(--text);
       display: flex; flex-direction: column;
       height: 100vh; overflow: hidden;
+      align-items: center;
     }
 
     #battle-screen {
-      max-width: 480px; margin: 0 auto; width: 100%;
+      max-width: 480px; width: 100%;
       display: flex; flex-direction: column; height: 100%; gap: 6px;
     }
 
     .battle-header {
       text-align: center; font-size: 15px; font-weight: bold; color: #f1c40f;
-      padding: 2px 0; border-bottom: 1px solid var(--border);
+      padding: 4px 0; border-bottom: 1px solid var(--border);
     }
 
-    /* ============================================================================
-       ===== ⚔️ ИДЕАЛЬНО СИММЕТРИЧНАЯ ВЕРХНЯЯ ЗОНА: ДУЭЛЬ 1Х1 =====
-       ============================================================================ */
+    /* 🔥 ЖЕСТКИЙ СТАБИЛЬНЫЙ РЯД ДУЭЛИ 1Х1 */
     .duel-zone {
-      display: flex;
-      flex-direction: row; /* 🔥 Насильно заставляем элементы стоять в один ряд */
-      justify-content: space-between;
-      align-items: flex-start; /* Выравнивание по верхней линии кнопок расходников */
-      gap: 6px;
+      display: flex !important;
+      flex-direction: row !important;
+      justify-content: space-between !important;
+      align-items: flex-start !important;
+      gap: 4px;
       background: rgba(0, 0, 0, 0.3);
       border-radius: 14px;
       padding: 6px;
@@ -57,58 +55,60 @@
       width: 100%;
     }
 
-/* Карточки дуэлянтов с жестко зафиксированными размерами в пикселях */
+    .fighter-side-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 110px;
+      flex-shrink: 0;
+    }
+
     .big-fighter-card {
-      width: 110px; /* Слегка уменьшили ширину, чтобы влезть в узкие экраны вместе со слотами */
-      max-width: 110px;
-      height: 140px; /* 🔥 Сделали карточку компактной, так как аватар ушел в фон */
+      width: 110px;
+      height: 145px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 8px 4px;
+      padding: 6px 4px;
       text-align: center;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
-      
       position: relative; 
       overflow: hidden;   
       background: #13141f; 
       box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-      flex-shrink: 0; /* Защита от сжатия пультами тактики */
     }
-     /* 🔥 ЗАДНИЙ ФОН-ПОДЛОЖКА ВНУТРИ САМОЙ КАРТОЧКИ */
+    
     .card-background-art {
       position: absolute;
       top: 0; left: 0;
       width: 100%; height: 100%;
-      object-fit: cover; /* Защита от растягивания арта */
-      z-index: 1; /* Картинка ложится на самый нижний слой ВНУТРИ карточки */
-      opacity: 0.35; /* Оптимальная яркость, чтобы арт был виден, но не слепил */
-      filter: brightness(0.7) contrast(1.1);
+      object-fit: cover;
+      z-index: 1;
+      opacity: 0.35;
+      filter: brightness(0.6) contrast(1.1);
       pointer-events: none;
     }
-     /* 🔥 ТЕМНЫЙ ГРАДИЕНТНЫЙ ЩИТ (чтобы буквы имени и ХП не сливались с артом) */
+
     .card-gradient-overlay {
       position: absolute;
       top: 0; left: 0;
       width: 100%; height: 100%;
       background: linear-gradient(to bottom, 
-        rgba(13,14,21,0.85) 0%,   /* Сильное затемнение вверху под уровень */
-        rgba(13,14,21,0.3) 40%,   /* Прозрачно по центру, где лицо арта */
-        rgba(13,14,21,0.9) 100%   /* Сильное затемнение внизу под имя и ХП */
+        rgba(13,14,21,0.85) 0%,   
+        rgba(13,14,21,0.2) 40%,   
+        rgba(13,14,21,0.95) 100%   
       );
-      z-index: 2; /* Ложится ПОВЕРХ картинки, но ПОД текст */
+      z-index: 2;
       pointer-events: none;
     }
-        /* Поднимаем текстовые блоки и полосы ХП на самый верхний слой (z-index: 3) */
-    .big-lvl, .big-name, .hp-wrapper {
-      position: relative;
-      z-index: 3; /* Текст гарантированно горит поверх любого арта! */
-    }
+
+    .big-lvl, .big-name, .hp-wrapper { position: relative; z-index: 3; }
+
     .big-lvl { 
       font-size: 11px; color: #f1c40f; font-weight: bold; 
-      margin-bottom: 0px; height: 14px; line-height: 14px;
+      height: 14px; line-height: 14px; margin-bottom: 4px;
       text-shadow: 0 1px 4px #000;
     }
 
@@ -116,126 +116,76 @@
       height: 28px; font-size: 11px; font-weight: bold; line-height: 1.2;
       width: 100%; white-space: normal; word-wrap: break-word;
       display: flex; align-items: center; justify-content: center; text-align: center;
-      color: #ffffff; margin-top: auto; margin-bottom: 4px; /* Прижали имя к полосе ХП */
+      color: #ffffff; margin-top: auto; margin-bottom: 4px;
       text-shadow: 0 1px 4px #000;
     }
-    /* Жесткий отступ под аватаром */
-    .avatar-container {
-      width: 68px;
-      height: 80px;
-      border-radius: 8px;
-      border: 1px solid rgba(243, 185, 185, 0.15);
-      overflow: hidden;
-      background: #1e272e;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      flex-shrink: 0;
-      margin-bottom: 12px; /* 🔥 Фиксированный шаг до имени */
+
+    .hp-wrapper { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .hp-bar { width: 100%; height: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; overflow: hidden; border: 1px solid rgba(0,0,0,0.2); }
+    .hp-fill { height: 100%; background: linear-gradient(90deg, #2ecc71, #26de81); width: 100%; transition: width 0.3s ease; }
+    .enemy-hp .hp-fill { background: linear-gradient(90deg, #ff4757, #ff6b6b); }
+    
+    .hp-text { 
+      font-size: 13px; color: #ffffff; font-family: monospace; font-weight: bold; 
+      text-shadow: 0 1px 4px rgba(0,0,0,0.9);
     }
 
-    /* ============================================================================
-       ===== 🎛️ СТИЛЬНЫЕ НЕОНОВЫЕ ДВУХКОЛОННЫЕ КНОПКИ ТАКТИКИ =====
-       ============================================================================ */
-      /* Пульт тактики по центру */
+    .quick-slots-row { display: flex; gap: 4px; width: 100%; margin-top: 4px; }
+    .quick-action-btn {
+      flex: 1; height: 32px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border);
+      border-radius: 6px; color: #ffffff; font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;
+    }
+    .quick-action-btn:disabled { opacity: 0.15; cursor: not-allowed; box-shadow: none; }
+
     .tactical-center-controls {
-      flex: 1; /* Занимает всё оставшееся свободное место по центру */
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      background: rgba(0, 0, 0, 0.4);
-      padding: 6px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      justify-content: space-between;
+      flex: 1; display: flex; flex-direction: column; gap: 4px;
+      background: rgba(0, 0, 0, 0.4); padding: 4px; border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05); justify-content: space-between;
     }
 
-    .columns-wrapper { display: flex; gap: 6px; width: 100%; }
-    .zone-column-box { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-    .mini-title { font-size: 9px; font-weight: bold; text-align: center; margin-bottom: 2px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .columns-wrapper { display: flex; gap: 4px; width: 100%; }
+    .zone-column-box { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .mini-title { font-size: 9px; font-weight: bold; text-align: center; margin-bottom: 1px; letter-spacing: 0.5px; text-transform: uppercase; }
     
     .compact-zone-btn {
-      width: 100%;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      color: #b2bec3;
-      padding: 8px 0;
-      font-size: 11px;
-      font-weight: 600;
-      border-radius: 6px;
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-      text-transform: uppercase;
+      width: 100%; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #b2bec3; padding: 7px 0; font-size: 10px; font-weight: 600; border-radius: 6px;
+      cursor: pointer; text-align: center; transition: all 0.15s ease; text-transform: uppercase;
     }
-    .compact-zone-btn:hover {
-      background: rgba(255, 255, 255, 0.06);
-      color: #fff;
-    }
-    
     .compact-zone-btn.attack-selected { 
       background: linear-gradient(135deg, #ff9f43, #ee5253) !important; 
-      border-color: #ff6b6b; 
-      color: #fff !important;
-      box-shadow: 0 0 10px rgba(238, 82, 83, 0.5);
+      border-color: #ff6b6b; color: #fff !important; box-shadow: 0 0 8px rgba(238, 82, 83, 0.4);
     }
-    
     .compact-zone-btn.defend-selected { 
       background: linear-gradient(135deg, #0abde3, #10ac84) !important; 
-      border-color: #00d2d3; 
-      color: #fff !important;
-      box-shadow: 0 0 10px rgba(10, 189, 227, 0.5);
+      border-color: #00d2d3; color: #fff !important; box-shadow: 0 0 8px rgba(10, 189, 227, 0.4);
     }
 
     #strike-action-btn {
       width: 100%; background: linear-gradient(135deg, #70a1ff, #1e90ff); color: white; border: none;
-      padding: 10px; font-size: 13px; font-weight: bold; border-radius: 6px;
-      cursor: pointer; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 12px rgba(30, 144, 255, 0.2);
+      padding: 9px; font-size: 12px; font-weight: bold; border-radius: 6px;
+      cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 12px rgba(30, 144, 255, 0.2);
     }
-    #strike-action-btn:disabled { 
-      background: #2c3e50 !important; color: #7f8c8d !important; 
-      opacity: 0.4; cursor: not-allowed; box-shadow: none; 
-    }
+    #strike-action-btn:disabled { background: #2c3e50 !important; color: #7f8c8d !important; opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 
-    /* Полосы ХП */
-    .hp-wrapper {
-      width: 100%;
-      margin-top: auto; /* Прижимает ХП к самому низу карточки */
-    }
-    .hp-bar { width: 100%; height: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; overflow: hidden; border: 1px solid rgba(0,0,0,0.2); }
-    .hp-fill { height: 100%; background: linear-gradient(90deg, #2ecc71, #26de81); width: 100%; transition: width 0.3s ease; }
-    .enemy-hp .hp-fill { background: linear-gradient(90deg, #ff4757, #ff6b6b); }
-    .hp-text { font-size: 13px; color: #a4b0be; font-family: monospace; font-weight: bold; }
-
-    /* Списки участников */
-    .reserve-zone { display: flex; justify-content: space-between; gap: 10px; }
+    .reserve-zone { display: flex; justify-content: space-between; gap: 8px; width: 100%; margin-top: 2px; }
     .reserve-column {
-      flex: 1; display: flex; flex-direction: column; gap: 4px;
-      background: rgba(0, 0, 0, 0.2); padding: 4px; border-radius: 8px;
-      max-height: 105px; overflow-y: auto; border: 1px solid var(--border);
+      flex: 1; display: flex; flex-direction: column; gap: 4px; background: rgba(0, 0, 0, 0.2); padding: 4px;
+      border-radius: 8px; max-height: 90px; overflow-y: auto; border: 1px solid var(--border);
     }
-
     .mini-fighter-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 6px; padding: 4px 6px; display: flex;
-      align-items: center; justify-content: space-between; gap: 4px; cursor: pointer;
+      background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px;
+      display: flex; align-items: center; justify-content: space-between; gap: 4px; cursor: pointer;
     }
     .mini-fighter-card.active-target { border: 1px solid #ff4757; background: rgba(255, 71, 87, 0.08); }
     .mini-fighter-card.dead { opacity: 0.2; pointer-events: none; }
-    .mini-fighter-info { font-size: 10px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 65px; color: #c8d6e5; }
+    .mini-fighter-info { font-size: 10px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75px; color: #c8d6e5; }
 
-    .battle-bottom { flex: 1; display: flex; flex-direction: column; gap: 4px; min-height: 100px; }
-    #battle-potion-btn {
-      width: 100%; background: var(--success); color: white; border: none;
-      padding: 8px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; display: none;
-    }
+    .battle-bottom { width: 100%; flex: 1; display: flex; flex-direction: column; gap: 4px; min-height: 90px; margin-top: 2px; }
     .battle-log {
-      flex: 1; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border);
-      border-radius: 10px; padding: 8px; font-size: 12px; line-height: 1.3; font-family: monospace; overflow-y: auto;
+      flex: 1; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border); border-radius: 10px;
+      padding: 8px; font-size: 12px; line-height: 1.3; font-family: monospace; overflow-y: auto;
     }
     .log-round-break { color: #f1c40f; margin: 4px 0; border-top: 1px dashed var(--border); padding-top: 4px; font-weight: bold; text-align: center; }
     .log-damage { color: #ff6b6b; }
@@ -243,49 +193,11 @@
     .log-miss { color: #84817a; }
 
     #battle-loading-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: var(--bg); z-index: 9999; display: flex;
-      flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg);
+      z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
     }
     .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1); border-left-color: #1e90ff; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    /* ============================================================================
-       ===== 🧪 НОВЫЕ СТИЛИ ДЛЯ КНОПОК БАНОК И СВИТКОВ ПОД КАРТОЧКАМИ =====
-       ============================================================================ */
-   .quick-slots-row {
-      display: flex;
-      gap: 4px;
-      width: 100%;
-      max-width: 110px; /* 🔥 Должно строго совпадать с шириной .big-fighter-card */
-      margin-top: 4px;
-    }
-
-     .quick-action-btn {
-      flex: 1;
-      height: 32px; /* Чуть-чуть компактнее по высоте */
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: #ffffff;
-      font-size: 14px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s ease;
-    }
-
-    .quick-action-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .quick-action-btn:disabled {
-      opacity: 0.15;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-    
   </style>
 </head>
 <body>
@@ -299,16 +211,14 @@
   <div id="battle-screen">
     <div id="battle-round-indicator" class="battle-header">Подключение к арене...</div>
 
- <!-- 1. ВЕРХНИЙ БЛОК: КОМПАКТНАЯ ДУЭЛЬ С БЫСТРЫМИ СЛОТАМИ РАСХОДНИКОВ -->
+    <!-- ВЕРХНИЙ БЛОК: СТРОГАЯ ГОРИЗОНТАЛЬНАЯ ДУЭЛЬНАЯ ЗОНА -->
     <div class="duel-zone">
       
-         <!-- ЛЕВАЯ СТОРОНА: Герой + Быстрые слоты -->
-      <div style="display: flex; flex-direction: column; align-items: center;">
+      <!-- ЛЕВАЯ СТОРОНА: Герой -->
+      <div class="fighter-side-wrapper">
         <div id="main-hero-card" class="big-fighter-card">
-          <!-- 🔥 Задний арт Яна внутри карточки -->
-          <img id="hero-card-bg-img" class="card-background-art" src="../assets/avatars/hero5.jpg" alt="Hero Background">
+          <img id="hero-card-bg-img" class="card-background-art" src="../assets/avatars/hero5.jpg" alt="Hero BG">
           <div class="card-gradient-overlay"></div>
-
           <div class="big-lvl" id="hero-lvl-text">Lv. --</div>
           <div class="big-name" id="hero-name-text">Загрузка...</div>
           <div class="hp-wrapper">
@@ -316,14 +226,6 @@
             <div class="hp-text" id="hero-hp-text">0 / 0</div>
           </div>
         </div>
-        
-        <div class="quick-slots-row">
-          <button id="quick-potion-btn" class="quick-action-btn" title="Выпить зелье" disabled>🧪</button>
-          <button id="quick-scroll-btn" class="quick-action-btn" title="Прочитать свиток" disabled>📜</button>
-        </div>
-      </div>
-        
-        <!-- 🔥 Кнопки банок и свитков строго ПОД вашей карточкой -->
         <div class="quick-slots-row">
           <button id="quick-potion-btn" class="quick-action-btn" title="Выпить зелье" disabled>🧪</button>
           <button id="quick-scroll-btn" class="quick-action-btn" title="Прочитать свиток" disabled>📜</button>
@@ -341,7 +243,6 @@
             <button class="compact-zone-btn btn-atk" data-zone="belt">Пояс</button>
             <button class="compact-zone-btn btn-atk" data-zone="legs">Ноги</button>
           </div>
-
           <div class="zone-column-box">
             <div class="mini-title" style="color: #0abde3;">БЛОК</div>
             <button class="compact-zone-btn btn-def" data-zone="head">Голова</button>
@@ -354,13 +255,11 @@
         <button id="strike-action-btn" disabled>АТАКОВАТЬ</button>
       </div>
 
-           <!-- ПРАВАЯ СТОРОНА: Враг + Заглушки -->
-      <div style="display: flex; flex-direction: column; align-items: center;">
+      <!-- ПРАВАЯ СТОРОНА: Враг -->
+      <div class="fighter-side-wrapper">
         <div id="main-target-card" class="big-fighter-card">
-          <!-- 🔥 Задний арт Голема внутри карточки -->
-          <img id="target-card-bg-img" class="card-background-art" src="../assets/monsters/monster1.jpg" alt="Monster Background">
+          <img id="target-card-bg-img" class="card-background-art" src="../assets/monsters/monster1.jpg" alt="Monster BG">
           <div class="card-gradient-overlay"></div>
-
           <div class="big-lvl" id="target-lvl-text">Lv. --</div>
           <div class="big-name" id="target-name-text">Нет цели</div>
           <div class="hp-wrapper enemy-hp">
@@ -368,14 +267,15 @@
             <div class="hp-text" id="target-hp-text">0 / 0</div>
           </div>
         </div>
-        
         <div class="quick-slots-row">
           <button class="quick-action-btn" disabled style="opacity: 0.05;">🛡️</button>
           <button class="quick-action-btn" disabled style="opacity: 0.05;">⚔️</button>
         </div>
       </div>
 
-    <!-- 2. СРЕДНИЙ БЛОК: МАССОВКА -->
+    </div> <!-- Конец дуэльной зоны -->
+
+    <!-- МАССОВКА -->
     <div class="reserve-zone">
       <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
         <div class="mini-title" style="text-align: left; padding-left: 4px; color: #2ecc71;">👥 Отряд:</div>
@@ -387,12 +287,14 @@
       </div>
     </div>
 
-  
+    <!-- ЛОГИ БОЯ -->
+    <div class="battle-bottom">
       <div id="battle-log-viewport" class="battle-log">
         <div class="log-system">Синхронизация логов с сервером...</div>
       </div>
     </div>
-  </div>
+    
+  </div> <!-- Конец battle-screen -->
 
 </body>
 </html>
