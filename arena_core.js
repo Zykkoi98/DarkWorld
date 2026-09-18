@@ -1,7 +1,6 @@
 // ============================================================================
-// ===== 🏆 КЛИЕНТСКОЕ ЯДРО АРЕНЫ: ИНИЦИАЛИЗАЦИЯ И СЕТЬ (ОБНОВЛЕННОЕ) =====
+// ===== 🏆 КЛИЕНТСКОЕ ЯДРО АРЕНЫ: ИНИЦИАЛИЗАЦИЯ И СЕТЬ (ЧАСТЬ 1) =====
 // ============================================================================
-
 const SUPABASE_URL = "https://ylslpgujwgxtsabkzgbd.supabase.co"; 
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlsc2xwZ3Vqd2d4dHNhYmt6Z2JkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMDM3ODksImV4cCI6MjEwNDg3OTc4OX0.GKocc3hnVQVSYaOnm1QhHca54sBn8AsiN8mHo6J0ENY"; 
 
@@ -24,7 +23,7 @@ function initArenaPage() {
   } else {
     console.warn("⚠️ Прямое сокет-соединение отсутствует, пробуем локально...");
     if (typeof io === 'function') {
-      socket = io('https://onrender.com');
+      socket = io('https://darkworld-server.onrender.com');
       setupSocketListeners();
     }
   }
