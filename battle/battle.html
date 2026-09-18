@@ -239,4 +239,38 @@
   </div>
 
 </body>
+<script>
+    // 🔥 ЗАЩИТА ОТ ЛОЖНЫХ ПЕРЕЗАГРУЗОК ТЕЛЕГРАМА В БОЮ
+    (function() {
+        // 1. Перехватываем стандартную команду location.reload
+        const originalReload = window.location.reload;
+        window.location.reload = function(forceReload) {
+        // Если бой еще идет (нет кнопки завершения), полностью блокируем перезагрузку!
+        const strikeBtn = document.getElementById('strike-action-btn');
+        if (strikeBtn && !strikeBtn.textContent.includes('ГОРОД')) {
+            console.warn("🛡️ Попытка ложной перезагрузки страницы заблокирована боевым щитом!");
+            return; 
+        }
+        // Если бой официально завершен, разрешаем обычный релоад
+        originalReload.call(window.location, forceReload);
+        };
+
+        // 2. Ломаем встроенный обработчик Telegram message 'reload_iframe'
+        const originalAddEventListener = window.addEventListener;
+        window.addEventListener = function(type, listener, options) {
+        if (type === 'message') {
+            const safeListener = function(event) {
+            // Если прилетел приказ от Телеграма обновить фрейм во время драки — игнорируем его
+            if (event.data && event.data.includes('reload_iframe')) {
+                console.warn("🛡️ Телеграм пытался обновить окно боя в раунде. Команда проигнорирована.");
+                return;
+            }
+            listener(event);
+            };
+            return originalAddEventListener.call(window, type, safeListener, options);
+        }
+        return originalAddEventListener.call(window, type, listener, options);
+        };
+    })();
+    </script>
 </html>
