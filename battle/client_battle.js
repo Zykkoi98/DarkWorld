@@ -40,17 +40,30 @@ function initBattleSocket() {
     return;
   }
 
+   // Читаем параметры строки адреса
   const urlParams = new URLSearchParams(window.location.search);
-  const monsterKey = urlParams.get('monster') || 'wild_wolf';
-  const count = urlParams.get('count') || 1;
+  const existingRoomId = urlParams.get('roomId'); // 🔥 Ловим ID комнаты, если э
 
-  socket.on('connect', () => {
-    console.log("⚔️ Успешный коннект! Запрашиваем массовый поединок у сервера...");
-    socket.emit('search_pve_match', {
-      playerData: localPlayer,
-      monsterKey: monsterKey,
-      count: Number(count)
-    });
+   socket.on('connect', () => {
+    // 🔥 ФИКС: Если прилетел roomId, просим сервер просто восстановить сессию!
+    if (existingRoomId) {
+      console.log(`🔄 Отправляем запрос на восстановление прерванного боя: ${existingRoomId}`);
+      socket.emit('reconnect_to_battle', {
+        roomId: existingRoomId,
+        userId: String(localPlayer.id)
+      });
+    } 
+    // Иначе это стандартный первый вход в Лес, создаем новый бой
+    else {
+      const monsterKey = urlParams.get('monster') || 'wild_wolf';
+      const count = urlParams.get('count') || 1;
+      console.log(`⚔️ Первый вход в Лес. Генерируем новый поединок для ${monsterKey}...`);
+      socket.emit('search_pve_match', {
+        playerData: localPlayer,
+        monsterKey: monsterKey,
+        count: Number(count)
+      });
+    }
   });
 
   setupSocketListeners();
