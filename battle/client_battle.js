@@ -434,36 +434,38 @@ function resetTacticalButtons() {
 }
 
 function checkPotionAvailability() {
-  const potionBtn = document.getElementById('battle-potion-btn');
-  if (!potionBtn) return;
+  const quickPotionBtn = document.getElementById('quick-potion-btn');
+  if (!quickPotionBtn) return;
 
-  // 🔥 ГЛАВНЫЙ ФИКС: Ищем вашего героя в официальном живом массиве команды от сервера!
   const myFighter = teamA.find(f => f.uuid === myUuid);
-  
-  // Достаем ID надетого зелья прямо из серверного объекта бойца
   const potionId = myFighter && myFighter.equipped ? myFighter.equipped.potion : null;
 
-  // Если сервер подтвердил, что банка в слоте действительно есть и она не выпита
   if (potionId && potionId !== 'null') {
-    // Подтягиваем иконку и имя предмета из общей базы данных config.js
     const pData = window.getItemData ? window.getItemData(potionId) : null;
-    
     if (pData) {
-      potionBtn.style.display = 'block';
-      potionBtn.innerHTML = `${pData.icon || '🧪'} Выпить: ${pData.name} (+${pData.heal || 0} HP)`;
+      // Подсвечиваем кнопку, делаем активной и выводим эмодзи банки
+      quickPotionBtn.disabled = false;
+      quickPotionBtn.innerHTML = pData.icon || '🧪';
+      quickPotionBtn.style.border = "1px solid #2ecc71";
+      quickPotionBtn.style.boxShadow = "0 0 8px rgba(46, 204, 113, 0.4)";
+      quickPotionBtn.title = `Выпить: ${pData.name} (+${pData.heal} HP)`;
       
-      potionBtn.onclick = function() {
-        // Мгновенно удаляем кнопку с экрана, чтобы избежать двойных кликов
-        potionBtn.style.display = 'none';
-        // Шлем команду на бэкенд Node.js
+      quickPotionBtn.onclick = function() {
+        this.disabled = true;
+        this.style.border = "1px solid var(--border)";
+        this.style.boxShadow = "none";
         socket.emit('instant_use_potion', { roomId: currentRoomId });
       };
     } else {
-      potionBtn.style.display = 'none';
+      quickPotionBtn.disabled = true;
+      quickPotionBtn.innerHTML = '🧪';
     }
   } else {
-    // 🔥 Если банки на сервере нет — кнопка гарантированно скрывается и никогда не всплывет!
-    potionBtn.style.display = 'none';
+    // Если банки нет — тушим кнопку
+    quickPotionBtn.disabled = true;
+    quickPotionBtn.innerHTML = '🧪';
+    quickPotionBtn.style.border = "1px solid var(--border)";
+    quickPotionBtn.style.boxShadow = "none";
   }
 }
 
