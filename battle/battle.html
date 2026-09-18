@@ -55,27 +55,27 @@
       border: 1px solid var(--border);
     }
 
+/* 🔥 ЖЕСТКАЯ ФИКСАЦИЯ СИММЕТРИИ (БЕЗ ИСПОЛЬЗОВАНИЯ SPACE-BETWEEN) */
     .big-fighter-card {
       flex: 1;
       width: 125px;
       max-width: 125px;
-      height: 215px; /* Зафиксировали высоту */
+      height: 220px; /* Фиксированная высота карточки */
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 8px 4px;
+      padding: 10px 4px;
       text-align: center;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start; /* 🔥 Важно: выравниваем всё строго ОТ СВЕРХУ ВНИЗ */
     }
-    
-    /* Идеально ровные КВАДРАТНЫЕ контейнеры под картинки */
+    /* Жесткий отступ под аватаром */
     .avatar-container {
-      width: 68px;  /* Чуть-чуть увеличили, чтобы квадрат смотрелся сочнее */
+      width: 68px;
       height: 68px;
-      border-radius: 8px; /* 🔥 Убрали 50% (круг), сделали аккуратное скругление углов под стиль кнопок */
+      border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.15);
       overflow: hidden;
       background: #1e272e;
@@ -83,7 +83,8 @@
       align-items: center;
       justify-content: center;
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      flex-shrink: 0; 
+      flex-shrink: 0;
+      margin-bottom: 12px; /* 🔥 Фиксированный шаг до имени */
     }
 
     .avatar-img {
@@ -94,26 +95,31 @@
       border-radius: 8px; /* 🔥 Картинка внутри тоже становится ровным квадратом */
     }
 
-    /* Фиксированная высота для блока уровня */
+     /* Жесткий отступ под уровнем */
     .big-lvl { 
-      height: 14px; /* 🔥 Одинаковое пространство для текста уровня */
       font-size: 11px; 
       color: #f1c40f; 
       font-weight: bold; 
+      margin-bottom: 10px; /* 🔥 Фиксированный шаг до аватара */
+      height: 14px;
       line-height: 14px;
     }
 
-    /* Защита от длинных имен монстров (Каменный голем больше не сломает верстку) */
+   /* Имя с автопереносом на 2 строки и жесткой высотой */
     .big-name { 
-      height: 16px; /* 🔥 Фиксированная высота для имени */
-      font-size: 12px; 
+      height: 32px; /* 🔥 Выделяем строго 2 строки текста */
+      font-size: 11px; 
       font-weight: bold; 
-      line-height: 16px;
+      line-height: 1.3;
       width: 100%;
-      white-space: nowrap; /* Запрещаем перенос на вторую строку */
-      overflow: hidden; 
-      text-overflow: ellipsis; /* Красивое многоточие для длинных имен */
+      white-space: normal; /* Разрешаем перенос */
+      word-wrap: break-word;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
       color: #ffffff;
+      margin-bottom: 10px; /* 🔥 Фиксированный шаг до полосы ХП */
     }
     /* ============================================================================
        ===== 🎛️ СТИЛЬНЫЕ НЕОНОВЫЕ ДВУХКОЛОННЫЕ КНОПКИ ТАКТИКИ =====
@@ -181,7 +187,10 @@
     }
 
     /* Полосы ХП */
-    .hp-wrapper { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .hp-wrapper {
+      width: 100%;
+      margin-top: auto; /* Прижимает ХП к самому низу карточки */
+    }
     .hp-bar { width: 100%; height: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; overflow: hidden; border: 1px solid rgba(0,0,0,0.2); }
     .hp-fill { height: 100%; background: linear-gradient(90deg, #2ecc71, #26de81); width: 100%; transition: width 0.3s ease; }
     .enemy-hp .hp-fill { background: linear-gradient(90deg, #ff4757, #ff6b6b); }
