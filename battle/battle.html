@@ -108,16 +108,33 @@
     .big-lvl, .big-name, .hp-wrapper { position: relative; z-index: 3; }
 
     .big-lvl { 
-      font-size: 11px; color: #f1c40f; font-weight: bold; 
-      height: 14px; line-height: 14px; margin-bottom: 4px;
+      font-size: 11px; 
+      color: #f1c40f; 
+      font-weight: bold; 
+      height: 14px; 
+      line-height: 14px;
+      margin-bottom: 4px; /* Небольшой фиксированный отступ до шкалы ХП */
       text-shadow: 0 1px 4px #000;
+      width: 100%;
+      text-align: center;
     }
 
-    .big-name { 
-      height: 28px; font-size: 11px; font-weight: bold; line-height: 1.2;
-      width: 100%; white-space: normal; word-wrap: break-word;
-      display: flex; align-items: center; justify-content: center; text-align: center;
-      color: #ffffff; margin-top: auto; margin-bottom: 4px;
+     .big-name { 
+      height: 28px; 
+      font-size: 11px; 
+      font-weight: bold; 
+      line-height: 1.2;
+      width: 100%; 
+      white-space: normal; 
+      word-wrap: break-word;
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      text-align: center;
+      color: #ffffff; 
+      
+      margin-top: auto; /* 🔥 ГЛАВНЫЙ СДВИГ: Выталкивает имя и уровень в самый низ карточки */
+      margin-bottom: 2px; /* Фиксированный шаг до уровня */
       text-shadow: 0 1px 4px #000;
     }
 
@@ -217,13 +234,19 @@
     <!-- ВЕРХНИЙ БЛОК: СТРОГАЯ ГОРИЗОНТАЛЬНАЯ ДУЭЛЬНАЯ ЗОНА -->
     <div class="duel-zone">
       
+       <!-- ВЕРХНИЙ БЛОК: СТРОГАЯ ГОРИЗОНТАЛЬНАЯ ДУЭЛЬНАЯ ЗОНА С ПЕРЕНОСОМ LVL -->
+    <div class="duel-zone">
+      
       <!-- ЛЕВАЯ СТОРОНА: Герой -->
       <div class="fighter-side-wrapper">
         <div id="main-hero-card" class="big-fighter-card">
-          <img id="hero-card-bg-img" class="card-background-art" src="../assets/default_hero.jpg" alt="Hero BG">
+          <img id="hero-card-bg-img" class="card-background-art" src="../assets/avatars/hero5.jpg" alt="Hero BG">
           <div class="card-gradient-overlay"></div>
-          <div class="big-lvl" id="hero-lvl-text">Lv. --</div>
+          
+          <!-- 🔥 Перенесли инфоблок в самый низ карточки -->
           <div class="big-name" id="hero-name-text">Загрузка...</div>
+          <div class="big-lvl" id="hero-lvl-text">Lv. --</div>
+          
           <div class="hp-wrapper">
             <div class="hp-bar"><div id="hero-hp-fill" class="hp-fill"></div></div>
             <div class="hp-text" id="hero-hp-text">0 / 0</div>
@@ -261,10 +284,13 @@
       <!-- ПРАВАЯ СТОРОНА: Враг -->
       <div class="fighter-side-wrapper">
         <div id="main-target-card" class="big-fighter-card">
-          <img id="target-card-bg-img" class="card-background-art" src="../assets/default_monster.jpg" alt="Monster BG">
+          <img id="target-card-bg-img" class="card-background-art" src="../assets/monsters/monster1.jpg" alt="Monster BG">
           <div class="card-gradient-overlay"></div>
-          <div class="big-lvl" id="target-lvl-text">Lv. --</div>
+          
+          <!-- 🔥 Перенесли инфоблок в самый низ карточки -->
           <div class="big-name" id="target-name-text">Нет цели</div>
+          <div class="big-lvl" id="target-lvl-text">Lv. --</div>
+          
           <div class="hp-wrapper enemy-hp">
             <div class="hp-bar"><div id="target-hp-fill" class="hp-fill"></div></div>
             <div class="hp-text" id="target-hp-text">0 / 0</div>
@@ -276,7 +302,7 @@
         </div>
       </div>
 
-    </div> <!-- 🔥 ИСПРАВЛЕНО: Закрывающий тег дуэльной зоны перенесен строго сюда! -->
+    </div>
 
     <!-- МАССОВКА -->
     <div class="reserve-zone">
