@@ -220,27 +220,43 @@ function setupSocketListeners() {
  * 📊 УМНАЯ ОТРИСОВКА ДУЭЛЬНОГО ИНТЕРФЕЙСА (БОЛЬШИЕ КАРТОЧКИ + МАССОВКА)
  */
 function renderFighters() {
-  // Проверяем, завершен ли бой (смотрим на состояние главной кнопки)
   const strikeBtn = document.getElementById('strike-action-btn');
   const isBattleOver = strikeBtn && strikeBtn.textContent.includes('ГОРОД');
 
-  // 1. Отрендерим вашего главного героя (Левая большая карточка)
+  // Относительные пути к стандартным картинкам-заглушкам в корне проекта
+  const DEFAULT_HERO_IMG = "../assets/default_hero.png";
+  const DEFAULT_MONSTER_IMG = "../assets/default_monster.png";
+
+  // 1. ОТРИСОВКА ВАШЕГО ГЕРОЯ (ЛЕВАЯ КАРТОЧКА ДУЭЛИ)
   const myFighter = teamA.find(f => f.uuid === myUuid);
   if (myFighter) {
     document.getElementById('hero-lvl-text').textContent = `Lv. ${myFighter.level || 1}`;
     document.getElementById('hero-name-text').textContent = myFighter.name;
+    
+    // 🔥 ФИКС КАРТИНКИ ГЕРОЯ: Подгружаем реальный путь из Supabase, если он есть
+    const heroAvatarImg = document.getElementById('hero-avatar-img');
+    if (heroAvatarImg) {
+      const av = myFighter.avatar;
+      if (av && (av.includes('.') || av.includes('/'))) {
+        heroAvatarImg.src = av;
+      } else {
+        heroAvatarImg.src = DEFAULT_HERO_IMG; // Стандартный воин
+      }
+    }
+
+    const displayHp = Math.max(0, myFighter.currentHp);
     const heroFill = document.getElementById('hero-hp-fill');
-    if (heroFill) heroFill.style.width = `${(myFighter.currentHp / myFighter.maxHp) * 100}%`;
-    document.getElementById('hero-hp-text').textContent = `${myFighter.currentHp} / ${myFighter.maxHp}`;
+    if (heroFill) heroFill.style.width = `${(displayHp / myFighter.maxHp) * 100}%`;
+    document.getElementById('hero-hp-text').textContent = `${displayHp} / ${myFighter.maxHp}`;
     
     const heroCard = document.getElementById('main-hero-card');
     if (heroCard) {
-      if (myFighter.currentHp <= 0) heroCard.classList.add('dead');
+      if (displayHp <= 0) heroCard.classList.add('dead');
       else heroCard.classList.remove('dead');
     }
   }
 
-  // 2. Отрендерим выбранную цель (Правая большая карточка)
+  // 2. ОТРИСОВКА ВЫБРАННОГО ВРАГА (ПРАВАЯ КАРТОЧКА ДУЭЛИ)
   if (!selectedTargetUuid && teamB.length > 0) {
     const firstAlive = teamB.find(e => e.currentHp > 0);
     if (firstAlive) selectedTargetUuid = firstAlive.uuid;
@@ -248,20 +264,32 @@ function renderFighters() {
 
   const targetFighter = teamB.find(e => e.uuid === selectedTargetUuid);
   const targetCard = document.getElementById('main-target-card');
+  const targetAvatarImg = document.getElementById('target-avatar-img');
 
   if (targetFighter && targetFighter.currentHp > 0) {
     if (targetCard) targetCard.classList.remove('dead');
     document.getElementById('target-lvl-text').textContent = `Lv. ${targetFighter.level || 1}`;
-    document.getElementById('target-avatar-text').textContent = targetFighter.icon || '👹';
     document.getElementById('target-name-text').textContent = targetFighter.name;
+    
+    // 🔥 ФИКС КАРТИНКИ МОНСТРА: Тянем изображение из Supabase public.bots.icon
+    if (targetAvatarImg) {
+      const iconVal = targetFighter.icon;
+      if (iconVal && (iconVal.includes('.') || iconVal.includes('/'))) {
+        targetAvatarImg.src = iconVal; // Путь к картинке голема
+      } else {
+        targetAvatarImg.src = DEFAULT_MONSTER_IMG; // Базовый монстр
+      }
+    }
+
+    const displayTargetHp = Math.max(0, targetFighter.currentHp);
     const targetFill = document.getElementById('target-hp-fill');
-    if (targetFill) targetFill.style.width = `${(targetFighter.currentHp / targetFighter.maxHp) * 100}%`;
-    document.getElementById('target-hp-text').textContent = `${targetFighter.currentHp} / ${targetFighter.maxHp}`;
+    if (targetFill) targetFill.style.width = `${(displayTargetHp / targetFighter.maxHp) * 100}%`;
+    document.getElementById('target-hp-text').textContent = `${displayTargetHp} / ${targetFighter.maxHp}`;
   } else {
     if (targetCard) targetCard.classList.add('dead');
     document.getElementById('target-lvl-text').textContent = `Lv. --`;
-    document.getElementById('target-avatar-text').textContent = '💀';
     document.getElementById('target-name-text').textContent = 'Нет живых целей';
+    if (targetAvatarImg) targetAvatarImg.src = DEFAULT_MONSTER_IMG;
     const targetFill = document.getElementById('target-hp-fill');
     if (targetFill) targetFill.style.width = `0%`;
     document.getElementById('target-hp-text').textContent = `0 / 0`;

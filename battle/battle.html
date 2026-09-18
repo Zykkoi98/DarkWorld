@@ -4,20 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Битва Чести — Dark World</title>
-  <!-- Клиент Socket.io (версия 4.8.3, как в городе) -->
+  <!-- Официальный клиент Socket.io (версия 4.8.3, как в городе) -->
   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
   <script src="../config.js" defer></script>
   <script src="client_battle.js" defer></script>
   
   <style>
     :root {
-      --bg: #1a1a2e;
+      --bg: #0d0e15;
       --text: #ffffff;
-      --hint: #9aa0b5;
-      --btn: #6c5ce7;
-      --danger: #e74c3c;
+      --hint: #636e72;
+      --btn: #5f27cd;
+      --danger: #ff4d4d;
       --success: #2ecc71;
-      --card: rgba(255, 255, 255, 0.05);
+      --card: rgba(255, 255, 255, 0.03);
+      --border: rgba(255, 255, 255, 0.08);
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
@@ -37,143 +38,170 @@
 
     .battle-header {
       text-align: center; font-size: 15px; font-weight: bold; color: #f1c40f;
-      padding: 2px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 2px 0; border-bottom: 1px solid var(--border);
     }
 
     /* ============================================================================
-       ===== ⚔️ ГЛАВНАЯ ВЕРХНЯЯ ЗОНА: ДУЭЛЬ 1Х1 =====
+       ===== ⚔️ ИДЕАЛЬНО СИММЕТРИЧНАЯ ВЕРХНЯЯ ЗОНА: ДУЭЛЬ 1Х1 =====
        ============================================================================ */
     .duel-zone {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: stretch;
       gap: 6px;
-      background: rgba(0, 0, 0, 0.15);
-      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 14px;
       padding: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
     }
 
-    /* Большие карточки дуэлянтов */
     .big-fighter-card {
       flex: 1;
-      max-width: 135px;
-      background: var(--card);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      padding: 8px 4px;
+      width: 125px;
+      max-width: 125px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 6px 4px;
       text-align: center;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: space-between;
       gap: 4px;
     }
     
-    .big-avatar {
-      font-size: 42px;
-      line-height: 1;
-      margin: 4px 0;
+    .avatar-container {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      background: #1e272e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
 
-    .big-name { font-size: 13px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-    .big-lvl { font-size: 10px; color: #f1c40f; }
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
 
-    /* Центральный пульт управления тактикой */
+    .big-name { font-size: 12px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+    .big-lvl { font-size: 10px; color: #f1c40f; font-weight: bold; }
+
+    /* ============================================================================
+       ===== 🎛️ СТИЛЬНЫЕ НЕОНОВЫЕ ДВУХКОЛОННЫЕ КНОПКИ ТАКТИКИ =====
+       ============================================================================ */
     .tactical-center-controls {
-      flex: 1.2;
+      flex: 1.6;
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      background: rgba(255, 255, 255, 0.02);
-      padding: 4px;
-      border-radius: 8px;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 6px;
+      border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.05);
+      justify-content: space-between;
     }
 
-    .mini-title { font-size: 9px; color: var(--hint); text-transform: uppercase; font-weight: bold; text-align: center; margin: 1px 0; }
-    .compact-zone-row { display: flex; gap: 2px; justify-content: center; width: 100%; }
+    .columns-wrapper { display: flex; gap: 6px; width: 100%; }
+    .zone-column-box { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .mini-title { font-size: 9px; font-weight: bold; text-align: center; margin-bottom: 2px; letter-spacing: 0.5px; text-transform: uppercase; }
     
-    compact-zone-btn {
+    .compact-zone-btn {
       width: 100%;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: var(--text);
-      padding: 7px 4px;   /* Уменьшили отступы, чтобы кнопки стали компактнее по высоте */
-      font-size: 11px;    /* Аккуратный, чуть меньший размер шрифта */
-      font-weight: bold;
-      border-radius: 6px; /* Аккуратное скругление */
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #b2bec3;
+      padding: 8px 0;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
       cursor: pointer;
-      text-align: left;   /* Выравнивание по левому краю для красоты иконок */
-      padding-left: 8px;  /* Небольшой внутренний отступ для текста */
-      transition: all 0.12s ease;
+      text-align: center;
+      transition: all 0.2s ease;
       white-space: nowrap;
+      text-transform: uppercase;
+    }
+    .compact-zone-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
     }
     
     .compact-zone-btn.attack-selected { 
-      background: #e67e22 !important; 
-      border-color: #d35400; 
-      box-shadow: 0 0 6px rgba(230, 126, 34, 0.3); 
+      background: linear-gradient(135deg, #ff9f43, #ee5253) !important; 
+      border-color: #ff6b6b; 
+      color: #fff !important;
+      box-shadow: 0 0 10px rgba(238, 82, 83, 0.5);
     }
     
     .compact-zone-btn.defend-selected { 
-      background: #3498db !important; 
-      border-color: #2980b9; 
-      box-shadow: 0 0 6px rgba(52, 152, 219, 0.3); 
+      background: linear-gradient(135deg, #0abde3, #10ac84) !important; 
+      border-color: #00d2d3; 
+      color: #fff !important;
+      box-shadow: 0 0 10px rgba(10, 189, 227, 0.5);
     }
+
     #strike-action-btn {
-      width: 100%; background: var(--btn); color: white; border: none;
-      padding: 8px; font-size: 12px; font-weight: bold; border-radius: 6px;
-      cursor: pointer; margin-top: 4px; text-transform: uppercase;
+      width: 100%; background: linear-gradient(135deg, #70a1ff, #1e90ff); color: white; border: none;
+      padding: 10px; font-size: 13px; font-weight: bold; border-radius: 6px;
+      cursor: pointer; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(30, 144, 255, 0.2);
     }
-    #strike-action-btn:disabled { background: #57606f !important; opacity: 0.4; cursor: not-allowed; }
+    #strike-action-btn:disabled { 
+      background: #2c3e50 !important; color: #7f8c8d !important; 
+      opacity: 0.4; cursor: not-allowed; box-shadow: none; 
+    }
 
     /* Полосы ХП */
     .hp-wrapper { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-    .hp-bar { width: 100%; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
-    .hp-fill { height: 100%; background: var(--success); width: 100%; transition: width 0.3s ease; }
-    .enemy-hp .hp-fill { background: var(--danger); }
-    .hp-text { font-size: 9px; color: var(--hint); font-family: monospace; }
+    .hp-bar { width: 100%; height: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; overflow: hidden; border: 1px solid rgba(0,0,0,0.2); }
+    .hp-fill { height: 100%; background: linear-gradient(90deg, #2ecc71, #26de81); width: 100%; transition: width 0.3s ease; }
+    .enemy-hp .hp-fill { background: linear-gradient(90deg, #ff4757, #ff6b6b); }
+    .hp-text { font-size: 9px; color: #a4b0be; font-family: monospace; font-weight: bold; }
 
-    /* ============================================================================
-       ===== 🗂️ СРЕДНЯЯ ЗОНА: СПИСКИ ОСТАЛЬНЫХ УЧАСТНИКОВ (МАССОВКА) =====
-       ============================================================================ */
+    /* Списки участников */
     .reserve-zone { display: flex; justify-content: space-between; gap: 10px; }
     .reserve-column {
       flex: 1; display: flex; flex-direction: column; gap: 4px;
-      background: rgba(0, 0, 0, 0.1); padding: 4px; border-radius: 8px;
-      max-height: 110px; overflow-y: auto;
+      background: rgba(0, 0, 0, 0.2); padding: 4px; border-radius: 8px;
+      max-height: 105px; overflow-y: auto; border: 1px solid var(--border);
     }
 
     .mini-fighter-card {
-      background: var(--card); border: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--card); border: 1px solid var(--border);
       border-radius: 6px; padding: 4px 6px; display: flex;
       align-items: center; justify-content: space-between; gap: 4px; cursor: pointer;
     }
-    .mini-fighter-card.active-target { border: 1px solid var(--danger); background: rgba(231, 76, 60, 0.08); }
-    .mini-fighter-card.dead { opacity: 0.25; pointer-events: none; }
-    .mini-fighter-info { font-size: 10px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 65px; }
+    .mini-fighter-card.active-target { border: 1px solid #ff4757; background: rgba(255, 71, 87, 0.08); }
+    .mini-fighter-card.dead { opacity: 0.2; pointer-events: none; }
+    .mini-fighter-info { font-size: 10px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 65px; color: #c8d6e5; }
 
-    /* Нижняя зона */
     .battle-bottom { flex: 1; display: flex; flex-direction: column; gap: 4px; min-height: 100px; }
     #battle-potion-btn {
       width: 100%; background: var(--success); color: white; border: none;
       padding: 8px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; display: none;
     }
     .battle-log {
-      flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08);
+      flex: 1; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border);
       border-radius: 10px; padding: 8px; font-size: 12px; line-height: 1.3; font-family: monospace; overflow-y: auto;
     }
-    .log-round-break { color: var(--hint); margin: 4px 0; border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 4px; font-weight: bold; }
-    .log-damage { color: var(--danger); }
+    .log-round-break { color: #f1c40f; margin: 4px 0; border-top: 1px dashed var(--border); padding-top: 4px; font-weight: bold; text-align: center; }
+    .log-damage { color: #ff6b6b; }
     .log-system { color: #f1c40f; font-weight: bold; }
-    .log-miss { color: #95a5a6; }
+    .log-miss { color: #84817a; }
 
     #battle-loading-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: var(--bg); z-index: 9999; display: flex;
       flex-direction: column; align-items: center; justify-content: center; gap: 12px;
     }
-    .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1); border-left-color: var(--btn); border-radius: 50%; animation: spin 1s linear infinite; }
+    .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1); border-left-color: #1e90ff; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -182,18 +210,20 @@
   <!-- Экран загрузки -->
   <div id="battle-loading-overlay">
     <div class="spinner"></div>
-    <div style="font-weight: bold; color: var(--hint); font-size: 13px;">Сборка тактического дуэльного экрана...</div>
+    <div style="font-weight: bold; color: #7f8c8d; font-size: 13px; font-family: sans-serif;">Синхронизация графики дуэли...</div>
   </div>
 
   <div id="battle-screen">
     <div id="battle-round-indicator" class="battle-header">Подключение к арене...</div>
 
-    <!-- 1. ВЕРХНИЙ БЛОК: ДУЭЛЬ ГЕРОЯ С ВЫБРАННОЙ ЦЕЛЬЮ -->
+    <!-- 1. ВЕРХНИЙ БЛОК: ИДЕАЛЬНО ВЫРАВНЕННАЯ ДУЭЛЬ КАРТИНКАМИ -->
     <div class="duel-zone">
       <!-- ЛЕВАЯ КАРТОЧКА: Ваш герой -->
       <div id="main-hero-card" class="big-fighter-card">
         <div class="big-lvl" id="hero-lvl-text">Lv. --</div>
-        <div class="big-avatar">👤</div>
+        <div class="avatar-container">
+          <img id="hero-avatar-img" class="avatar-img" src="../assets/default_hero.png" alt="Hero">
+        </div>
         <div class="big-name" id="hero-name-text">Загрузка...</div>
         <div class="hp-wrapper">
           <div class="hp-bar"><div id="hero-hp-fill" class="hp-fill"></div></div>
@@ -201,42 +231,38 @@
         </div>
       </div>
 
-     <!-- ЦЕНТРАЛЬНЫЙ ПУЛЬТ: Две вертикальные колонки (Атака напротив Защиты) -->
-      <div class="tactical-center-controls" style="flex: 1.6; display: flex; flex-direction: column; gap: 6px; background: rgba(0,0,0,0.2); padding: 6px; border-radius: 12px; margin: 0 2px;">
-        
-        <!-- Рядом стоящие колонки -->
-        <div class="columns-wrapper" style="display: flex; gap: 8px; width: 100%;">
-          
+      <!-- ЦЕНТРАЛЬНЫЙ ПУЛЬТ: Красивые текстовые кнопки двух колонок (без иконок) -->
+      <div class="tactical-center-controls">
+        <div class="columns-wrapper">
           <!-- ЛЕВАЯ КОЛОНКА: АТАКА -->
-          <div class="zone-column-box" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-            <div class="mini-title" style="color: #e67e22; font-size: 9px; font-weight: bold; text-align: center; margin-bottom: 2px; letter-spacing: 0.3px;">⚔️ УДАР (ВЫБРАТЬ 1)</div>
-            <button class="compact-zone-btn btn-atk" data-zone="head">👤 Голова</button>
-            <button class="compact-zone-btn btn-atk" data-zone="breast">👕 Грудь</button>
-            <button class="compact-zone-btn btn-atk" data-zone="torso">🛡️ Живот</button>
-            <button class="compact-zone-btn btn-atk" data-zone="belt">🎗️ Пояс</button>
-            <button class="compact-zone-btn btn-atk" data-zone="legs">🥾 Ноги</button>
+          <div class="zone-column-box">
+            <div class="mini-title" style="color: #ff9f43;">УДАР</div>
+            <button class="compact-zone-btn btn-atk" data-zone="head">Голова</button>
+            <button class="compact-zone-btn btn-atk" data-zone="breast">Грудь</button>
+            <button class="compact-zone-btn btn-atk" data-zone="torso">Живот</button>
+            <button class="compact-zone-btn btn-atk" data-zone="belt">Пояс</button>
+            <button class="compact-zone-btn btn-atk" data-zone="legs">Ноги</button>
           </div>
 
-          <!-- ПРАВАЯ КОЛОНКА: ЗАЩИТА -->
-          <div class="zone-column-box" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-            <div class="mini-title" style="color: #3498db; font-size: 9px; font-weight: bold; text-align: center; margin-bottom: 2px; letter-spacing: 0.3px;">🛡️ БЛОК (ВЫБРАТЬ 2)</div>
-            <button class="compact-zone-btn btn-def" data-zone="head">👤 Голова</button>
-            <button class="compact-zone-btn btn-def" data-zone="breast">👕 Грудь</button>
-            <button class="compact-zone-btn btn-def" data-zone="torso">🛡️ Живот</button>
-            <button class="compact-zone-btn btn-def" data-zone="belt">🎗️ Пояс</button>
-            <button class="compact-zone-btn btn-def" data-zone="legs">🥾 Ноги</button>
+          <!-- ПРАВАЯ КОЛОНКА: БЛОК -->
+          <div class="zone-column-box">
+            <div class="mini-title" style="color: #0abde3;">БЛОК</div>
+            <button class="compact-zone-btn btn-def" data-zone="head">Голова</button>
+            <button class="compact-zone-btn btn-def" data-zone="breast">Грудь</button>
+            <button class="compact-zone-btn btn-def" data-zone="torso">Живот</button>
+            <button class="compact-zone-btn btn-def" data-zone="belt">Пояс</button>
+            <button class="compact-zone-btn btn-def" data-zone="legs">Ноги</button>
           </div>
-
         </div>
-
-        <!-- Кнопка действия на всю ширину пульта -->
-        <button id="strike-action-btn" disabled style="padding: 10px; font-size: 13px; letter-spacing: 0.5px; margin-top: 4px; border-radius: 6px; width: 100%;">АТАКОВАТЬ</button>
+        <button id="strike-action-btn" disabled>АТАКОВАТЬ</button>
       </div>
 
-      <!-- ПРАВАЯ КАРТОЧКА: Выбранная цель (Враг) -->
-      <div id="main-target-card" class="big-fighter-card" style="border-color: rgba(231, 76, 60, 0.4);">
+      <!-- ПРАВАЯ КАРТОЧКА: Выбранный враг -->
+      <div id="main-target-card" class="big-fighter-card">
         <div class="big-lvl" id="target-lvl-text">Lv. --</div>
-        <div class="big-avatar" id="target-avatar-text">👹</div>
+        <div class="avatar-container" style="border-color: rgba(255, 71, 87, 0.2);">
+          <img id="target-avatar-img" class="avatar-img" src="../assets/default_monster.png" alt="Monster">
+        </div>
         <div class="big-name" id="target-name-text">Нет цели</div>
         <div class="hp-wrapper enemy-hp">
           <div class="hp-bar"><div id="target-hp-fill" class="hp-fill"></div></div>
@@ -245,20 +271,19 @@
       </div>
     </div>
 
-    <!-- 2. СРЕДНИЙ БЛОК: ВСЕ ОСТАЛЬНЫЕ УЧАСТНИКИ МАССОВКИ -->
+    <!-- 2. СРЕДНИЙ БЛОК: МАССОВКА -->
     <div class="reserve-zone">
-      <div class="reserve-zone-col" style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
-        <div class="mini-title" style="text-align: left; padding-left: 4px;">👥 Ваш отряд:</div>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+        <div class="mini-title" style="text-align: left; padding-left: 4px; color: #2ecc71;">👥 Отряд:</div>
         <div id="allies-reserve-list" class="reserve-column"></div>
       </div>
-      
-      <div class="reserve-zone-col" style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
-        <div class="mini-title" style="text-align: left; padding-left: 4px;">🎯 Все противники:</div>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+        <div class="mini-title" style="text-align: left; padding-left: 4px; color: #ff4757;">🎯 Враги:</div>
         <div id="enemies-reserve-list" class="reserve-column"></div>
       </div>
     </div>
 
-    <!-- 3. НИЖНИЙ БЛОК: ОКОН ЛОГОВ И КНОПКА ЗЕЛИЯ -->
+    <!-- 3. НИЖНИЙ БЛОК: ЛОГ -->
     <div class="battle-bottom">
       <button id="battle-potion-btn">🧪 Использовать зелье</button>
       <div id="battle-log-viewport" class="battle-log">
