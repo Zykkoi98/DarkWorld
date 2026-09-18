@@ -37,14 +37,9 @@ window.loadGame = function(callback) {
     };
   }
 
-  const hideLoader = () => {
-    const loader = document.getElementById('game-loader-screen');
-    if (loader) {
-      loader.style.transition = "opacity 0.2s ease";
-      loader.style.opacity = "0";
-      setTimeout(() => loader.remove(), 200);
-    }
-  };
+const hideLoader = () => {
+  // Внутри пусто, чтобы база данных не закрывала лоадер раньше времени!
+};
 
   // ЕСЛИ СТАРТУЕМ ВНУТРИ ТЕЛЕГРАМА (ЖИВОЙ ИГРОК)
   if (TG && tgUser) {

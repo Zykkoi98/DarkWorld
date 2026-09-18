@@ -25,67 +25,81 @@
   <script src="game.js?v=71" defer></script>
   <script src="telegram.js?v=71" defer></script>
   <script>
-  // 🔥 УЛЬТИМАТИВНЫЙ ДЕТЕКТОР АКТИВНОГО БОЯ НА СТАРТЕ ПРИЛОЖЕНИЯ
+  // 🔥 ЭКСПРЕСС-ДЕТЕКТОР С УДЕРЖАНИЕМ ЖЕСТКОЙ ШТОРКИ GAME-LOADER-SCREEN
   (function() {
     console.log("🔍 Запуск экспресс-проверки боевого статуса в Telegram...");
 
-    // 1. Извлекаем ID пользователя напрямую из нативных данных Telegram WebApp SDK
+    // Форсируем глубокий темный фон для всего документа с самого старта
+    document.documentElement.style.background = "#1a1a2e";
+
+    // 1. Извлекаем ID пользователя из Telegram или кэша сохранения
     const tgData = window.Telegram?.WebApp?.initDataUnsafe?.user;
     let userId = tgData?.id;
 
-    // Резервный вариант: если Telegram еще не прокинул initData, смотрим в локальный сейв
     if (!userId) {
       try {
         const localSave = localStorage.getItem('rpg_save');
         if (localSave) userId = JSON.parse(localSave).player.id;
-      } catch (e) {
-        console.error("Не удалось прочитать локальный ID для экспресс-проверки.");
-      }
+      } catch (e) {}
     }
 
-    // Если ID игрока не найден вообще (первый самый заход в игру), пропускаем проверку и идем в город
+    // Если это самый первый вход новичка (нет ID в памяти), плавно открываем город
     if (!userId) {
-      console.log("ℹ️ ID игрока не найден в кэше. Переходим к стандартной регистрации города.");
+      console.log("ℹ️ Профиль игрока пуст. Загружаем стандартную регистрацию города.");
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(hideMainGameLoader, 200);
+      });
       return;
     }
 
     const sUserId = String(userId);
 
-    // 2. Поднимаем временный экспресс-сокет чисто для мгновенного опроса ОЗУ бэкенда
+    // 2. Поднимаем быстрый временный сокет для опроса ОЗУ бэкенда Render
     const expressSocket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket', 'polling'],
-      timeout: 1500 // Если сервер лежит или думает долго, не вешаем загрузку игры
+      timeout: 1800 // Если сервер спит или тормозит, не вешаем загрузку игры намертво
     });
 
     expressSocket.on('connect', () => {
-      console.log(`📡 Экспресс-сокет подключен. Проверяем ОЗУ сервера на ID: ${sUserId}`);
+      console.log(`📡 Экспресс-сокет на связи. Проверяем ОЗУ сервера для ID: ${sUserId}`);
       
-      // Отправляем специальный пакет и ждем мгновенный прямой ответ от сервера (callback)
       expressSocket.emit('check_active_battle_directly', { userId: sUserId }, (response) => {
         if (response && response.activeRoomId) {
-          console.log(`⚔️ [ХАРД-ПЕРЕХВАТ] Обнаружен активный бой ${response.activeRoomId}! Срочный редирект...`);
-          
-          // Отключаем временный сокет, чтобы он не дублировал порты
+          console.log(`⚔️ [ПЕРЕХВАТ] Обнаружен активный PVE бой ${response.activeRoomId}. Уходим на арену!`);
           expressSocket.disconnect();
 
-          // Сообщаем нативному приложению Telegram, что мы готовы к работе (снимает защиту редиректа)
           if (window.Telegram && window.Telegram.WebApp) {
             try { window.Telegram.WebApp.ready(); } catch(e) {}
           }
-
-          // Выполняем безальтернативный жесткий редирект в обход загрузки города!
+          
+          // Жесткая подмена адреса. Игрок видит только ваш анимированный лоадер с часами ⏳
           window.location.replace(`battle/battle.html?roomId=${response.activeRoomId}`);
         } else {
-          console.log("🟢 Игрок свободен от боев. Закрываем экспресс-сокет, загружаем город.");
+          console.log("🟢 Игрок свободен от сражений. Разрешаем отображение города.");
           expressSocket.disconnect();
+          hideMainGameLoader(); // Плавный показ площади города
         }
       });
     });
 
     expressSocket.on('connect_error', () => {
-      console.warn("⚠️ Не удалось быстро связаться с сервером для проверки сессии, грузим город.");
+      console.warn("⚠️ Сервер Render не ответил вовремя. Открываем город по умолчанию.");
       expressSocket.disconnect();
+      hideMainGameLoader();
     });
+
+    // Функция плавного тушения стартового экрана загрузки
+    function hideMainGameLoader() {
+      const loader = document.getElementById('game-loader-screen');
+      if (loader) {
+        // Задаем красивый эффект плавного растворения
+        loader.style.transition = "opacity 0.3s ease";
+        loader.style.opacity = "0";
+        setTimeout(() => {
+          loader.style.display = "none";
+        }, 300);
+      }
+    }
   })();
 </script>
 </head>
