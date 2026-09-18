@@ -100,7 +100,7 @@ function createPlayer() {
   const newPlayer = {
     id: uniqueId,
     name: name,
-    avatar: window.DEFAULT_AVATAR || 'assets/default_hero.png',
+    avatar: window.DEFAULT_AVATAR || 'assets/avatars/hero5.png',
     level: 1, 
     xp: 0, 
     gold: 50, 
@@ -229,7 +229,7 @@ function render() {
       // 🔥 ФИКС БАГА: Если в базе лежит текстовый эмодзи (например 👤), 
       // мы НЕ пихаем его в src картинки, а подставляем стандартную иконку-заглушку,
       // которую ты использовал по умолчанию в проекте (window.DEFAULT_AVATAR)
-      avatarEl.src = window.DEFAULT_AVATAR || 'assets/default_hero.png'; 
+      avatarEl.src = window.DEFAULT_AVATAR || 'assets/avatars/hero5.png'; 
     }
   }
 
