@@ -221,7 +221,6 @@
 <body>
 
   <body>
-
   <!-- Экран загрузки -->
   <div id="battle-loading-overlay">
     <div class="spinner"></div>
@@ -231,19 +230,17 @@
   <div id="battle-screen">
     <div id="battle-round-indicator" class="battle-header">Подключение к арене...</div>
 
-    <!-- ВЕРХНИЙ БЛОК: СТРОГАЯ ГОРИЗОНТАЛЬНАЯ ДУЭЛЬНАЯ ЗОНА -->
+    <!-- ============================================================================
+       ===== ⚔️ ЧАСТЬ 1: СТРОГАЯ ГОРИЗОНТАЛЬНАЯ ДУЭЛЬНАЯ ЗОНА (КАРТОЧКИ) =====
+       ============================================================================ -->
     <div class="duel-zone">
       
-       <!-- ВЕРХНИЙ БЛОК: СТРОГАЯ ГОРИЗОНТАЛЬНАЯ ДУЭЛЬНАЯ ЗОНА С ПЕРЕНОСОМ LVL -->
-    <div class="duel-zone">
-      
-      <!-- ЛЕВАЯ СТОРОНА: Герой -->
+      <!-- ЛЕВАЯ СТОРОНА: Герой Ян -->
       <div class="fighter-side-wrapper">
         <div id="main-hero-card" class="big-fighter-card">
-          <img id="hero-card-bg-img" class="card-background-art" src="../assets/avatars/hero5.jpg" alt="Hero BG">
+          <img id="hero-card-bg-img" class="card-background-art" src="../assets/avatars/hero4.jpg" alt="Hero BG">
           <div class="card-gradient-overlay"></div>
           
-          <!-- 🔥 Перенесли инфоблок в самый низ карточки -->
           <div class="big-name" id="hero-name-text">Загрузка...</div>
           <div class="big-lvl" id="hero-lvl-text">Lv. --</div>
           
@@ -258,7 +255,7 @@
         </div>
       </div>
 
-      <!-- ЦЕНТРАЛЬНЫЙ ПУЛЬТ ТАКТИКИ -->
+      <!-- ЦЕНТРАЛЬНЫЙ ПУЛЬТ ТАКТИКИ (УДАР / БЛОК) -->
       <div class="tactical-center-controls">
         <div class="columns-wrapper">
           <div class="zone-column-box">
@@ -281,13 +278,12 @@
         <button id="strike-action-btn" disabled>АТАКОВАТЬ</button>
       </div>
 
-      <!-- ПРАВАЯ СТОРОНА: Враг -->
+      <!-- ПРАВАЯ СТОРОНА: Каменный голем -->
       <div class="fighter-side-wrapper">
         <div id="main-target-card" class="big-fighter-card">
           <img id="target-card-bg-img" class="card-background-art" src="../assets/monsters/monster1.jpg" alt="Monster BG">
           <div class="card-gradient-overlay"></div>
           
-          <!-- 🔥 Перенесли инфоблок в самый низ карточки -->
           <div class="big-name" id="target-name-text">Нет цели</div>
           <div class="big-lvl" id="target-lvl-text">Lv. --</div>
           
@@ -302,9 +298,11 @@
         </div>
       </div>
 
-    </div>
+    </div> <!-- 🔥 ФИКС: Здесь дуэльный горизонтальный ряд ЖЕСТКО закрывается! -->
 
-    <!-- МАССОВКА -->
+    <!-- ============================================================================
+       ===== 👥 ЧАСТЬ 2: СРЕДНЯЯ ЗОНА МАССОВКИ (ОТРЯД / ВРАГИ) =====
+       ============================================================================ -->
     <div class="reserve-zone">
       <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
         <div class="mini-title" style="text-align: left; padding-left: 4px; color: #2ecc71;">👥 Отряд:</div>
@@ -316,14 +314,16 @@
       </div>
     </div>
 
-    <!-- ЛОГИ БОЯ -->
+    <!-- ============================================================================
+       ===== 📜 ЧАСТЬ 3: НИЖНЯЯ ЗОНА ТЕКСТОВЫХ ЛОГОВ СРАЖЕНИЯ =====
+       ============================================================================ -->
     <div class="battle-bottom">
       <div id="battle-log-viewport" class="battle-log">
         <div class="log-system">Синхронизация логов с сервером...</div>
       </div>
     </div>
     
-  </div> <!-- Конец battle-screen -->
+  </div> <!-- Конец основного контейнера battle-screen -->
 
 </body>
 </html>
