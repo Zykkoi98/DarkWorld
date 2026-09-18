@@ -233,15 +233,26 @@ function renderFighters() {
     document.getElementById('hero-lvl-text').textContent = `Lv. ${myFighter.level || 1}`;
     document.getElementById('hero-name-text').textContent = myFighter.name;
     
-    // 🔥 ФИКС КАРТИНКИ ГЕРОЯ: Подгружаем реальный путь из Supabase, если он есть
-    const heroAvatarImg = document.getElementById('hero-avatar-img');
+   const heroAvatarImg = document.getElementById('hero-avatar-img');
     if (heroAvatarImg) {
       const av = myFighter.avatar;
+      let targetSrc = DEFAULT_HERO_IMG;
+      
       if (av && (av.includes('.') || av.includes('/'))) {
-        heroAvatarImg.src = av;
-      } else {
-        heroAvatarImg.src = DEFAULT_HERO_IMG; // Стандартный воин
+        targetSrc = av;
       }
+      
+      // 🔥 ФИКС МОРГАНИЯ: Перезаписываем src ТОЛЬКО если картинка РЕАЛЬНО изменилась!
+      // Метод .endsWith() проверяет хвостик ссылки, игнорируя полный домен github.io
+      if (!heroAvatarImg.src.endsWith(targetSrc.replace('..', ''))) {
+        heroAvatarImg.src = targetSrc;
+      }
+      
+      heroAvatarImg.onerror = function() {
+        console.warn(`⚠️ Аватар героя "${av}" выдал 404. Включаем дефолтную заглушку.`);
+        this.src = DEFAULT_HERO_IMG;
+        this.onerror = null;
+      };
     }
 
     const displayHp = Math.max(0, myFighter.currentHp);
@@ -271,14 +282,24 @@ function renderFighters() {
     document.getElementById('target-lvl-text').textContent = `Lv. ${targetFighter.level || 1}`;
     document.getElementById('target-name-text').textContent = targetFighter.name;
     
-    // 🔥 ФИКС КАРТИНКИ МОНСТРА: Тянем изображение из Supabase public.bots.icon
-    if (targetAvatarImg) {
+ if (targetAvatarImg) {
       const iconVal = targetFighter.icon;
+      let targetSrc = DEFAULT_MONSTER_IMG;
+      
       if (iconVal && (iconVal.includes('.') || iconVal.includes('/'))) {
-        targetAvatarImg.src = iconVal; // Путь к картинке голема
-      } else {
-        targetAvatarImg.src = DEFAULT_MONSTER_IMG; // Базовый монстр
+        targetSrc = iconVal;
       }
+
+      // 🔥 ФИКС МОРГАНИЯ: Перезаписываем src ТОЛЬКО если монстр РЕАЛЬНО сменился (или это новый бой)!
+      if (!targetAvatarImg.src.endsWith(targetSrc.replace('..', ''))) {
+        targetAvatarImg.src = targetSrc;
+      }
+
+      targetAvatarImg.onerror = function() {
+        console.warn(`⚠️ Арт монстра "${iconVal}" выдал 404. Включаем дефолтную заглушку.`);
+        this.src = DEFAULT_MONSTER_IMG;
+        this.onerror = null;
+      };
     }
 
     const displayTargetHp = Math.max(0, targetFighter.currentHp);
