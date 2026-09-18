@@ -256,15 +256,33 @@ function renderTown() {
   btn.innerHTML = `<span>${loc.icon}</span><span>${loc.name}</span>`;
   btn.addEventListener('click', function() {
       if (loc.name === "Выход на природу") {
-      let target = 'wild_wolf';
-      if (window.player.level >= 3 && window.player.level < 5) target = 'goblin';
-      else if (window.player.level >= 5) target = 'stone_golem';
-      if (typeof window.openServerPve === 'function') {
-      window.openServerPve(target); // Вызов PvE через сервер Node.js
-      } else {
-      console.error("Сетевой модуль не подключен!");
-      }
-      } else if (loc.name === "Магазин") {
+  if (!window.player || window.player.hp <= 0) {
+    return alert("Вы слишком слабы для боя! Восстановите здоровье в Таверне.");
+  }
+
+  let targetMonster = 'wild_wolf';
+  let minCount = 1;
+  let maxCount = 1;
+
+  // Динамически определяем сложность и размер пачки монстров в зависимости от уровня героя
+  if (window.player.level >= 3 && window.player.level < 5) {
+    targetMonster = 'goblin';
+    minCount = 1;
+    maxCount = 2; // До 2-х гоблинов одновременно
+  } else if (window.player.level >= 5) {
+    targetMonster = 'stone_golem';
+    minCount = 1;
+    maxCount = 3; // До 3-х големов одновременно
+  }
+
+  // Генерируем случайное количество противников в легальном диапазоне
+  const finalCount = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
+
+  console.log(`🌲 Выходим в Лес. Найдено противников: ${targetMonster} х${finalCount}. Перенаправление...`);
+
+  // 🔥 Выполняем переход в нашу новую изолированную вкладку массового боя
+  window.location.href = `battle/battle.html?monster=${targetMonster}&count=${finalCount}`;
+} else if (loc.name === "Магазин") {
       if (typeof window.openShop === 'function') {
         window.openShop();
       } else {
