@@ -20,7 +20,7 @@ function initBattleSocket() {
   console.log("📡 Подключение к боевому серверу...");
   
   // Адрес вашего Node.js сервера
-  socket = io('https://onrender.com');
+  socket = io('https://darkworld-server.onrender.com');
 
   const localSave = localStorage.getItem('rpg_save');
   let localPlayer = null;
