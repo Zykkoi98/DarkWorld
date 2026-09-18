@@ -126,7 +126,7 @@ function setupSocketListeners() {
     teamB = data.teamB;
 
     document.getElementById('battle-round-indicator').textContent = `⚔️ Раунд ${data.turnCount + 1}`;
-    
+    checkPotionAvailability();
     // Сбрасываем флаги тактики для нового раунда
     selectedAttackZone = null;
     selectedDefendZones = [];
