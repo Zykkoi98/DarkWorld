@@ -55,11 +55,11 @@
       border: 1px solid var(--border);
     }
 
-.big-fighter-card {
+    .big-fighter-card {
       flex: 1;
       width: 125px;
       max-width: 125px;
-      height: 210px; /* 🔥 Фиксируем строгую одинаковую ВЫСОТУ для обеих карточек! */
+      height: 215px; /* Зафиксировали высоту */
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -68,28 +68,30 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: space-between; /* Равномерно распределяет элементы по высоте */
+      justify-content: space-between;
     }
     
-   .avatar-container {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      border: 2px solid rgba(255, 255, 255, 0.1);
+    /* Идеально ровные КВАДРАТНЫЕ контейнеры под картинки */
+    .avatar-container {
+      width: 68px;  /* Чуть-чуть увеличили, чтобы квадрат смотрелся сочнее */
+      height: 68px;
+      border-radius: 8px; /* 🔥 Убрали 50% (круг), сделали аккуратное скругление углов под стиль кнопок */
+      border: 1px solid rgba(255, 255, 255, 0.15);
       overflow: hidden;
       background: #1e272e;
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      flex-shrink: 0; /* 🔥 Защита: контейнер никогда не сожмется и не деформируется */
+      flex-shrink: 0; 
     }
 
     .avatar-img {
-      width: 64px;  /* 🔥 Жестко форсируем ширину */
-      height: 64px; /* 🔥 Жестко форсируем высоту */
+      width: 68px;  /* 🔥 Жестко форсируем ширину под контейнер */
+      height: 68px; /* 🔥 Жестко форсируем высоту под контейнер */
       display: block;
-      object-fit: cover;
+      object-fit: cover; 
+      border-radius: 8px; /* 🔥 Картинка внутри тоже становится ровным квадратом */
     }
 
     /* Фиксированная высота для блока уровня */
