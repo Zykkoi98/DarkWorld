@@ -791,22 +791,6 @@ function startGame() {
 
       console.log(`✅ ИГРА ГОТОВА. Персонаж: ${window.player.name}, Настоящий ID: ${window.player.id}`);
 
-      // 🔥 ПОДКЛЮЧАЕМ ВЕБ-СОКЕТЫ ДЛЯ АРЕНЫ И PvE ПОЕДИНКОВ
-      if (typeof initSocketConnection === 'function') {
-        initSocketConnection();
-        console.log("📡 Сетевой модуль Socket.io успешно запущен.");
-      } else {
-        console.error("❌ Критическая ошибка: Функция initSocketConnection не найдена в client_pvp.js!");
-      }
-
-      // 🔥 ХЕНДЛЕР F5: Опрашиваем бэкенд на наличие активной комнаты боя
-      setTimeout(() => {
-        if (socket && window.player && window.player.id) {
-          console.log(`🔍 Проверка ОЗУ сервера: ищем активные бои для игрока ID ${window.player.id}...`);
-          socket.emit('check_active_battle', { userId: window.player.id });
-        }
-      }, 50);
-
     });
   } else {
     console.error("❌ Критическая ошибка: Функция loadGame не объявлена в telegram_supabase.js!");
