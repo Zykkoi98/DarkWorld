@@ -55,21 +55,67 @@
       border: 1px solid var(--border);
     }
 
-/* 🔥 ЖЕСТКАЯ ФИКСАЦИЯ СИММЕТРИИ (БЕЗ ИСПОЛЬЗОВАНИЯ SPACE-BETWEEN) */
+/* 🔥 КАРТОЧКА КАК ЕДИНЫЙ ХУДОЖЕСТВЕННЫЙ КОНТЕЙНЕР С ФОНОМ-КАРТИНКОЙ */
     .big-fighter-card {
       flex: 1;
       width: 125px;
       max-width: 125px;
-      height: 180px; /* Фиксированная высота карточки */
-      background: rgba(255, 255, 255, 0.02);
+      height: 180px; /* Уменьшенная уплотненная высота под банки */
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 10px 4px;
+      padding: 6px 4px;
       text-align: center;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start; /* 🔥 Важно: выравниваем всё строго ОТ СВЕРХУ ВНИЗ */
+      justify-content: flex-start;
+      
+      position: relative; /* Чтобы внутренние слои позиционировались ровно */
+      overflow: hidden;   /* Чтобы углы картинки скруглялись по рамке карточки */
+      background: #13141f; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+     /* 🔥 ЗАДНИЙ ФОН-ПОДЛОЖКА ВНУТРИ САМОЙ КАРТОЧКИ */
+    .card-background-art {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover; /* Защита от растягивания арта */
+      z-index: 1; /* Картинка ложится на самый нижний слой ВНУТРИ карточки */
+      opacity: 0.35; /* Оптимальная яркость, чтобы арт был виден, но не слепил */
+      filter: brightness(0.7) contrast(1.1);
+      pointer-events: none;
+    }
+     /* 🔥 ТЕМНЫЙ ГРАДИЕНТНЫЙ ЩИТ (чтобы буквы имени и ХП не сливались с артом) */
+    .card-gradient-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(to bottom, 
+        rgba(13,14,21,0.85) 0%,   /* Сильное затемнение вверху под уровень */
+        rgba(13,14,21,0.3) 40%,   /* Прозрачно по центру, где лицо арта */
+        rgba(13,14,21,0.9) 100%   /* Сильное затемнение внизу под имя и ХП */
+      );
+      z-index: 2; /* Ложится ПОВЕРХ картинки, но ПОД текст */
+      pointer-events: none;
+    }
+        /* Поднимаем текстовые блоки и полосы ХП на самый верхний слой (z-index: 3) */
+    .big-lvl, .big-name, .hp-wrapper {
+      position: relative;
+      z-index: 3; /* Текст гарантированно горит поверх любого арта! */
+    }
+    .big-lvl { 
+      font-size: 11px; color: #f1c40f; font-weight: bold; 
+      margin-bottom: 0px; height: 14px; line-height: 14px;
+      text-shadow: 0 1px 4px #000;
+    }
+
+    .big-name { 
+      height: 28px; font-size: 11px; font-weight: bold; line-height: 1.2;
+      width: 100%; white-space: normal; word-wrap: break-word;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      color: #ffffff; margin-top: auto; margin-bottom: 4px; /* Прижали имя к полосе ХП */
+      text-shadow: 0 1px 4px #000;
     }
     /* Жесткий отступ под аватаром */
     .avatar-container {
@@ -87,40 +133,6 @@
       margin-bottom: 12px; /* 🔥 Фиксированный шаг до имени */
     }
 
-    .avatar-img {
-      width: 68px;  /* 🔥 Жестко форсируем ширину под контейнер */
-      height: 80px; /* 🔥 Жестко форсируем высоту под контейнер */
-      display: block;
-      object-fit: cover; 
-      border-radius: 8px; /* 🔥 Картинка внутри тоже становится ровным квадратом */
-    }
-
-     /* Жесткий отступ под уровнем */
-    .big-lvl { 
-      font-size: 11px; 
-      color: #f1c40f; 
-      font-weight: bold; 
-      margin-bottom: 6px; /* 🔥 Фиксированный шаг до аватара */
-      height: 14px;
-      line-height: 14px;
-    }
-
-   /* Имя с автопереносом на 2 строки и жесткой высотой */
-    .big-name { 
-      height: 28px; /* 🔥 Выделяем строго 2 строки текста */
-      font-size: 11px; 
-      font-weight: bold; 
-      line-height: 1.3;
-      width: 100%;
-      white-space: normal; /* Разрешаем перенос */
-      word-wrap: break-word;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      color: #ffffff;
-      margin-bottom: 10px; /* 🔥 Фиксированный шаг до полосы ХП */
-    }
     /* ============================================================================
        ===== 🎛️ СТИЛЬНЫЕ НЕОНОВЫЕ ДВУХКОЛОННЫЕ КНОПКИ ТАКТИКИ =====
        ============================================================================ */
@@ -288,19 +300,26 @@
  <!-- 1. ВЕРХНИЙ БЛОК: КОМПАКТНАЯ ДУЭЛЬ С БЫСТРЫМИ СЛОТАМИ РАСХОДНИКОВ -->
     <div class="duel-zone">
       
-      <!-- ЛЕВАЯ СТОРОНА: Герой + Быстрые слоты -->
+         <!-- ЛЕВАЯ СТОРОНА: Герой + Быстрые слоты -->
       <div style="display: flex; flex-direction: column; align-items: center;">
         <div id="main-hero-card" class="big-fighter-card">
+          <!-- 🔥 Задний арт Яна внутри карточки -->
+          <img id="hero-card-bg-img" class="card-background-art" src="../assets/avatars/hero5.jpg" alt="Hero Background">
+          <div class="card-gradient-overlay"></div>
+
           <div class="big-lvl" id="hero-lvl-text">Lv. --</div>
-          <div class="avatar-container">
-            <img id="hero-avatar-img" class="avatar-img" src="../assets/avatars/hero5.jpg" alt="Hero">
-          </div>
           <div class="big-name" id="hero-name-text">Загрузка...</div>
           <div class="hp-wrapper">
             <div class="hp-bar"><div id="hero-hp-fill" class="hp-fill"></div></div>
             <div class="hp-text" id="hero-hp-text">0 / 0</div>
           </div>
         </div>
+        
+        <div class="quick-slots-row">
+          <button id="quick-potion-btn" class="quick-action-btn" title="Выпить зелье" disabled>🧪</button>
+          <button id="quick-scroll-btn" class="quick-action-btn" title="Прочитать свиток" disabled>📜</button>
+        </div>
+      </div>
         
         <!-- 🔥 Кнопки банок и свитков строго ПОД вашей карточкой -->
         <div class="quick-slots-row">
@@ -333,13 +352,14 @@
         <button id="strike-action-btn" disabled>АТАКОВАТЬ</button>
       </div>
 
-      <!-- ПРАВАЯ СТОРОНА: Враг + Заглушки быстрых слотов (для симметрии) -->
+           <!-- ПРАВАЯ СТОРОНА: Враг + Заглушки -->
       <div style="display: flex; flex-direction: column; align-items: center;">
         <div id="main-target-card" class="big-fighter-card">
+          <!-- 🔥 Задний арт Голема внутри карточки -->
+          <img id="target-card-bg-img" class="card-background-art" src="../assets/monsters/monster1.jpg" alt="Monster Background">
+          <div class="card-gradient-overlay"></div>
+
           <div class="big-lvl" id="target-lvl-text">Lv. --</div>
-          <div class="avatar-container" style="border-color: rgba(255, 71, 87, 0.2);">
-            <img id="target-avatar-img" class="avatar-img" src="../assets/monsters/monster1.jpg" alt="Monster">
-          </div>
           <div class="big-name" id="target-name-text">Нет цели</div>
           <div class="hp-wrapper enemy-hp">
             <div class="hp-bar"><div id="target-hp-fill" class="hp-fill"></div></div>
@@ -347,14 +367,11 @@
           </div>
         </div>
         
-        <!-- Заглушки кнопок под монстром, чтобы пульт стоял идеально ровно -->
         <div class="quick-slots-row">
           <button class="quick-action-btn" disabled style="opacity: 0.05;">🛡️</button>
           <button class="quick-action-btn" disabled style="opacity: 0.05;">⚔️</button>
         </div>
       </div>
-
-    </div>
 
     <!-- 2. СРЕДНИЙ БЛОК: МАССОВКА -->
     <div class="reserve-zone">
