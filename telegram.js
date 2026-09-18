@@ -63,6 +63,12 @@ function setupSecureDataListeners(callback) {
   window.socket.off('load_game_success');
   window.socket.off('player_not_found');
   window.socket.off('load_game_failed');
+  window.socket.off('stat_distribution_error');
+  window.socket.on('stat_distribution_error', (msg) => {
+    alert(`❌ Ошибка сохранения: ${msg}`);
+    const btn = document.getElementById('stat-save-btn');
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Сохранить характеристики'; }
+  });
 
 // Сценарий А: Сервер успешно сохранил или обновил профиль
   window.socket.on('load_game_success', ({ player }) => {
