@@ -358,18 +358,26 @@ window.stepTempStat = function(statName, operation) {
   window.openProfile();
 };
 
-// Функция отправки накопленного буфера на сервер
 window.submitStatDistribution = function() {
   if (window.socket && window.socket.connected) {
+    // Находим кнопку сохранения, чтобы исключить двойные клики
+    const confirmBtn = document.querySelector('.modal-body-stats button[style*="background: rgb(46, 204, 113)"]');
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = '⏳ Сохранение в облаке...';
+    }
+
+    console.log(`📡 Отправка пакета распределения статов:`, window._tempStatDistribution);
+    
+    // Отправляем сигнал бэкенду
     window.socket.emit('confirm_stat_distribution_secure', {
       userId: window.player.id,
       distribution: window._tempStatDistribution
     });
   } else {
-    alert("⚠️ Ошибка соединения с сервером.");
+    alert("⚠️ Ошибка: Нет соединения с сервером! Проверьте интернет.");
   }
 };
-
 // 🔥 СБРОСИТЬ БУФЕР ПРИ ЗАКРЫТИИ ИЛИ ОБНОВЛЕНИИ ОКНА
 function resetStatBuffer() {
   window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, intellect: 0, luck: 0 };

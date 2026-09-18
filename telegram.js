@@ -64,19 +64,30 @@ function setupSecureDataListeners(callback) {
   window.socket.off('player_not_found');
   window.socket.off('load_game_failed');
 
-  // Сценарий А: Сервер успешно нашел игрока в БД и прислал его профиль
+// Сценарий А: Сервер успешно сохранил или обновил профиль
   window.socket.on('load_game_success', ({ player }) => {
-    console.log(`☁️ Профиль игрока [ID: ${player.id}] успешно загружен через безопасный шлюз бэкенда.`);
+    console.log(`☁️ Данные игрока [ID: ${player.id}] синхронизированы с сервером.`);
     window.player = player;
     
-    // Перезаписываем локальный кэш актуальными облачными данными
+    // Перезаписываем локальный кэш
     localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
     
-    // Запускаем игровой аудит уровней, античита и очков характеристик
+    // Проверка уровней
     if (typeof window.checkLevelUp === 'function') {
       window.checkLevelUp(true); 
     }
     
+    // 🔥 ФИКС: Если в момент ответа сервера открыта модалка профиля,
+    // мы принудительно сбрасываем временные буферы кликов и перерисовываем статы!
+    const modal = document.getElementById('profile-modal');
+    if (modal && (modal.style.display === 'flex' || modal.classList.contains('active'))) {
+      if (typeof window._tempStatDistribution !== 'undefined') {
+        window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, intellect: 0, luck: 0 };
+        window._tempStatPoints = window.player.statPoints;
+      }
+      if (typeof window.openProfile === 'function') window.openProfile();
+    }
+
     if (typeof window.render === 'function') window.render();
     if (typeof callback === 'function') callback(null);
   });
