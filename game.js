@@ -718,10 +718,11 @@ function initCSPEvents() {
 function startGame() {
   console.log("🚀 Инициализация ядра игры...");
 
-  // Слушатель сигналов от страницы Арены
+  // 🔥 Слушатель сигналов от страницы Арены (CSP-безопасный мост)
   window.addEventListener('message', function(event) {
     if (!event.data) return;
 
+    // Сигнал А: Принятие вызова на Арене (В БОЙ!)
     if (event.data.type === 'EXECUTE_ARENA_CHALLENGE') {
       console.log(`📡 Главное окно поймало команду запуска боя от Арены!`);
       const mainSocket = typeof socket !== 'undefined' && socket ? socket : window.socket;
@@ -732,9 +733,12 @@ function startGame() {
           myMaxHp: Number(event.data.myMaxHp),
           oppMaxHp: Number(event.data.oppMaxHp)
         });
+      } else {
+        console.error("❌ Критическая ошибка: На главной странице не найден active Web-сокет!");
       }
     }
 
+    // Сигнал Б: Редирект в PvP бой
     if (event.data.type === 'START_ARENA_BATTLE') {
       console.log(`📡 Ядро города поймало сигнал Арены! Закрываю оверлей и пингую сервер...`);
       const iframeWrapper = document.getElementById('arena-iframe-wrapper');
@@ -747,8 +751,10 @@ function startGame() {
     }
   });
 
+  // Инициализируем безопасные CSP-слушатели кликов по кнопкам и вкладкам инвентаря
   if (typeof initCSPEvents === 'function') initCSPEvents();
 
+  // Делаем асинхронный вызов загрузки профиля из базы данных Supabase
   if (typeof window.loadGame === 'function') {
     window.loadGame((error) => {
       if (error) {
@@ -756,45 +762,50 @@ function startGame() {
         return;
       }
 
+      // Страховка: если объект игрока почему-то пуст, вызываем базовый конструктор
       if (!window.player) {
         console.log("⚠️ Профиль игрока пуст в памяти. Вызываем createPlayer()...");
         window.player = createPlayer();
       }
 
-    // ============================================================================
-      // 🔄 ЖЕСТКИЙ ПЕРЕХВАТ СЕССИИ (ПРОВЕРКА ОБОРВАННОГО БОЯ ДО РЕНДЕРА ГОРОДА)
+      // Отрисовываем главный мирный экран города, обновляем ник, уровень и ХП на площади
+      if (typeof render === 'function') {
+        render();
+      }
+
+      // Выводим отладочный лог: теперь данные игрока ГАРАНТИРОВАННО лежат в ОЗУ смартфона
+      console.log(`✅ ИГРА ГОТОВА. Персонаж: ${window.player.name}, Настоящий ID: ${window.player.id}`);
+
+      // ============================================================================
+      // 🔄 🔥 УЛЬТИМАТИВНЫЙ АВТО-ПЕРЕХВАТ СЕССИИ (ЖЕСТКАЯ ПРОВЕРКА БОЯ ПРИ СТАРТЕ) =====
       // ============================================================================
       if (window.socket && window.player && window.player.id) {
-        console.log(`🔍 Проверка ОЗУ сервера: ищем оборванные бои для игрока ID ${window.player.id}...`);
+        console.log(`🔍 Проверка ОЗУ сервера: Отправляем запрос для игрока ID ${window.player.id}...`);
         
-        // Принудительно зачищаем старые листенеры на этой ветке
+        // Принудительно зачищаем старые дубликаты слушателей перед привязкой нового события
         window.socket.off('arena_redirect_to_battle');
         
         window.socket.on('arena_redirect_to_battle', (data) => {
-          console.log("⚔️ ХАРД-ЗАЩИТА: Обнаружен незавершенный поединок! Блокируем город и уводим на арену.");
+          console.log("⚔️ ХАРД-ЗАЩИТА СЕРВЕРА: Обнаружен незавершенный поединок! Уводим на арену.");
           
-          // Глушим сокет города и все интервалы перед уходом, полностью разгружая память
-          if (window.socket) try { window.socket.disconnect(); } catch(e) {}
-          for (let i = 1; i < 100; i++) { window.clearInterval(i); window.clearTimeout(i); }
+          // Полностью глушим мирный сокет города и все интервалы перед уходом, разгружая память устройства
+          if (window.socket) {
+            try { window.socket.disconnect(); } catch(e) {}
+          }
+          for (let i = 1; i < 100; i++) { 
+            window.clearInterval(i); 
+            window.clearTimeout(i); 
+          }
           
-          // Выполняем безальтернативный жесткий переход во вкладку боя
+          // Принудительно меняем адрес текущего окна браузера Telegram (обходим блокировки)
           window.location.replace(`battle/battle.html?roomId=${data.roomId}`);
         });
 
-        // Отправляем запрос проверки на сервер
+        // Пингуем бэкенд строго верифицированным и загруженным ID!
         window.socket.emit('check_active_battle', { userId: window.player.id });
       }
 
-      // Если в течение 150мс сервер не перехватил сессию (игрок свободен), безопасно открываем город
-      setTimeout(() => {
-        const isRedirected = window.socket && !window.socket.connected;
-        if (!isRedirected && typeof render === 'function') {
-          render();
-          console.log(`✅ ИГРА ГОТОВА. Персонаж: ${window.player.name}, Настоящий ID: ${window.player.id}`);
-        }
-      }, 150);
-
-    });
+    }); // Конец анонимного коллбэка функции loadGame
   } else {
     console.error("❌ Критическая ошибка: Функция loadGame не объявлена в telegram_supabase.js!");
   }
