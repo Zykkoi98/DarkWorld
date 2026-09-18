@@ -385,24 +385,37 @@ function resetTacticalButtons() {
 }
 
 function checkPotionAvailability() {
-  const localSave = localStorage.getItem('rpg_save');
-  if (!localSave) return;
-  try {
-    const player = JSON.parse(localSave).player;
-    const potionId = player.equipped?.potion;
-    const potionBtn = document.getElementById('battle-potion-btn');
-    if (potionId && potionBtn) {
-      const pData = window.getItemData ? window.getItemData(potionId) : null;
-      if (pData) {
-        potionBtn.style.display = 'block';
-        potionBtn.innerHTML = `${pData.icon} Выпить: ${pData.name} (+${pData.heal} HP)`;
-        potionBtn.onclick = function() {
-          potionBtn.remove();
-          socket.emit('instant_use_potion', { roomId: currentRoomId });
-        };
-      }
+  const potionBtn = document.getElementById('battle-potion-btn');
+  if (!potionBtn) return;
+
+  // 🔥 ГЛАВНЫЙ ФИКС: Ищем вашего героя в официальном живом массиве команды от сервера!
+  const myFighter = teamA.find(f => f.uuid === myUuid);
+  
+  // Достаем ID надетого зелья прямо из серверного объекта бойца
+  const potionId = myFighter && myFighter.equipped ? myFighter.equipped.potion : null;
+
+  // Если сервер подтвердил, что банка в слоте действительно есть и она не выпита
+  if (potionId && potionId !== 'null') {
+    // Подтягиваем иконку и имя предмета из общей базы данных config.js
+    const pData = window.getItemData ? window.getItemData(potionId) : null;
+    
+    if (pData) {
+      potionBtn.style.display = 'block';
+      potionBtn.innerHTML = `${pData.icon || '🧪'} Выпить: ${pData.name} (+${pData.heal || 0} HP)`;
+      
+      potionBtn.onclick = function() {
+        // Мгновенно удаляем кнопку с экрана, чтобы избежать двойных кликов
+        potionBtn.style.display = 'none';
+        // Шлем команду на бэкенд Node.js
+        socket.emit('instant_use_potion', { roomId: currentRoomId });
+      };
+    } else {
+      potionBtn.style.display = 'none';
     }
-  } catch(e) {}
+  } else {
+    // 🔥 Если банки на сервере нет — кнопка гарантированно скрывается и никогда не всплывет!
+    potionBtn.style.display = 'none';
+  }
 }
 
 // Точка входа: запускаем сборку логики после полной прогрузки DOM дерева
