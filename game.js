@@ -322,10 +322,19 @@ if (loc.name === "Выход на природу") {
 
 window.upgradeStat = function(statName) {
   if (!window.player || window.player.statPoints <= 0) return;
-  if (window.player.stats[statName] !== undefined) {
-    window.player.stats[statName]++; window.player.statPoints--;
-    if (statName === 'endurance') window.player.hp += 10;
-    saveGame({ player: window.player }); render(); window.openProfile();
+  
+  // Проверяем, что сокет активен
+  if (window.socket && window.socket.connected) {
+    console.log(`📡 Отправка серверного запроса на прокачку стата: ${statName}`);
+    
+    // Отправляем сигнал бэкенду. Он сам все проверит, прибавит и вернет нам
+    // обновленный профиль через существующий слушатель 'load_game_success'
+    window.socket.emit('upgrade_stat_secure', {
+      userId: window.player.id,
+      statName: statName
+    });
+  } else {
+    alert("⚠️ Нет стабильного соединения с сервером! Попробуйте позже.");
   }
 };
 
