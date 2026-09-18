@@ -25,11 +25,11 @@ function initBattleSocket() {
   }
 
   console.log("✅ Библиотека Socket.io v4.8.3 обнаружена. Подключаемся...");
-  socket = io('https://darkworld-server.onrender.com');
-
-  const localSave = localStorage.getItem('rpg_save');
+  socket = io('https://darkworld-server.onrender.com', {
+    transports: ['websocket', 'polling']
+  });
+ const localSave = localStorage.getItem('rpg_save');
   let localPlayer = null;
-  
   if (localSave) {
     try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
   }
@@ -40,28 +40,50 @@ function initBattleSocket() {
     return;
   }
 
-   // Читаем параметры строки адреса
+  // Читаем абсолютно все параметры из строки адреса браузера
   const urlParams = new URLSearchParams(window.location.search);
-  const existingRoomId = urlParams.get('roomId'); // 🔥 Ловим ID комнаты, если э
+  
+  // Проверяем roomId из ссылки редиректа F5
+  let existingRoomId = urlParams.get('roomId'); 
+  
+  // 🔥 ГЛАВНЫЙ АНТИ-БАГ ХИТРОСТЬ: Если roomId в ссылке пустой, но мы зашли сюда 
+  // повторно (через кнопку Леса при живом бое), мы принудительно заставим сервер 
+  // сделать проверку по ID игрока прямо внутри коннекта!
+  socket.on('connect', () => {
+    console.log("🟢 Сокет успешно подключен к бэкенду. Верификация сессии...");
 
-   socket.on('connect', () => {
-    // 🔥 ФИКС: Если прилетел roomId, просим сервер просто восстановить сессию!
-    if (existingRoomId) {
-      console.log(`🔄 Отправляем запрос на восстановление прерванного боя: ${existingRoomId}`);
+    if (existingRoomId && existingRoomId !== 'null' && existingRoomId !== 'undefined') {
+      console.log(`🔄 [РЕКОННЕКТ] Найдена комната в URL. Восстанавливаем бой: ${existingRoomId}`);
       socket.emit('reconnect_to_battle', {
         roomId: existingRoomId,
         userId: String(localPlayer.id)
       });
-    } 
-    // Иначе это стандартный первый вход в Лес, создаем новый бой
-    else {
-      const monsterKey = urlParams.get('monster') || 'wild_wolf';
-      const count = urlParams.get('count') || 1;
-      console.log(`⚔️ Первый вход в Лес. Генерируем новый поединок для ${monsterKey}...`);
-      socket.emit('search_pve_match', {
-        playerData: localPlayer,
-        monsterKey: monsterKey,
-        count: Number(count)
+    } else {
+      // 🔥 Если явного roomId в ссылке нет, мы СНАЧАЛА тихо спрашиваем сервер,
+      // не висит ли для нашего ID уже запущенная комната в ОЗУ бэкенда!
+      console.log(`🔍 Тихо проверяем ОЗУ сервера перед созданием нового PvE матча...`);
+      socket.emit('check_active_battle_directly', { userId: localPlayer.id }, (response) => {
+        
+        // Если сервер ответил, что бой УЖЕ ИДЕТ, мы перенаправляем сокет на восстановление!
+        if (response && response.activeRoomId) {
+          console.log(`🔄 [ПЕРЕХВАТ ДУБЛИКАТА] Сервер нашел активный бой ${response.activeRoomId}. Восстанавливаем!`);
+          socket.emit('reconnect_to_battle', {
+            roomId: response.activeRoomId,
+            userId: String(localPlayer.id)
+          });
+        } 
+        // И только если сервер подтвердил, что игрок чист и свободен — генерируем новый бой!
+        else {
+          const monsterKey = urlParams.get('monster') || 'wild_wolf';
+          const count = urlParams.get('count') || 1;
+          console.log(`⚔️ Игрок свободен. Генерируем новый поединок для ${monsterKey} х${count}...`);
+          
+          socket.emit('search_pve_match', {
+            playerData: localPlayer,
+            monsterKey: monsterKey,
+            count: Number(count)
+          });
+        }
       });
     }
   });
