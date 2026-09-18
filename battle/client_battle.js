@@ -94,44 +94,54 @@ function initBattleSocket() {
 function setupSocketListeners() {
   if (!socket) return;
 
-  // Пакет инициализации боя (первый заход на арену)
+   // ============================================================================
+  // 🟢 1. ПАКЕТ ПЕРВИЧНОЙ ИНИЦИАЛИЗАЦИИ БОЯ (ПЕРВЫЙ ВХОД ИЛИ F5)
+  // ============================================================================
   socket.on('battle_init_data', (data) => {
+    console.log("🌲 Получены стартовые данные боя от сервера Node.js:", data);
+    
     currentRoomId = data.roomId;
     myUuid = data.myUuid;
     teamA = data.teamA;
     teamB = data.teamB;
 
-    // Автоматически выбираем целью первого живого врага
-    const firstAliveEnemy = teamB.find(e => teamB.currentHp !== 0); // Исправление: проверка ХП
-    if (firstAliveEnemy) selectedTargetUuid = firstAliveEnemy.uuid;
-
-    // Убираем загрузочную шторку с экрана
-    const loader = document.getElementById('battle-loading-overlay');
-    if (loader) {
-      loader.style.opacity = "0";
-      setTimeout(() => loader.remove(), 300);
-    }
-
     document.getElementById('battle-round-indicator').textContent = `⚔️ Раунд ${data.turnCount}`;
-    checkPotionAvailability();
+    
+    // Автоматически фокусируемся на первом живом противнике
+    const firstAlive = teamB.find(e => e.currentHp > 0);
+    selectedTargetUuid = firstAlive ? firstAlive.uuid : null;
+
+    resetTacticalButtons();
     renderFighters();
     
-    document.getElementById('battle-log-viewport').innerHTML = 
-      `<div class="log-system">⚔️ Бой начался! Выберите тактику раунда и цель на нижней правой панели.</div>`;
+    // 🔥 ФИКС: Проверяем и переносим зелье в маленький слот под аватаркой Яна!
+    checkPotionAvailability();
+
+    // Плавно гасим и убираем стартовую шторку загрузки дуэли
+    const overlay = document.getElementById('battle-loading-overlay');
+    if (overlay) {
+      overlay.style.transition = "opacity 0.2s ease";
+      overlay.style.opacity = "0";
+      setTimeout(() => overlay.style.display = 'none', 200);
+    }
   });
 
-  // Пакет результатов раунда от бэкенда Node.js
+ // ============================================================================
+  // ⚔️ 2. ПАКЕТ РЕЗУЛЬТАТОВ РАУНДА ОТ БЭКЕНДА
+  // ============================================================================
   socket.on('round_result', (data) => {
+    console.log("📊 Получены итоги обмена ударами:", data);
+    
     teamA = data.teamA;
     teamB = data.teamB;
 
     document.getElementById('battle-round-indicator').textContent = `⚔️ Раунд ${data.turnCount + 1}`;
-    checkPotionAvailability();
+    
     // Сбрасываем флаги тактики для нового раунда
     selectedAttackZone = null;
     selectedDefendZones = [];
     
-    // Если текущая выбранная цель погибла в этом раунде, авто-переключаем фокус на любого выжившего врага
+    // Если текущая цель погибла, переключаем фокус дуэли на следующего живого врага
     const currentTarget = teamB.find(e => e.uuid === selectedTargetUuid);
     if (!currentTarget || currentTarget.currentHp <= 0) {
       const nextAlive = teamB.find(e => e.currentHp > 0);
@@ -140,60 +150,61 @@ function setupSocketListeners() {
 
     resetTacticalButtons();
     renderFighters();
+    
+    // 🔥 ФИКС: Перепроверяем зелье на случай, если боец только что выпил его в раунде!
+    checkPotionAvailability();
 
-    // Выводим логи раунда в окно
+    // Выводим логи раунда в текстовое окно снизу
     const logBox = document.getElementById('battle-log-viewport');
-    const divBreak = document.createElement('div');
-    divBreak.className = 'log-round-break';
-    divBreak.textContent = `--- Итоги раунда ${data.turnCount} ---`;
-    logBox.appendChild(divBreak);
+    if (logBox) {
+      const divBreak = document.createElement('div');
+      divBreak.className = 'log-round-break';
+      divBreak.textContent = `--- Итоги раунда ${data.turnCount} ---`;
+      logBox.appendChild(divBreak);
 
-    data.logs.forEach(msg => {
-      const d = document.createElement('div');
-      d.innerHTML = msg;
-      if (msg.includes('нанес урона') || msg.includes('повержен')) d.className = 'log-damage';
-      if (msg.includes('заблокировал удар') || msg.includes('🛡️')) d.className = 'log-miss';
-      if (msg.includes('🎉') || msg.includes('🏁')) d.className = 'log-system';
-      logBox.appendChild(d);
-    });
+      data.logs.forEach(msg => {
+        const d = document.createElement('div');
+        d.innerHTML = msg;
+        if (msg.includes('нанес урона') || msg.includes('повержен')) d.className = 'log-damage';
+        if (msg.includes('заблокировал удар') || msg.includes('🛡️')) d.className = 'log-miss';
+        if (msg.includes('🎉') || msg.includes('🏁')) d.className = 'log-system';
+        logBox.appendChild(d);
+      });
 
-    logBox.scrollTop = logBox.scrollHeight;
+      logBox.scrollTop = logBox.scrollHeight;
+    }
 
     const strikeBtn = document.getElementById('strike-action-btn');
     
-    // Если бой ЕЩЕ ПРОДОЛЖАЕТСЯ
+    // Если поединок ЕЩЕ ПРОДОЛЖАЕТСЯ
     if (!data.isOver) {
       if (strikeBtn) {
-        strikeBtn.textContent = 'Ударить';
-        strikeBtn.disabled = true; // Будет активна, когда игрок выберет новые зоны
+        strikeBtn.textContent = 'Атаковать';
+        strikeBtn.disabled = true; // Будет активна, когда игрок выберет новую тактику
       }
     } 
-    // 🔥 Если бой ОКОНЧЕН (Победа или Поражение)
+    // 🔥 Если БОЙ ОКОНЧЕН официально (Победа или Смерть Яна)
     else {
       if (strikeBtn) {
         strikeBtn.textContent = 'ВЕРНУТЬСЯ В ГОРОД';
         strikeBtn.disabled = false;
         strikeBtn.style.background = 'var(--success)';
         
-        // Намертво стираем старую логику отправки ходов на сервер, чтобы кнопка не спамила бэкенд
+        // Намертво стираем боевую функцию сокета, чтобы кнопка не спамила бэкенд
         strikeBtn.onclick = null; 
         
         // Навешиваем безопасный и чистый выход из сессии
         strikeBtn.onclick = function() {
-          console.log("🏃‍♂️ Покидаем поле боя. Отключаем сокеты и возвращаемся в город...");
+          console.log("🏃‍♂️ Покидаем поле боя. Отключаем сокеты боевой вкладки...");
           
-          // Принудительно закрываем сетевое соединение боевой вкладки
           if (socket) {
             socket.disconnect();
           }
           
-          // Жестко перезагружаем мирный экран города, очищая кэш сокетов в Telegram
+          // Жестко перезагружаем мирный экран города, очищая кэш в Telegram
           window.location.replace('../index.html');
         };
       }
-      
-      // Сносим кнопку моментального питья зелий, чтобы её нельзя было нажать после драки
-      document.getElementById('battle-potion-btn')?.remove();
     }
   });
 
