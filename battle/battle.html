@@ -46,34 +46,36 @@
        ============================================================================ */
     .duel-zone {
       display: flex;
+      flex-direction: row; /* 🔥 Насильно заставляем элементы стоять в один ряд */
       justify-content: space-between;
-      align-items: stretch;
+      align-items: flex-start; /* Выравнивание по верхней линии кнопок расходников */
       gap: 6px;
       background: rgba(0, 0, 0, 0.3);
       border-radius: 14px;
       padding: 6px;
       border: 1px solid var(--border);
+      width: 100%;
     }
 
-/* 🔥 КАРТОЧКА КАК ЕДИНЫЙ ХУДОЖЕСТВЕННЫЙ КОНТЕЙНЕР С ФОНОМ-КАРТИНКОЙ */
+/* Карточки дуэлянтов с жестко зафиксированными размерами в пикселях */
     .big-fighter-card {
-      flex: 1;
-      width: 125px;
-      max-width: 125px;
-      height: 180px; /* Уменьшенная уплотненная высота под банки */
+      width: 110px; /* Слегка уменьшили ширину, чтобы влезть в узкие экраны вместе со слотами */
+      max-width: 110px;
+      height: 140px; /* 🔥 Сделали карточку компактной, так как аватар ушел в фон */
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 6px 4px;
+      padding: 8px 4px;
       text-align: center;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
       
-      position: relative; /* Чтобы внутренние слои позиционировались ровно */
-      overflow: hidden;   /* Чтобы углы картинки скруглялись по рамке карточки */
+      position: relative; 
+      overflow: hidden;   
       background: #13141f; 
       box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      flex-shrink: 0; /* Защита от сжатия пультами тактики */
     }
      /* 🔥 ЗАДНИЙ ФОН-ПОДЛОЖКА ВНУТРИ САМОЙ КАРТОЧКИ */
     .card-background-art {
@@ -136,11 +138,12 @@
     /* ============================================================================
        ===== 🎛️ СТИЛЬНЫЕ НЕОНОВЫЕ ДВУХКОЛОННЫЕ КНОПКИ ТАКТИКИ =====
        ============================================================================ */
+      /* Пульт тактики по центру */
     .tactical-center-controls {
-      flex: 1.6;
+      flex: 1; /* Занимает всё оставшееся свободное место по центру */
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
       background: rgba(0, 0, 0, 0.4);
       padding: 6px;
       border-radius: 12px;
@@ -249,28 +252,27 @@
     /* ============================================================================
        ===== 🧪 НОВЫЕ СТИЛИ ДЛЯ КНОПОК БАНОК И СВИТКОВ ПОД КАРТОЧКАМИ =====
        ============================================================================ */
-    .quick-slots-row {
+   .quick-slots-row {
       display: flex;
-      gap: 6px;
+      gap: 4px;
       width: 100%;
-      max-width: 125px;
-      margin-top: 6px;
+      max-width: 110px; /* 🔥 Должно строго совпадать с шириной .big-fighter-card */
+      margin-top: 4px;
     }
 
-    .quick-action-btn {
+     .quick-action-btn {
       flex: 1;
-      height: 36px;
+      height: 32px; /* Чуть-чуть компактнее по высоте */
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid var(--border);
       border-radius: 6px;
       color: #ffffff;
-      font-size: 16px; /* Под эмодзи банки/свитка */
+      font-size: 14px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.15s ease;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     }
 
     .quick-action-btn:hover {
