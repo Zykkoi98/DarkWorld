@@ -689,7 +689,6 @@ function initCSPEvents() {
     document.getElementById(`tab-btn-${tab}`)?.addEventListener('click', function() { window.switchTab(tab); });
   });
 
-  // Привязываем клики к 8 стандартным слотам куклы брони
   const equSlots = ['head', 'neck', 'gloves', 'mainHand', 'body', 'legs', 'extra', 'offHand'];
   equSlots.forEach(slotKey => {
     document.getElementById(`eslot-${slotKey}`)?.addEventListener('click', function() {
@@ -699,7 +698,6 @@ function initCSPEvents() {
     });
   });
 
-  // Привязываем клики к 3 слотам под кольца
   for (let i = 0; i < 3; i++) {
     document.getElementById(`eslot-ring-${i}`)?.addEventListener('click', function() {
       if (window.player && window.player.equipped && window.player.equipped.rings && window.player.equipped.rings[i]) {
@@ -708,7 +706,6 @@ function initCSPEvents() {
     });
   }
 
-  // Привязываем клики к боевым расходникам (зелья/свитки)
   ['potion', 'scroll'].forEach(slotKey => {
     document.getElementById(`eslot-${slotKey}`)?.addEventListener('click', function() {
       if (window.player && window.player.equipped && window.player.equipped[slotKey]) {
@@ -721,31 +718,23 @@ function initCSPEvents() {
 function startGame() {
   console.log("🚀 Инициализация ядра игры...");
 
-  // 🔥 ДОБАВЬ/ОБНОВИ ЭТОТ БЛОК: Слушатель сигналов от страницы Арены
+  // Слушатель сигналов от страницы Арены
   window.addEventListener('message', function(event) {
     if (!event.data) return;
 
-    // Сигнал А: Принятие вызова (В БОЙ!)
     if (event.data.type === 'EXECUTE_ARENA_CHALLENGE') {
       console.log(`📡 Главное окно поймало команду запуска боя от Арены!`);
-      
-      // Забираем живой сокет главной страницы
       const mainSocket = typeof socket !== 'undefined' && socket ? socket : window.socket;
-      
       if (mainSocket) {
-        // 🔥 Отправляем сигнал на сервер через ОФИЦИАЛЬНЫЙ и рабочий сокет города!
         mainSocket.emit('accept_arena_challenge', {
           myId: String(event.data.myId),
           opponentId: String(event.data.opponentId),
           myMaxHp: Number(event.data.myMaxHp),
           oppMaxHp: Number(event.data.oppMaxHp)
         });
-      } else {
-        console.error("❌ Критическая ошибка: На главной странице не найден активный Web-сокет!");
       }
     }
 
-    // Сигнал Б: Редирект в бой (уже существующий у тебя код)
     if (event.data.type === 'START_ARENA_BATTLE') {
       console.log(`📡 Ядро города поймало сигнал Арены! Закрываю оверлей и пингую сервер...`);
       const iframeWrapper = document.getElementById('arena-iframe-wrapper');
@@ -758,10 +747,8 @@ function startGame() {
     }
   });
 
-  // Инициализируем безопасные CSP-слушатели кликов по кнопкам и вкладкам
   if (typeof initCSPEvents === 'function') initCSPEvents();
 
-  // Делаем честный вызов загрузки из базы данных
   if (typeof window.loadGame === 'function') {
     window.loadGame((error) => {
       if (error) {
@@ -769,78 +756,67 @@ function startGame() {
         return;
       }
 
-      // Страховка: если объект игрока почему-то пуст, вызываем базовый конструктор
       if (!window.player) {
         console.log("⚠️ Профиль игрока пуст в памяти. Вызываем createPlayer()...");
         window.player = createPlayer();
       }
 
-      // Отрисовываем главный мирный экран города и полоску здоровья
-      if (typeof render === 'function') {
-        render();
-      }
-
+    // ============================================================================
+      // 🔄 ЖЕСТКИЙ ПЕРЕХВАТ СЕССИИ (ПРОВЕРКА ОБОРВАННОГО БОЯ ДО РЕНДЕРА ГОРОДА)
       // ============================================================================
-      // 🔄 ХЕНДЛЕР ВОССТАНОВЛЕНИЯ СЕССИИ (ВНУТРИ КОЛЛБЭКА, С ЗАЩИТОЙ СКОБОК)
-      // ============================================================================
-      setTimeout(() => {
-        // Проверяем, подключен ли мирный сокет города и загружен ли игрок
-        if (window.socket && window.player && window.player.id) {
-          console.log(`🔍 Проверка ОЗУ сервера: ищем оборванные бои для игрока ID ${window.player.id}...`);
-          
-          // Спрашиваем у сервера: «Эй, я тут вылетел, для моего ID есть активная комната?»
-          window.socket.emit('check_active_battle', { userId: window.player.id });
-        }
-      }, 600); // Поставили 600мс, чтобы сокет при рестарте гарантированно успевал проснуться
-
-      // Ловим ответ от сервера, если комната действительно нашлась в памяти бэкенда
-      if (window.socket) {
-        window.socket.off('arena_redirect_to_battle'); // Чистим дубликаты
+      if (window.socket && window.player && window.player.id) {
+        console.log(`🔍 Проверка ОЗУ сервера: ищем оборванные бои для игрока ID ${window.player.id}...`);
+        
+        // Принудительно зачищаем старые листенеры на этой ветке
+        window.socket.off('arena_redirect_to_battle');
+        
         window.socket.on('arena_redirect_to_battle', (data) => {
-          console.log("⚔️ Обнаружен незавершенный поединок! Принудительно возвращаем на арену...");
+          console.log("⚔️ ХАРД-ЗАЩИТА: Обнаружен незавершенный поединок! Блокируем город и уводим на арену.");
           
-          // Автоматически отправляем игрока обратно в папку боя с передачей ID активной комнаты
-          window.location.href = `battle/battle.html?roomId=${data.roomId}`;
+          // Глушим сокет города и все интервалы перед уходом, полностью разгружая память
+          if (window.socket) try { window.socket.disconnect(); } catch(e) {}
+          for (let i = 1; i < 100; i++) { window.clearInterval(i); window.clearTimeout(i); }
+          
+          // Выполняем безальтернативный жесткий переход во вкладку боя
+          window.location.replace(`battle/battle.html?roomId=${data.roomId}`);
         });
+
+        // Отправляем запрос проверки на сервер
+        window.socket.emit('check_active_battle', { userId: window.player.id });
       }
 
-      console.log(`✅ ИГРА ГОТОВА. Персонаж: ${window.player.name}, Настоящий ID: ${window.player.id}`);
+      // Если в течение 150мс сервер не перехватил сессию (игрок свободен), безопасно открываем город
+      setTimeout(() => {
+        const isRedirected = window.socket && !window.socket.connected;
+        if (!isRedirected && typeof render === 'function') {
+          render();
+          console.log(`✅ ИГРА ГОТОВА. Персонаж: ${window.player.name}, Настоящий ID: ${window.player.id}`);
+        }
+      }, 150);
 
-    }); // Закрывает анонимную функцию-коллбэк (error) => { ...
+    });
   } else {
     console.error("❌ Критическая ошибка: Функция loadGame не объявлена в telegram_supabase.js!");
   }
 }
 
-// 🔥 ЖЕСТКИЙ ФИКС ЗАПУСКА: Запускаем игру только после полной прогрузки всех файлов и окон в Telegram
-window.addEventListener('DOMContentLoaded', () => {
-  // Даем микро-паузу в 50мс для железобетонной инициализации объектов Supabase и Telegram
-  setTimeout(() => {
-    startGame();
-  }, 50);
-});
 // ============================================================================
 // ===== ⏰ АСИНХРОННЫЙ АВТО-БУДИЛЬНИК ДЛЯ СЕРВЕРА RENDER (БЕЗОПАСНЫЙ) =====
 // ============================================================================
 function wakeUpServer() {
   const SERVER_URL = "https://darkworld-server.onrender.com";
-  
-  // 🔥 ИСПРАВЛЕНИЕ: Выносим fetch в фоновый режим, чтобы он не вешал браузер Яна
   setTimeout(() => {
     console.log("📡 Отправка фонового пинга на Render...");
-    fetch(SERVER_URL, { mode: 'no-cors' }) // Режим no-cors защищает от блокировок политики безопасности
+    fetch(SERVER_URL, { mode: 'no-cors' })
       .then(() => console.log("⏰ Будильник: Сигнал на боевой сервер отправлен!"))
       .catch((e) => console.warn("Сервер просыпается..."));
   }, 300);
 }
 
-// 🔥 ГАРАНТИРОВАННЫЙ СТАРТ: Только ОДИН обработчик на событие загрузки!
+// 🔥 ЕДИНСТВЕННАЯ ТОЧКА СТАРТА: Запускаем приложение строго один раз
 window.addEventListener('DOMContentLoaded', () => {
-  // 1. Мгновенно запускаем ядро игры, чтобы ушла надпись "Загрузка..."
-  if (typeof startGame === 'function') {
+  setTimeout(() => {
     startGame();
-  }
-  
-  // 2. И только ПОСЛЕ старта игры, аккуратно в фоне будим Render
-  wakeUpServer();
+    wakeUpServer();
+  }, 50);
 });
