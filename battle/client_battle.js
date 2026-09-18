@@ -92,7 +92,7 @@ function setupSocketListeners() {
 
     document.getElementById('battle-round-indicator').textContent = `⚔️ Раунд ${data.turnCount + 1}`;
     
-    // Сбрасываем флаги тактики
+    // Сбрасываем флаги тактики для нового раунда
     selectedAttackZone = null;
     selectedDefendZones = [];
     
@@ -106,6 +106,7 @@ function setupSocketListeners() {
     resetTacticalButtons();
     renderFighters();
 
+    // Выводим логи раунда в окно
     const logBox = document.getElementById('battle-log-viewport');
     const divBreak = document.createElement('div');
     divBreak.className = 'log-round-break';
@@ -124,16 +125,39 @@ function setupSocketListeners() {
     logBox.scrollTop = logBox.scrollHeight;
 
     const strikeBtn = document.getElementById('strike-action-btn');
-    if (strikeBtn && !data.isOver) {
-      strikeBtn.textContent = 'Ударить';
-      strikeBtn.disabled = true;
-    }
-
-    if (data.isOver && strikeBtn) {
-      strikeBtn.textContent = 'В ГОРОД';
-      strikeBtn.disabled = false;
-      strikeBtn.style.background = 'var(--success)';
-      strikeBtn.onclick = () => { window.location.href = '../index.html'; };
+    
+    // Если бой ЕЩЕ ПРОДОЛЖАЕТСЯ
+    if (!data.isOver) {
+      if (strikeBtn) {
+        strikeBtn.textContent = 'Ударить';
+        strikeBtn.disabled = true; // Будет активна, когда игрок выберет новые зоны
+      }
+    } 
+    // 🔥 Если бой ОКОНЧЕН (Победа или Поражение)
+    else {
+      if (strikeBtn) {
+        strikeBtn.textContent = 'ВЕРНУТЬСЯ В ГОРОД';
+        strikeBtn.disabled = false;
+        strikeBtn.style.background = 'var(--success)';
+        
+        // Намертво стираем старую логику отправки ходов на сервер, чтобы кнопка не спамила бэкенд
+        strikeBtn.onclick = null; 
+        
+        // Навешиваем безопасный и чистый выход из сессии
+        strikeBtn.onclick = function() {
+          console.log("🏃‍♂️ Покидаем поле боя. Отключаем сокеты и возвращаемся в город...");
+          
+          // Принудительно закрываем сетевое соединение боевой вкладки
+          if (socket) {
+            socket.disconnect();
+          }
+          
+          // Жестко перезагружаем мирный экран города, очищая кэш сокетов в Telegram
+          window.location.replace('../index.html');
+        };
+      }
+      
+      // Сносим кнопку моментального питья зелий, чтобы её нельзя было нажать после драки
       document.getElementById('battle-potion-btn')?.remove();
     }
   });
@@ -291,15 +315,17 @@ function initTacticalClickListeners() {
   });
 
   // Жирная центральная кнопка «Ударить»
-  const strikeActionBtn = document.getElementById('strike-action-btn');
+const strikeActionBtn = document.getElementById('strike-action-btn');
   if (strikeActionBtn) {
     strikeActionBtn.onclick = function() {
+      // Защита: если на кнопке уже написано "ВЕРНУТЬСЯ", не отправляем ход на сервер!
+      if (this.textContent.includes('ГОРОД')) return;
+
       if (!selectedAttackZone || selectedDefendZones.length !== 2 || !selectedTargetUuid) return;
 
       this.disabled = true;
       this.textContent = 'Расчет...';
 
-      // Отправляем пакет хода на Node.js сервер
       socket.emit('submit_turn', {
         roomId: currentRoomId,
         targetUuid: selectedTargetUuid,
