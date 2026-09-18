@@ -216,11 +216,12 @@ function setupSocketListeners() {
 // ===== ЧАСТЬ 2: ДУЭЛЬНЫЙ РЕНДЕРИНГ, ТАРГЕТИНГ И ИНИЦИАЛИЗАЦИЯ КЛИКОВ =====
 // ============================================================================
 
-/**
- * 📊 УМНАЯ ОТРИСОВКА ДУЭЛЬНОГО ИНТЕРФЕЙСА (БОЛЬШИЕ КАРТОЧКИ + МАССОВКА)
- */
+// ============================================================================
+// ===== 🛡️ ФИКС ИНТЕРФЕЙСА: ТОТАЛЬНАЯ БЛОКИРОВКА КЛИКОВ В КОНЦЕ БОЯ =====
+// ============================================================================
+
 function renderFighters() {
-  // Проверяем, завершен ли бой (смотрим на состояние главной кнопки)
+  // 🔥 ГЛАВНЫЙ ОПРЕДЕЛИТЕЛЬ ФИНАЛА: Проверяем, переведена ли кнопка в режим выхода в город
   const strikeBtn = document.getElementById('strike-action-btn');
   const isBattleOver = strikeBtn && strikeBtn.textContent.includes('ГОРОД');
 
@@ -229,13 +230,16 @@ function renderFighters() {
   if (myFighter) {
     document.getElementById('hero-lvl-text').textContent = `Lv. ${myFighter.level || 1}`;
     document.getElementById('hero-name-text').textContent = myFighter.name;
+    
+    // Принудительно заставляем полоску ХП упасть в честный 0, если здоровье отрицательное
+    const displayHp = Math.max(0, myFighter.currentHp);
     const heroFill = document.getElementById('hero-hp-fill');
-    if (heroFill) heroFill.style.width = `${(myFighter.currentHp / myFighter.maxHp) * 100}%`;
-    document.getElementById('hero-hp-text').textContent = `${myFighter.currentHp} / ${myFighter.maxHp}`;
+    if (heroFill) heroFill.style.width = `${(displayHp / myFighter.maxHp) * 100}%`;
+    document.getElementById('hero-hp-text').textContent = `${displayHp} / ${myFighter.maxHp}`;
     
     const heroCard = document.getElementById('main-hero-card');
     if (heroCard) {
-      if (myFighter.currentHp <= 0) heroCard.classList.add('dead');
+      if (displayHp <= 0) heroCard.classList.add('dead');
       else heroCard.classList.remove('dead');
     }
   }
@@ -276,26 +280,28 @@ function renderFighters() {
 
   teamA.forEach(ally => {
     const card = document.createElement('div');
-    const isDead = ally.currentHp <= 0;
+    const displayAllyHp = Math.max(0, ally.currentHp);
+    const isDead = displayAllyHp <= 0;
     card.className = `mini-fighter-card ${isDead ? 'dead' : ''}`;
     card.innerHTML = `
       <div class="mini-fighter-info"><span>${ally.icon || '👤'}</span> ${ally.name}</div>
-      <span style="font-size: 9px; font-family: monospace; color: var(--success); font-weight: bold;">❤️ ${ally.currentHp}</span>
+      <span style="font-size: 9px; font-family: monospace; color: var(--success); font-weight: bold;">❤️ ${displayAllyHp}</span>
     `;
     alliesListEl.appendChild(card);
   });
 
   teamB.forEach(enemy => {
     const card = document.createElement('div');
-    const isDead = enemy.currentHp <= 0;
+    const displayEnemyHp = Math.max(0, enemy.currentHp);
+    const isDead = displayEnemyHp <= 0;
     const isFocused = selectedTargetUuid === enemy.uuid;
     card.className = `mini-fighter-card ${isDead ? 'dead' : ''} ${isFocused ? 'active-target' : ''}`;
     card.innerHTML = `
       <div class="mini-fighter-info"><span>${enemy.icon || '👹'}</span> ${enemy.name}</div>
-      <span style="font-size: 9px; font-family: monospace; color: ${isFocused ? 'var(--danger)' : 'var(--hint)'}; font-weight: bold;">HP: ${enemy.currentHp}</span>
+      <span style="font-size: 9px; font-family: monospace; color: ${isFocused ? 'var(--danger)' : 'var(--hint)'}; font-weight: bold;">HP: ${displayEnemyHp}</span>
     `;
 
-    // 🔥 ФИКС: Если бой ОКОНЧЕН, полностью отключаем кликабельность плашек монстров!
+    // 🔥 ФИКС: Если бой ОКОНЧЕН, клики по плашкам врагов намертво блокируются!
     if (!isDead && !isBattleOver) {
       card.onclick = function() {
         console.log(`🎯 Смена фокуса дуэли на: ${enemy.name}`);
@@ -312,7 +318,7 @@ function initTacticalClickListeners() {
   // Клики по кнопкам атаки
   document.querySelectorAll('.btn-atk').forEach(btn => {
     btn.onclick = function() {
-      // 🔥 ФИКС: Игнорируем клики, если бой окончен
+      // 🔥 ФИКС: Полный игнор кликов тактики, если на кнопке написано "ГОРОД"
       const strikeBtn = document.getElementById('strike-action-btn');
       if (strikeBtn && strikeBtn.textContent.includes('ГОРОД')) return;
 
@@ -326,7 +332,7 @@ function initTacticalClickListeners() {
   // Клики по кнопкам защиты
   document.querySelectorAll('.btn-def').forEach(btn => {
     btn.onclick = function() {
-      // 🔥 ФИКС: Игнорируем клики, если бой окончен
+      // 🔥 ФИКС: Полный игнор кликов тактики, если на кнопке написано "ГОРОД"
       const strikeBtn = document.getElementById('strike-action-btn');
       if (strikeBtn && strikeBtn.textContent.includes('ГОРОД')) return;
 
@@ -349,7 +355,7 @@ function initTacticalClickListeners() {
   const strikeActionBtn = document.getElementById('strike-action-btn');
   if (strikeActionBtn) {
     strikeActionBtn.onclick = function() {
-      // 🔥 ФИКС: Жесткая защита — если на кнопке возврат в город, блокируем сокет-отправку!
+      // 🔥 ФИКС: Жесткая защита — если бой окончен, кнопка работает исключительно на редирект
       if (this.textContent.includes('ГОРОД')) return;
 
       if (!selectedAttackZone || selectedDefendZones.length !== 2 || !selectedTargetUuid) return;
@@ -369,21 +375,13 @@ function checkStrikeButtonState() {
   const strikeBtn = document.getElementById('strike-action-btn');
   if (!strikeBtn) return;
 
-  // 🔥 ФИКС: Если кнопка переведена в режим возврата в город, МЫ НИКОГДА ЕЕ НЕ ОТКЛЮЧАЕМ!
+  // 🔥 ФИКС: Если кнопка переведена в режим возврата в город, мы её НИКОГДА больше не отключаем!
   if (strikeBtn.textContent.includes('ГОРОД')) {
     strikeBtn.disabled = false;
     return;
   }
 
   strikeBtn.disabled = !(selectedAttackZone && selectedDefendZones.length === 2 && selectedTargetUuid);
-}
-
-function checkStrikeButtonState() {
-  const strikeBtn = document.getElementById('strike-action-btn');
-  if (strikeBtn) {
-    // Включаем кнопку удара, только если выбрана цель, 1 зона атаки и 2 зоны защиты
-    strikeBtn.disabled = !(selectedAttackZone && selectedDefendZones.length === 2 && selectedTargetUuid);
-  }
 }
 
 function resetTacticalButtons() {
