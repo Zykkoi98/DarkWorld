@@ -1,195 +1,139 @@
 // ============================================================================
-// ===== ☁️ ИСПРАВЛЕННЫЙ МОДУЛЬ INTEGRATION TELEGRAM & SUPABASE (ФИКС) =====
+// ===== 🛡️ ЗАЩИЩЕННЫЙ КЛИЕНТСКИЙ МОДУЛЬ (БЕЗ API КЛЮЧЕЙ СУПЕРБЕЙЗА) =====
 // ============================================================================
 const TG = window.Telegram?.WebApp;
 
-// Ключи авторизации облачной базы Supabase
-const SUPABASE_URL = "https://ylslpgujwgxtsabkzgbd.supabase.co"; 
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlsc2xwZ3Vqd2d4dHNhYmt6Z2JkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMDM3ODksImV4cCI6MjEwNDg3OTc4OX0.GKocc3hnVQVSYaOnm1QhHca54sBn8AsiN8mHo6J0ENY"; 
-
-window.sb = null;
-
-function initSupabaseLazy() {
-  if (window.sb) return;
-  if (window.supabase && typeof window.supabase.createClient === 'function') {
-    try {
-      window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      console.log("🔌 Инициализация Supabase успешна.");
-    } catch(e) {
-      console.warn("⚠️ Сбой создания клиента базы:", e);
-    }
-  }
-}
-
+/**
+ * ГЛАВНАЯ ФУНКЦИЯ БЕЗОПАСНОЙ ЗАГРУЗКИ ПРОФИЛЯ
+ * Вместо прямых запросов fetch к Supabase — отправляет сокет-сигнал на бэкенд!
+ */
 window.loadGame = function(callback) {
   const TG = window.Telegram?.WebApp;
   const tgUser = TG?.initDataUnsafe?.user;
   
-  // Создаем базовый пустой шаблон персонажа, если конструктор не подтянулся
-  if (typeof window.createPlayer === 'function') {
-    window.player = window.createPlayer();
+  // Инициализируем базовое сокет-соединение города, если его еще нет
+  if (!window.socket || typeof io === 'undefined') {
+    console.log("📡 Подключаем глобальный сокет города к Render...");
+    if (typeof io !== 'undefined') {
+      window.socket = io('https://darkworld-server.onrender.com');
+      setupSecureDataListeners(callback);
+    } else {
+      console.error("❌ Критическая ошибка: Библиотека Socket.io не подключена на странице index.html!");
+      return callback("Socket.io missing");
+    }
   } else {
-    window.player = { 
-      id: 0, name: "Игрок", level: 1, xp: 0, gold: 50, hp: 10, statPoints: 5, currentTownIndex: 0, 
-      stats: { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 }, 
-      inventory: { equipment: [], consumables: [], resources: [] }, 
-      equipped: { rings: [null, null, null] } 
-    };
+    // Если сокет уже был создан ранее (например, при реконектах), просто вешаем слушатели данных
+    setupSecureDataListeners(callback);
   }
 
-const hideLoader = () => {
-  // Внутри пусто, чтобы база данных не закрывала лоадер раньше времени!
+  // 1. Извлекаем ID игрока (из Телеграма или Тестовый для ПК)
+  let userId = 777777;
+  let username = "Браузерный_Тестер";
+
+  if (TG && tgUser) {
+    userId = Number(tgUser.id);
+    username = tgUser.first_name || "Рыцарь";
+  }
+
+  // Мгновенная попытка прогрузить локальный кэш телефона для моментального старта интерфейса
+  const localSave = localStorage.getItem('rpg_save');
+  if (localSave) {
+    try {
+      const savedData = JSON.parse(localSave);
+      if (savedData.player && Number(savedData.player.id) === Number(userId)) {
+        window.player = savedData.player;
+        if (typeof window.render === 'function') window.render();
+      }
+    } catch(e) {
+      console.warn("⚠️ Локальный кэш поврежден или пуст:", e);
+    }
+  }
+
+  // 2. Отправляем защищенный сокет-запрос на бэкенд Render
+  window.socket.emit('load_game_secure', { userId, username });
 };
 
-  // ЕСЛИ СТАРТУЕМ ВНУТРИ ТЕЛЕГРАМА (ЖИВОЙ ИГРОК)
-  if (TG && tgUser) {
-    const userId = tgUser.id;
-    window.player.id = Number(userId);
-    window.player.name = tgUser.first_name || "Рыцарь";
+/**
+ * ВНУТРЕННИЙ ПЕРЕХВАТЧИК СЕТЕВЫХ ОТВЕТОВ ОТ БЭКЕНДА
+ */
+function setupSecureDataListeners(callback) {
+  if (!window.socket) return;
 
-    // Пытаемся быстро прочитать кэш телефона для мгновенного старта интерфейса
-    const localSave = localStorage.getItem('rpg_save');
-    if (localSave) {
-      try {
-        const savedData = JSON.parse(localSave);
-        if (savedData.player && Number(savedData.player.id) === Number(userId)) {
-          window.player = savedData.player;
-        }
-      } catch(e) {}
-    }
+  // Сбрасываем старые дубликаты слушателей, чтобы не спамить память при перезаходах
+  window.socket.off('load_game_success');
+  window.socket.off('player_not_found');
+  window.socket.off('load_game_failed');
 
-    // Подключаем базу данных Supabase
-    initSupabaseLazy();
-    if (!window.sb) {
-      hideLoader();
-      return callback(null);
+  // Сценарий А: Сервер успешно нашел игрока в БД и прислал его профиль
+  window.socket.on('load_game_success', ({ player }) => {
+    console.log(`☁️ Профиль игрока [ID: ${player.id}] успешно загружен через безопасный шлюз бэкенда.`);
+    window.player = player;
+    
+    // Перезаписываем локальный кэш актуальными облачными данными
+    localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
+    
+    // Запускаем игровой аудит уровней, античита и очков характеристик
+    if (typeof window.checkLevelUp === 'function') {
+      window.checkLevelUp(true); 
     }
     
-    // Стучимся в облако за актуальным сохранением
-    window.sb.from('players').select('*').eq('id', Number(userId))
-      .then(({ data, error }) => {
-        if (error) {
-          hideLoader();
-          return callback(null);
-        }
-        
-        if (data && data.length > 0) {
-          const cloudPlayer = data[0]; 
-          
-          window.player.level = Number(cloudPlayer.level || 1);
-          window.player.gold = Number(cloudPlayer.gold || 0);
-          window.player.xp = Number(cloudPlayer.xp || 0);
-          window.player.hp = Number(cloudPlayer.hp || 10);
-          
-          // 🔥 ИСПРАВЛЕНИЕ: Парсим статы напрямую из независимых колонок БД
-          window.player.stats = {
-            strength: Number(cloudPlayer.strength !== undefined ? cloudPlayer.strength : 1),
-            agility: Number(cloudPlayer.agility !== undefined ? cloudPlayer.agility : 1),
-            endurance: Number(cloudPlayer.endurance !== undefined ? cloudPlayer.endurance : 1),
-            intellect: Number(cloudPlayer.intellect !== undefined ? cloudPlayer.intellect : 1),
-            luck: Number(cloudPlayer.luck !== undefined ? cloudPlayer.luck : 1)
-          };
-          
-          window.player.inventory = cloudPlayer.inventory || window.player.inventory;
-          window.player.equipped = cloudPlayer.equipped || window.player.equipped;
-          
-          // Восстанавливаем регистр полей бэкенда
-          window.player.currentTownIndex = Number(cloudPlayer.currenttownindex !== undefined ? cloudPlayer.currenttownindex : 0);
-          window.player.statPoints = Number(cloudPlayer.statpoints !== undefined ? cloudPlayer.statpoints : 0);
-          
-          // 🔥 Запуск аудита уровней и очков строго ПОСЛЕ полной сборки профиля
-          if (typeof window.checkLevelUp === 'function') {
-            console.log("🎯 Вызываю аудит checkLevelUp из loadGame...");
-            window.checkLevelUp(true); // true означает initial load (первый запуск)
-          }
-          
-        } else {
-          // Если игрока в базе еще нет — создаем для него первую строчку
-          window.saveGame();
-        }
-        
-        hideLoader();
-        callback(null);
-        if (typeof window.render === 'function') window.render();
-      })
-      .catch(err => {
-  
-        hideLoader();
-        callback(null);
-      });
+    if (typeof window.render === 'function') window.render();
+    if (typeof callback === 'function') callback(null);
+  });
 
-  } else {
-    // РЕЖИМ ДЛЯ ПК БРАУЗЕРА (ЛОКАЛЬНЫЙ ТЕСТЕР ВНЕ ТЕЛЕГРАМА)
-    const localSave = localStorage.getItem('rpg_save');
-    if (localSave) {
-      try { window.player = JSON.parse(localSave).player; } catch(e) {}
+  // Сценарий Б: Сервер ответил, что игрока в базе еще нет (новый пользователь)
+  window.socket.on('player_not_found', ({ userId, username }) => {
+    console.log("🆕 Приветствуем нового гладиатора! Генерируем дефолтный профиль...");
+    
+    if (typeof window.createPlayer === 'function') {
+      window.player = window.createPlayer();
     } else {
-      window.player.id = 777777;
-      window.player.name = "Браузерный_Тестер";
+      // Экстренный фоллбэк на случай сбоя загрузки конструктора
+      window.player = { 
+        id: Number(userId), name: username, level: 1, xp: 0, gold: 50, hp: 10, statPoints: 5, currentTownIndex: 0, 
+        stats: { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 }, 
+        inventory: { equipment: [], consumables: [], resources: [] }, 
+        equipped: { rings: [null, null, null] } 
+      };
     }
-    if (typeof window.checkLevelUp === 'function') window.checkLevelUp(true);
-    hideLoader();
-    return callback(null);
-  }
-};
+    
+    window.player.id = Number(userId);
+    window.player.name = username;
+
+    // Сразу же принудительно просим сервер создать под него первую строчку в Supabase
+    window.saveGame();
+    
+    if (typeof window.render === 'function') window.render();
+    if (typeof callback === 'function') callback(null);
+  });
+
+  // Сценарий В: Ошибка базы данных или парсинга на бэкенде
+  window.socket.on('load_game_failed', (data) => {
+    console.error("❌ Не удалось безопасно загрузить игру через бэкенд:", data.message);
+    if (typeof callback === 'function') callback(data.message);
+  });
+}
+
+/**
+ * ГЛАВНАЯ ФУНКЦИЯ БЕЗОПАСНОГО СОХРАНЕНИЯ ПРОФИЛЯ
+ * Синхронизирует данные без раскрытия секретных токенов
+ */
 window.saveGame = function(customData, callback) {
   // Определяем, какой объект игрока сохранять (переданный или глобальный)
   const player = (customData && customData.player) ? customData.player : window.player;
   if (!player) return;
 
-  // 1. Мгновенно обновляем локальный кэш устройства для быстрой работы интерфейса
+  // 1. Мгновенно обновляем локальный кэш устройства для плавности UI
   localStorage.setItem('rpg_save', JSON.stringify({ player: player }));
-  
-  // Проверяем, подключена ли база данных Supabase
-  initSupabaseLazy();
-  if (!window.sb) {
-    if (typeof customData === 'function') customData();
-    if (typeof callback === 'function') callback();
-    return;
+
+  // 2. Отправляем изменения плоского пакета на бэкенд Render
+  if (window.socket && window.socket.connected) {
+    window.socket.emit('save_game_secure', { player });
+  } else {
+    console.warn("⚠️ Сокет временно отключен, сейв синхронизируется при следующем стабильном коннекте.");
   }
 
-  // 2. 🔥 СУПЕР-БЫСТРЫЙ ПАКЕТ ДЛЯ ОТПРАВКИ: РАЗБИВАЕМ ОБЪЕКТ НА ЧИСЛОВЫЕ КОЛОНКИ
-  const payload = {
-    id: Number(player.id),
-    name: player.name,
-    avatar: player.avatar || "assets/avatars/hero1.png",
-    level: Number(player.level || 1),
-    gold: Number(player.gold || 0),
-    hp: Number(player.hp || 10),
-    xp: Number(player.xp || 0),
-    
-    // Пишем характеристики персонажа напрямую в плоские ячейки таблицы PostgreSQL
-    strength: Number(player.stats?.strength !== undefined ? player.stats.strength : 1),
-    agility: Number(player.stats?.agility !== undefined ? player.stats.agility : 1),
-    endurance: Number(player.stats?.endurance !== undefined ? player.stats.endurance : 1),
-    intellect: Number(player.stats?.intellect !== undefined ? player.stats.intellect : 1),
-    luck: Number(player.stats?.luck !== undefined ? player.stats.luck : 1),
-
-    // jsonb-колонки инвентаря и надетых вещей остаются изолированными и в безопасности
-    inventory: player.inventory,
-    equipped: player.equipped,
-    
-    // Системные переменные пишем строго в нижнем регистре, как требует структура БД
-    currenttownindex: Number(player.currentTownIndex !== undefined ? player.currentTownIndex : 0),
-    statpoints: Number(player.statPoints !== undefined ? player.statPoints : 0)
-  };
-
-  // 3. Отправляем атомарный запрос upsert в облако
-  window.sb.from('players')
-    .upsert(payload)
-    .then(({ error }) => {
-      if (error) {
-        console.error("❌ Ошибка сохранения в Supabase:", error.message);
-      } else {
-        console.log("☁️ Производительный плоский сейв успешно синхронизирован с Supabase.");
-      }
-      // Безопасно вызываем колбэки, если они были переданы
-      if (typeof customData === 'function') customData();
-      if (typeof callback === 'function') callback();
-    })
-    .catch(e => {
-      console.error("❌ Критический сбой сети при сохранении:", e);
-      if (typeof customData === 'function') customData();
-      if (typeof callback === 'function') callback();
-    });
+  // Безопасно выполняем колбэки
+  if (typeof customData === 'function') customData();
+  if (typeof callback === 'function') callback();
 };

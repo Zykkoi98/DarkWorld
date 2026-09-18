@@ -1,34 +1,29 @@
 // ============================================================================
-// ===== 🏆 КЛИЕНТСКОЕ ЯДРО АРЕНЫ: ИНИЦИАЛИЗАЦИЯ И СЕТЬ (ЧАСТЬ 1) =====
+// ===== 🛡️ ЗАЩИЩЕННОЕ КЛИЕНТСКОЕ ЯДРО АРЕНЫ: БЕЗ API КЛЮЧЕЙ БД =====
 // ============================================================================
-const SUPABASE_URL = "https://ylslpgujwgxtsabkzgbd.supabase.co"; 
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlsc2xwZ3Vqd2d4dHNhYmt6Z2JkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMDM3ODksImV4cCI6MjEwNDg3OTc4OX0.GKocc3hnVQVSYaOnm1QhHca54sBn8AsiN8mHo6J0ENY"; 
-
-let sb = null; let socket = null; let localPlayer = null;
-let myTimerInterval = null; let globalLobbyInterval = null;
+let socket = null; 
+let localPlayer = null;
+let myTimerInterval = null; 
+let globalLobbyInterval = null;
 
 function initArenaPage() {
-  console.log("🚀 Запуск лобби Арены через родительский мост...");
+  console.log("🚀 Запуск лобби Арены через защищенный сокет-мост...");
   
   const parentWindow = window.parent;
-  
-  if (parentWindow && parentWindow.supabase) {
-    sb = parentWindow.sb || parentWindow.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  }
 
-  // Забираем уже подключенный живой сокет из города, чтобы не рвать соединение
+  // Забираем уже подключенный безопасный сокет из города (родительского окна)
   if (parentWindow && parentWindow.socket) {
     socket = parentWindow.socket;
     setupSocketListeners();
   } else {
-    console.warn("⚠️ Прямое сокет-соединение отсутствует, пробуем локально...");
+    console.warn("⚠️ Прямой сокет родителя отсутствует, пробуем локально...");
     if (typeof io === 'function') {
-      socket = io('https://darkworld-server.onrender.com');
+      socket = io('https://onrender.com');
       setupSocketListeners();
     }
   }
   
-  // Достаем игрока из кэша
+  // Безопасно достаем профиль игрока из локального кэша устройства
   const localSave = localStorage.getItem('rpg_save');
   if (localSave) {
     try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
@@ -36,39 +31,52 @@ function initArenaPage() {
   
   if (!localPlayer) {
     alert("❌ Профиль персонажа не найден! Вернитесь в город.");
-    location.href = 'index.html'; return;
+    location.href = 'index.html'; 
+    return;
   }
   
   setupClickListeners();
+  
+  // Запрашиваем актуальный список дуэлей у сервера при входе
   refreshArenaLobby();
+  
+  // Раз в 4 секунды бэкенд будет присылать нам обновления доски объявлений
   globalLobbyInterval = setInterval(refreshArenaLobby, 4000);
 }
 
 function setupSocketListeners() {
   if (!socket) return;
   
-  socket.on('connect', () => { 
-    console.log("📡 Сокет Арены подключен к бэкенду."); 
-  });
-  
-  // Перехватчик прямого редиректа от сервера (Срабатывает, когда комната PvP создана бэкендом)
+  // Очищаем старые дубликаты слушателей (важно для стабильности WebApp)
+  socket.off('arena_redirect_to_battle');
+  socket.off('arena_lobby_updated');
+  socket.off('arena_lobby_data');
+
+  // Перехватчик принудительного PvP-боя (Срабатывает, когда бэкенд сопоставил соперников и создал комнату)
   socket.on('arena_redirect_to_battle', (data) => {
     console.log("⚔️ Сервер прислал команду принудительного PvP-боя! Уходим в battle.html...");
     closeArenaAndStartBattle(data.roomId);
   });
   
-  socket.on('arena_lobby_updated', () => { refreshArenaLobby(); });
-  socket.on('error', (msg) => { alert(`⚠️ Арена: ${msg}`); });
+  // Сервер сообщает, что кто-то добавил или удалил заявку — обновляем экран
+  socket.on('arena_lobby_updated', () => { 
+    refreshArenaLobby(); 
+  });
+
+  // Сервер прислал свежий массив открытых заявок игроков
+  socket.on('arena_lobby_data', (lobbyData) => {
+    renderLobbyInterface(lobbyData);
+  });
 }
 
 function closeArenaAndStartBattle(roomId) {
-  // Выключаем тикающие интервалы лобби, чтобы не грузить устройство
+  // Выключаем тикающие интервалы лобби, чтобы не грузить процессор смартфона
   if (myTimerInterval) clearInterval(myTimerInterval);
   if (globalLobbyInterval) clearInterval(globalLobbyInterval);
   
   console.log(`⚔️ Отправляю postMessage в город для редиректа в комнату: ${roomId}`);
   
-  // 🔥 СИНХРОНИЗАЦИЯ: Отправляем точный сигнал родителю index.html с ID созданной комнаты
+  // Передаем точный сигнал родителю index.html с ID созданной PvP комнаты
   window.parent.postMessage({ 
     type: 'START_ARENA_BATTLE', 
     userId: localPlayer.id,
@@ -82,43 +90,37 @@ function setupClickListeners() {
 }
 
 // ============================================================================
-// ===== 🧠 ОПЕРАЦИОННЫЙ И ВИЗУАЛЬНЫЙ БЛОК ЛОББИ PvP =====
+// ===== 🧠 ЗАКРЫТЫЙ ОПЕРАЦИОННЫЙ БЛОК ЛОББИ PvP (ОБЩЕНИЕ ЧЕРЕЗ СОКЕТЫ) =====
 // ============================================================================
-async function createMyRequest() {
-  if (!sb || !localPlayer) return;
+
+/**
+ * 1. ПУБЛИКАЦИЯ СВОЕГО ВЫЗОВА
+ * Вместо прямой записи upsert в Supabase отправляем запрос на бэкенд
+ */
+function createMyRequest() {
+  if (!socket || !localPlayer) return;
   if (Number(localPlayer.hp || 0) <= 0) return alert("Вы слишком слабы для боя! Излечитесь в городе.");
   
-  const duration = 180000; // 3 минуты
-  const expiresAt = new Date(Date.now() + duration).toISOString();
+  console.log("🎲 Отправка запроса на создание дуэли бэкенду...");
   
-  // 1. Записываем заявку в Supabase, чтобы ее увидели на доске объявлений другие игроки
-  const { error } = await sb.from('arena_lobby').upsert({
-    id: Number(localPlayer.id), 
-    name: localPlayer.name, 
-    level: Number(localPlayer.level || 1), 
-    hp: Number(localPlayer.hp), 
-    arena_expires_at: expiresAt
+  // Сервер сам рассчитает время экспирации (3 минуты) и запишет заявку в БД
+  socket.emit('arena_create_request', {
+    playerData: localPlayer,
+    currentHp: Number(localPlayer.hp)
   });
-  
-  if (error) return alert("Ошибка: " + error.message);
-  
-  // 2. 🔥 СИНХРОНИЗАЦИЯ С СЕРВЕРОМ: Ставим сокет в официальную очередь бэкенда!
-  if (socket) {
-    socket.emit('search_match', { 
-      playerData: localPlayer,
-      currentHp: Number(localPlayer.hp),
-      maxHp: Number(localPlayer.level * 10) // Приблизительный расчет
-    });
-  }
   
   refreshArenaLobby();
 }
 
-async function cancelMyRequest() {
-  if (!sb || !localPlayer) return;
+/**
+ * 2. ОТМЕНА СВОЕГО ВЫЗОВА
+ * Просим бэкенд удалить нашу строчку из очереди
+ */
+function cancelMyRequest() {
+  if (!socket || !localPlayer) return;
 
-  const { error } = await sb.from('arena_lobby').delete().eq('id', Number(localPlayer.id));
-  if (error) return alert("Ошибка отмены: " + error.message);
+  console.log("❌ Отмена собственной заявки на бой...");
+  socket.emit('arena_cancel_request', { userId: localPlayer.id });
 
   if (myTimerInterval) clearInterval(myTimerInterval);
   
@@ -130,42 +132,46 @@ async function cancelMyRequest() {
   refreshArenaLobby();
 }
 
-async function acceptChallenge(opponentId, opponentMaxHp) {
-  if (!sb || !localPlayer) return;
+/**
+ * 3. ПРИНЯТИЕ ЧУЖОГО ВЫЗОВА (КНОПКА «В БОЙ»)
+ * Сигнализируем серверу, с кем именно мы хотим скрестить мечи
+ */
+function acceptChallenge(opponentId) {
+  if (!socket || !localPlayer) return;
   if (Number(localPlayer.hp || 0) <= 0) return alert("Вы слишком слабы! Излечитесь в городе.");
 
   console.log(`🎯 Пытаюсь принять вызов у игрока ID: ${opponentId}`);
 
-  try {
-    // 1. Пытаемся удалить чужую заявку. Если удалилось — значит, мы успели первыми!
-    const { error } = await sb.from('arena_lobby').delete().eq('id', String(opponentId));
-    if (error) return alert("Вызов уже принят другим гладиатором!");
-
-    // 2. 🔥 СИНХРОНИЗАЦИЯ С СЕРВЕРОМ: Сигнализируем бэкенду, что мы тоже заходим в search_match!
-    // Сервер мгновенно сопоставит нас с оппонентом, уберет его из очереди и создаст PvP-комнату.
-    if (socket) {
-      socket.emit('search_match', { 
-        playerData: localPlayer,
-        currentHp: Number(localPlayer.hp),
-        maxHp: Number(localPlayer.level * 10)
-      });
-    }
-  } catch (err) {
-    console.error("Ошибка в acceptChallenge:", err.message);
-  }
+  // Сервер проверит атомарность транзакции удаления в БД. 
+  // Кто первый отправил сокет-сигнал — тот и заходит в созданную PvP-комнату.
+  socket.emit('arena_accept_challenge_request', {
+    myId: localPlayer.id,
+    opponentId: opponentId,
+    playerData: localPlayer,
+    currentHp: Number(localPlayer.hp)
+  });
 }
 
-async function refreshArenaLobby() {
-  if (!sb || !localPlayer) return;
-  const nowISO = new Date().toISOString();
-  
-  const { data: lobbyData, error } = await sb.from('arena_lobby').select('*').gt('arena_expires_at', nowISO);
-  if (error) return console.error("Ошибка обновления лобби:", error.message);
-  
+/**
+ * 4. ЗАПРОС ОБНОВЛЕНИЯ ТАБЛИЦЫ
+ * Просто дергаем сервер, чтобы он выдал текущий срез лобби
+ */
+function refreshArenaLobby() {
+  if (!socket || !localPlayer) return;
+  socket.emit('arena_get_lobby');
+}
+
+/**
+ * 5. ВИЗУАЛЬНЫЙ РЕНДЕРИНГ СЕТКИ И ТАЙМЕРОВ
+ */
+function renderLobbyInterface(lobbyData) {
+  if (!localPlayer || !Array.isArray(lobbyData)) return;
+
   const container = document.getElementById('lobby-list-viewport'); 
   if (!container) return;
 
   const myId = Number(localPlayer.id);
+  // Ищем, опубликована ли сейчас наша собственная заявка
   const myActiveRequest = lobbyData.find(item => Number(item.id) === myId);
 
   const sPanel = document.getElementById('my-search-panel');
@@ -175,6 +181,7 @@ async function refreshArenaLobby() {
     if (cPanel) cPanel.style.display = 'none';
     if (sPanel) sPanel.style.display = 'block';
     
+    // Вычисляем оставшееся время до автоматического снятия заявки
     let timeLeft = Math.max(0, Math.floor((new Date(myActiveRequest.arena_expires_at) - Date.now()) / 1000));
     if (myTimerInterval) clearInterval(myTimerInterval);
     
@@ -198,6 +205,7 @@ async function refreshArenaLobby() {
     if (cPanel) cPanel.style.display = 'block';
   }
 
+  // Фильтруем список, оставляя только чужие заявки
   const opponentsRequests = lobbyData.filter(item => Number(item.id) !== myId);
   const counter = document.getElementById('total-requests-counter');
   if (counter) counter.textContent = `Всего: ${opponentsRequests.length}`;
@@ -205,16 +213,21 @@ async function refreshArenaLobby() {
   container.innerHTML = '';
 
   if (opponentsRequests.length === 0) {
-    const placeholder = document.createElement('div'); placeholder.className = 'empty-msg';
-    placeholder.textContent = '🏰 На Арене тишина... Будь первым, брось вызов!'; container.appendChild(placeholder); return;
+    const placeholder = document.createElement('div'); 
+    placeholder.className = 'empty-msg';
+    placeholder.textContent = '🏰 На Арене тишина... Будь первым, брось вызов!'; 
+    container.appendChild(placeholder); 
+    return;
   }
 
+  // Выводим карточки оппонентов
   opponentsRequests.forEach(opp => {
-    const oppMaxHp = Number(opp.level * 30 + 70);
     const timeLeft = Math.max(0, Math.floor((new Date(opp.arena_expires_at) - Date.now()) / 1000));
-    const mins = Math.floor(timeLeft / 60); const secs = timeLeft % 60;
+    const mins = Math.floor(timeLeft / 60); 
+    const secs = timeLeft % 60;
     
-    const card = document.createElement('div'); card.className = 'user-card';
+    const card = document.createElement('div'); 
+    card.className = 'user-card';
     card.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 2px;">
         <div style="font-weight: bold; font-size: 15px; color: #ffffff;">${opp.name} <span style="color: #f1c40f; font-size: 12px; font-weight: normal; margin-left: 4px;">Lv. ${opp.level}</span></div>
@@ -222,9 +235,15 @@ async function refreshArenaLobby() {
       </div>
       <div style="display: flex; align-items: center; gap: 12px;">
         <span style="font-family: monospace; font-size: 14px; color: #ffc048; font-weight: bold;">⏱️ 0${mins}:${secs < 10 ? '0' + secs : secs}</span>
-        <button class="action-btn btn-accept" onclick="acceptChallenge('${opp.id}', ${oppMaxHp})">В БОЙ</button>
+        <button class="action-btn btn-accept" data-opp-id="${opp.id}">В БОЙ</button>
       </div>
     `;
+    
+    // Навешиваем безопасное CSP-событие на кнопку вызова
+    card.querySelector('.btn-accept').addEventListener('click', function() {
+      acceptChallenge(this.getAttribute('data-opp-id'));
+    });
+    
     container.appendChild(card);
   });
 }
