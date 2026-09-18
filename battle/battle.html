@@ -93,31 +93,32 @@
     .mini-title { font-size: 9px; color: var(--hint); text-transform: uppercase; font-weight: bold; text-align: center; margin: 1px 0; }
     .compact-zone-row { display: flex; gap: 2px; justify-content: center; width: 100%; }
     
-    .compact-zone-btn {
+    compact-zone-btn {
       width: 100%;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       color: var(--text);
-      padding: 10px 8px; /* Увеличили внутренние отступы, сделав кнопки высокими */
-      font-size: 13px;    /* Крупный читаемый шрифт */
+      padding: 7px 4px;   /* Уменьшили отступы, чтобы кнопки стали компактнее по высоте */
+      font-size: 11px;    /* Аккуратный, чуть меньший размер шрифта */
       font-weight: bold;
-      border-radius: 8px; /* Красивое скругление углов */
+      border-radius: 6px; /* Аккуратное скругление */
       cursor: pointer;
-      text-align: left;   /* Текст с иконкой выравниваем по левому краю */
-      padding-left: 14px; /* Небольшой отступ текста от левого края кнопки */
-      transition: all 0.15s ease;
+      text-align: left;   /* Выравнивание по левому краю для красоты иконок */
+      padding-left: 8px;  /* Небольшой внутренний отступ для текста */
+      transition: all 0.12s ease;
+      white-space: nowrap;
     }
     
-    /* Сочные цветовые акценты при выборе зон */
     .compact-zone-btn.attack-selected { 
       background: #e67e22 !important; 
       border-color: #d35400; 
-      box-shadow: 0 0 8px rgba(230, 126, 34, 0.4); 
+      box-shadow: 0 0 6px rgba(230, 126, 34, 0.3); 
     }
+    
     .compact-zone-btn.defend-selected { 
       background: #3498db !important; 
       border-color: #2980b9; 
-      box-shadow: 0 0 8px rgba(52, 152, 219, 0.4); 
+      box-shadow: 0 0 6px rgba(52, 152, 219, 0.3); 
     }
     #strike-action-btn {
       width: 100%; background: var(--btn); color: white; border: none;
@@ -200,31 +201,36 @@
         </div>
       </div>
 
-   <!-- ЦЕНТРАЛЬНЫЙ ПУЛЬТ: Крупные вертикальные кнопки атаки и защиты -->
-      <div class="tactical-center-controls" style="flex: 1.4; display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 12px;">
+     <!-- ЦЕНТРАЛЬНЫЙ ПУЛЬТ: Две вертикальные колонки (Атака напротив Защиты) -->
+      <div class="tactical-center-controls" style="flex: 1.6; display: flex; flex-direction: column; gap: 6px; background: rgba(0,0,0,0.2); padding: 6px; border-radius: 12px; margin: 0 2px;">
         
-        <!-- Сетка Атаки (В один вертикальный ряд) -->
-        <div class="mini-title" style="color: #e67e22; font-size: 10px; font-weight: bold; text-align: center; letter-spacing: 0.5px;">⚔️ ЗОНА УДАРА (ВЫБРАТЬ 1)</div>
-        <div class="vertical-zone-column" style="display: flex; flex-direction: column; gap: 4px;">
-          <button class="compact-zone-btn btn-atk" data-zone="head">👤 Голова</button>
-          <button class="compact-zone-btn btn-atk" data-zone="breast">👕 Грудь</button>
-          <button class="compact-zone-btn btn-atk" data-zone="torso">腹 Живот</button>
-          <button class="compact-zone-btn btn-atk" data-zone="belt">🎗️ Пояс</button>
-          <button class="compact-zone-btn btn-atk" data-zone="legs">🥾 Ноги</button>
+        <!-- Рядом стоящие колонки -->
+        <div class="columns-wrapper" style="display: flex; gap: 8px; width: 100%;">
+          
+          <!-- ЛЕВАЯ КОЛОНКА: АТАКА -->
+          <div class="zone-column-box" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+            <div class="mini-title" style="color: #e67e22; font-size: 9px; font-weight: bold; text-align: center; margin-bottom: 2px; letter-spacing: 0.3px;">⚔️ УДАР (ВЫБРАТЬ 1)</div>
+            <button class="compact-zone-btn btn-atk" data-zone="head">👤 Голова</button>
+            <button class="compact-zone-btn btn-atk" data-zone="breast">👕 Грудь</button>
+            <button class="compact-zone-btn btn-atk" data-zone="torso">🛡️ Живот</button>
+            <button class="compact-zone-btn btn-atk" data-zone="belt">🎗️ Пояс</button>
+            <button class="compact-zone-btn btn-atk" data-zone="legs">🥾 Ноги</button>
+          </div>
+
+          <!-- ПРАВАЯ КОЛОНКА: ЗАЩИТА -->
+          <div class="zone-column-box" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+            <div class="mini-title" style="color: #3498db; font-size: 9px; font-weight: bold; text-align: center; margin-bottom: 2px; letter-spacing: 0.3px;">🛡️ БЛОК (ВЫБРАТЬ 2)</div>
+            <button class="compact-zone-btn btn-def" data-zone="head">👤 Голова</button>
+            <button class="compact-zone-btn btn-def" data-zone="breast">👕 Грудь</button>
+            <button class="compact-zone-btn btn-def" data-zone="torso">🛡️ Живот</button>
+            <button class="compact-zone-btn btn-def" data-zone="belt">🎗️ Пояс</button>
+            <button class="compact-zone-btn btn-def" data-zone="legs">🥾 Ноги</button>
+          </div>
+
         </div>
 
-        <!-- Сетка Защиты (В один вертикальный ряд) -->
-        <div class="mini-title" style="color: #3498db; font-size: 10px; font-weight: bold; text-align: center; letter-spacing: 0.5px; margin-top: 6px;">🛡️ ЗОНЫ БЛОКА (ВЫБРАТЬ 2)</div>
-        <div class="vertical-zone-column" style="display: flex; flex-direction: column; gap: 4px;">
-          <button class="compact-zone-btn btn-def" data-zone="head">👤 Голова</button>
-          <button class="compact-zone-btn btn-def" data-zone="breast">👕 Грудь</button>
-          <button class="compact-zone-btn btn-def" data-zone="torso">腹 Живот</button>
-          <button class="compact-zone-btn btn-def" data-zone="belt">🎗️ Пояс</button>
-          <button class="compact-zone-btn btn-def" data-zone="legs">🥾 Ноги</button>
-        </div>
-
-        <!-- Жирная кнопка действия -->
-        <button id="strike-action-btn" disabled style="padding: 12px; font-size: 14px; letter-spacing: 1px; margin-top: 8px; border-radius: 8px;">АТАКОВАТЬ</button>
+        <!-- Кнопка действия на всю ширину пульта -->
+        <button id="strike-action-btn" disabled style="padding: 10px; font-size: 13px; letter-spacing: 0.5px; margin-top: 4px; border-radius: 6px; width: 100%;">АТАКОВАТЬ</button>
       </div>
 
       <!-- ПРАВАЯ КАРТОЧКА: Выбранная цель (Враг) -->
