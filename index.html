@@ -24,6 +24,70 @@
   <script src="shop.js?v=71" defer></script>
   <script src="game.js?v=71" defer></script>
   <script src="telegram.js?v=71" defer></script>
+  <script>
+  // 🔥 УЛЬТИМАТИВНЫЙ ДЕТЕКТОР АКТИВНОГО БОЯ НА СТАРТЕ ПРИЛОЖЕНИЯ
+  (function() {
+    console.log("🔍 Запуск экспресс-проверки боевого статуса в Telegram...");
+
+    // 1. Извлекаем ID пользователя напрямую из нативных данных Telegram WebApp SDK
+    const tgData = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    let userId = tgData?.id;
+
+    // Резервный вариант: если Telegram еще не прокинул initData, смотрим в локальный сейв
+    if (!userId) {
+      try {
+        const localSave = localStorage.getItem('rpg_save');
+        if (localSave) userId = JSON.parse(localSave).player.id;
+      } catch (e) {
+        console.error("Не удалось прочитать локальный ID для экспресс-проверки.");
+      }
+    }
+
+    // Если ID игрока не найден вообще (первый самый заход в игру), пропускаем проверку и идем в город
+    if (!userId) {
+      console.log("ℹ️ ID игрока не найден в кэше. Переходим к стандартной регистрации города.");
+      return;
+    }
+
+    const sUserId = String(userId);
+
+    // 2. Поднимаем временный экспресс-сокет чисто для мгновенного опроса ОЗУ бэкенда
+    const expressSocket = io('https://darkworld-server.onrender.com', {
+      transports: ['websocket', 'polling'],
+      timeout: 1500 // Если сервер лежит или думает долго, не вешаем загрузку игры
+    });
+
+    expressSocket.on('connect', () => {
+      console.log(`📡 Экспресс-сокет подключен. Проверяем ОЗУ сервера на ID: ${sUserId}`);
+      
+      // Отправляем специальный пакет и ждем мгновенный прямой ответ от сервера (callback)
+      expressSocket.emit('check_active_battle_directly', { userId: sUserId }, (response) => {
+        if (response && response.activeRoomId) {
+          console.log(`⚔️ [ХАРД-ПЕРЕХВАТ] Обнаружен активный бой ${response.activeRoomId}! Срочный редирект...`);
+          
+          // Отключаем временный сокет, чтобы он не дублировал порты
+          expressSocket.disconnect();
+
+          // Сообщаем нативному приложению Telegram, что мы готовы к работе (снимает защиту редиректа)
+          if (window.Telegram && window.Telegram.WebApp) {
+            try { window.Telegram.WebApp.ready(); } catch(e) {}
+          }
+
+          // Выполняем безальтернативный жесткий редирект в обход загрузки города!
+          window.location.replace(`battle/battle.html?roomId=${response.activeRoomId}`);
+        } else {
+          console.log("🟢 Игрок свободен от боев. Закрываем экспресс-сокет, загружаем город.");
+          expressSocket.disconnect();
+        }
+      });
+    });
+
+    expressSocket.on('connect_error', () => {
+      console.warn("⚠️ Не удалось быстро связаться с сервером для проверки сессии, грузим город.");
+      expressSocket.disconnect();
+    });
+  })();
+</script>
 </head>
 <body>
     <!-- Экран загрузки (исчезнет после синхронизации с Supabase) -->

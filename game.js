@@ -782,27 +782,7 @@ function startGame() {
       if (window.socket && window.player && window.player.id) {
         console.log(`🔍 Проверка ОЗУ сервера: Отправляем запрос для игрока ID ${window.player.id}...`);
         
-        // Принудительно зачищаем старые дубликаты слушателей перед привязкой нового события
-        window.socket.off('arena_redirect_to_battle');
         
-        window.socket.on('arena_redirect_to_battle', (data) => {
-          console.log("⚔️ ХАРД-ЗАЩИТА СЕРВЕРА: Обнаружен незавершенный поединок! Уводим на арену.");
-          
-          // Полностью глушим мирный сокет города и все интервалы перед уходом, разгружая память устройства
-          if (window.socket) {
-            try { window.socket.disconnect(); } catch(e) {}
-          }
-          for (let i = 1; i < 100; i++) { 
-            window.clearInterval(i); 
-            window.clearTimeout(i); 
-          }
-          
-          // Принудительно меняем адрес текущего окна браузера Telegram (обходим блокировки)
-          window.location.replace(`battle/battle.html?roomId=${data.roomId}`);
-        });
-
-        // Пингуем бэкенд строго верифицированным и загруженным ID!
-        window.socket.emit('check_active_battle', { userId: window.player.id });
       }
 
     }); // Конец анонимного коллбэка функции loadGame
