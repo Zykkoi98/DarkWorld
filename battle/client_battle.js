@@ -224,8 +224,8 @@ function renderFighters() {
   const isBattleOver = strikeBtn && strikeBtn.textContent.includes('ГОРОД');
 
   // Относительные пути к стандартным картинкам-заглушкам в корне проекта
-  const DEFAULT_HERO_IMG = "../assets/default_hero.png";
-  const DEFAULT_MONSTER_IMG = "../assets/default_monster.png";
+  const DEFAULT_HERO_IMG = "../assets/avatars/hero5.png";
+  const DEFAULT_MONSTER_IMG = "../assets/monsters/monster1.png";
 
   // 1. ОТРИСОВКА ВАШЕГО ГЕРОЯ (ЛЕВАЯ КАРТОЧКА ДУЭЛИ)
   const myFighter = teamA.find(f => f.uuid === myUuid);
