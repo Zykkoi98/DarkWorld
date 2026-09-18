@@ -55,20 +55,20 @@
       border: 1px solid var(--border);
     }
 
-    .big-fighter-card {
+.big-fighter-card {
       flex: 1;
       width: 125px;
       max-width: 125px;
+      height: 210px; /* 🔥 Фиксируем строгую одинаковую ВЫСОТУ для обеих карточек! */
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 6px 4px;
+      padding: 8px 4px;
       text-align: center;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: space-between;
-      gap: 4px;
+      justify-content: space-between; /* Равномерно распределяет элементы по высоте */
     }
     
    .avatar-container {
@@ -92,9 +92,27 @@
       object-fit: cover;
     }
 
-    .big-name { font-size: 12px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-    .big-lvl { font-size: 10px; color: #f1c40f; font-weight: bold; }
+    /* Фиксированная высота для блока уровня */
+    .big-lvl { 
+      height: 14px; /* 🔥 Одинаковое пространство для текста уровня */
+      font-size: 11px; 
+      color: #f1c40f; 
+      font-weight: bold; 
+      line-height: 14px;
+    }
 
+    /* Защита от длинных имен монстров (Каменный голем больше не сломает верстку) */
+    .big-name { 
+      height: 16px; /* 🔥 Фиксированная высота для имени */
+      font-size: 12px; 
+      font-weight: bold; 
+      line-height: 16px;
+      width: 100%;
+      white-space: nowrap; /* Запрещаем перенос на вторую строку */
+      overflow: hidden; 
+      text-overflow: ellipsis; /* Красивое многоточие для длинных имен */
+      color: #ffffff;
+    }
     /* ============================================================================
        ===== 🎛️ СТИЛЬНЫЕ НЕОНОВЫЕ ДВУХКОЛОННЫЕ КНОПКИ ТАКТИКИ =====
        ============================================================================ */
