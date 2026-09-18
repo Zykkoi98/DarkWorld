@@ -25,7 +25,7 @@ function initBattleSocket() {
   }
 
   console.log("✅ Библиотека Socket.io v4.8.3 обнаружена. Подключаемся...");
-  socket = io('https://onrender.com');
+  socket = io('https://darkworld-server.onrender.com');
 
   const localSave = localStorage.getItem('rpg_save');
   let localPlayer = null;
