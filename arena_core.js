@@ -158,19 +158,16 @@ async function acceptChallenge(opponentId, opponentMaxHp) {
 
     console.log(`📡 Отправляю postMessage в город, чтобы запустить сокет Арены на главной странице...`);
 
-    // 🔥 ФИКС: Передаем строковые параметры напрямую в родительское окно index.html
-    window.parent.postMessage({ 
-      type: 'EXECUTE_ARENA_CHALLENGE', 
-      myId: String(localPlayer.id), 
-      opponentId: String(opponentId),
-      myMaxHp: myRealMaxHp,
-      oppMaxHp: Number(opponentMaxHp || 100)
-    }, '*');
-
-  } catch (err) {
-    console.error("Ошибка в acceptChallenge:", err.message);
+  // Теперь пакет отправляет только ID участников, пушить расчеты ХП сюда больше не нужно!
+  window.parent.postMessage({ 
+    type: 'EXECUTE_ARENA_CHALLENGE', 
+    myId: String(localPlayer.id), 
+    opponentId: String(opponentId)
+  }, '*');
+    } catch (err) {
+      console.error("Ошибка в acceptChallenge:", err.message);
+    }
   }
-}
 
 async function refreshArenaLobby() {
   if (!sb || !localPlayer) return;
