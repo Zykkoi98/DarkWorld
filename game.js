@@ -255,13 +255,14 @@ function renderTown() {
   const btn = document.createElement('button'); btn.className = 'loc-btn';
   btn.innerHTML = `<span>${loc.icon}</span><span>${loc.name}</span>`;
   btn.addEventListener('click', function() {
-  if (loc.name === "Выход на природу") {
+if (loc.name === "Выход на природу") {
   if (!window.player || window.player.hp <= 0) {
-    return alert("Вы слишком слабы для боя! Восстановите здоровье.");
+    return alert("Вы слишком слабы для боя! Восстановите здоровье в Таверне.");
   }
 
   let targetMonster = 'wild_wolf';
-  let minCount = 1; let maxCount = 1;
+  let minCount = 1;
+  let maxCount = 1;
 
   if (window.player.level >= 3 && window.player.level < 5) {
     targetMonster = 'goblin'; minCount = 1; maxCount = 2;
@@ -270,24 +271,25 @@ function renderTown() {
   }
 
   const finalCount = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
+  console.log(`🌲 Подготовка к выходу в Лес: ${targetMonster} х${finalCount}. Глушим город...`);
 
-  console.log(`🌲 Выходим в Лес. Найдено противников: ${targetMonster} х${finalCount}.`);
-
-  // 🔥 ФИКС: Перед уходом в бой глушим сокет города и очищаем любые фоновые циклы,
-  // чтобы они не перезагружали вкладку боя из памяти Telegram!
+  // 1. Полностью разрываем сокет города перед уходом, чтобы он не спамил бэкенд
   if (window.socket) {
-    window.socket.disconnect(); 
+    try { window.socket.disconnect(); } catch(e) {}
   }
   
-  // Убиваем стандартные интервалы браузера (если у вас были объявлены глобальные ID таймеров)
-  // Если у вас в коде объявлен например let wakeUpInterval, напишите: clearInterval(wakeUpInterval);
-  for (let i = 1; i < 100; i++) {
-    window.clearInterval(i);
+  // 2. 🔥 УБИВАЕМ АБСОЛЮТНО ВСЕ ТАЙМЕРЫ И ИНТЕРВАЛЫ БРАУЗЕРА (Включая wakeUpServer)
+  // Мы перебираем айдишники всех запущенных циклов в памяти устройства и принудительно их стираем
+  const maxTimerId = window.setTimeout(function() {}, 0);
+  for (let i = 0; i <= maxTimerId; i++) {
     window.clearTimeout(i);
+    window.clearInterval(i);
   }
 
-  // Выполняем чистый переход
-  window.location.href = `battle/battle.html?monster=${targetMonster}&count=${finalCount}`;
+  // 3. Используем принудительную замену локации через location.replace
+  // Это стирает историю города из текущей сессии WebApp, не давая Telegram Mini App 
+  // вызывать фоновые перезагрузки свернутого фрейма
+  window.location.replace(`battle/battle.html?monster=${targetMonster}&count=${finalCount}`);
 } else if (loc.name === "Магазин") {
       if (typeof window.openShop === 'function') {
         window.openShop();
