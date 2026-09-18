@@ -338,9 +338,54 @@ window.upgradeStat = function(statName) {
   }
 };
 
+// Инициализируем глобальные буферы для временного хранения кликов
+window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, intellect: 0, luck: 0 };
+window._tempStatPoints = 0;
+
+// Функции для локального клика ПЛЮС и МИНУС
+window.stepTempStat = function(statName, operation) {
+  if (operation === 'plus') {
+    if (window._tempStatPoints <= 0) return;
+    window._tempStatDistribution[statName]++;
+    window._tempStatPoints--;
+  } else if (operation === 'minus') {
+    if (window._tempStatDistribution[statName] <= 0) return;
+    window._tempStatDistribution[statName]--;
+    window._tempStatPoints++;
+  }
+  
+  // Мгновенно перерисовываем профиль локально без лагов
+  window.openProfile();
+};
+
+// Функция отправки накопленного буфера на сервер
+window.submitStatDistribution = function() {
+  if (window.socket && window.socket.connected) {
+    window.socket.emit('confirm_stat_distribution_secure', {
+      userId: window.player.id,
+      distribution: window._tempStatDistribution
+    });
+  } else {
+    alert("⚠️ Ошибка соединения с сервером.");
+  }
+};
+
+// 🔥 СБРОСИТЬ БУФЕР ПРИ ЗАКРЫТИИ ИЛИ ОБНОВЛЕНИИ ОКНА
+function resetStatBuffer() {
+  window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, intellect: 0, luck: 0 };
+  window._tempStatPoints = window.player ? window.player.statPoints : 0;
+}
+
+// Переписываем функцию открытия профиля
 window.openProfile = function() {
   const modal = document.getElementById('profile-modal'); 
   if (!modal) return;
+  
+  // Если окно открывается впервые (а не обновляется от клика), синхронизируем буфер очков
+  if (modal.style.display !== 'flex') {
+    resetStatBuffer();
+  }
+
   modal.classList.add('active'); 
   modal.style.display = 'flex';
   let statsBody = modal.querySelector('.modal-body-stats'); 
@@ -354,13 +399,12 @@ window.openProfile = function() {
     luck: '🍀 Удача' 
   };
   
-  // Абсолютно безопасно очищаем контейнер перед отрисовкой
   statsBody.textContent = '';
   
   const nextXp = xpToNext(window.player.level);
   const currentXp = (window.player.xp !== undefined) ? window.player.xp : 0;
 
-  // Блок общей информации (Золото, ХП, Опыт, Атака, Защита)
+  // Блок общей информации
   const rowsData = [
     { label: '💰 Золото', value: window.player.gold + ' монет' },
     { label: '❤️ Здоровье', value: window.player.hp + ' / ' + window.getMaxHp(window.player) }, 
@@ -372,35 +416,24 @@ window.openProfile = function() {
   rowsData.forEach(data => {
     const row = document.createElement('div'); 
     row.className = 'profile-row';
-    const lSpan = document.createElement('span'); 
-    lSpan.textContent = data.label;
-    const vSpan = document.createElement('span'); 
-    vSpan.textContent = data.value;
-    row.appendChild(lSpan); 
-    row.appendChild(vSpan); 
+    row.innerHTML = `<span>${data.label}</span><span>${data.value}</span>`;
     statsBody.appendChild(row);
   });
 
-  // Строка со свободными очками характеристик
+  // Строка со свободными очками характеристик (показываем виртуальный остаток)
   const pointsDiv = document.createElement('div');
   pointsDiv.style.cssText = 'margin:15px 0 5px 0; font-weight:bold; font-size:16px; color:#f1c40f; text-align:center;';
-  pointsDiv.textContent = 'Доступно очков: ' + window.player.statPoints;
+  pointsDiv.textContent = 'Доступно очков: ' + window._tempStatPoints;
   statsBody.appendChild(pointsDiv);
 
   const hr = document.createElement('hr');
   hr.style.cssText = 'border:0; border-top:1px solid rgba(255,255,255,0.1); margin:12px 0;';
   statsBody.appendChild(hr);
 
-  // ============================================================================
-  // 🏆 ЖЕСТКИЙ ФИКС ПОРЯДКА СТАТОВ И ЦВЕТОВОГО РАЗДЕЛЕНИЯ (ВЕЩИ / БАЗА)
-  // ============================================================================
+  // Отрисовка интерактивных строк характеристик
   const fixedOrderKeys = ['strength', 'agility', 'endurance', 'intellect', 'luck'];
 
-  // Идем строго по нашему эталонному массиву порядка строк
   fixedOrderKeys.forEach(key => {
-    // Страховка на случай отсутствия ключа в объекте
-    if (window.player.stats[key] === undefined) window.player.stats[key] = 1;
-
     const row = document.createElement('div'); 
     row.className = 'profile-row';
     
@@ -411,43 +444,70 @@ window.openProfile = function() {
     vSpan.style.display = 'flex'; 
     vSpan.style.alignItems = 'center'; 
     
-    // 1. Получаем чистый базовый стат персонажа (то, что качаем за свободные очки)
     const baseVal = Number(window.player.stats[key] || 1);
-    
-    // 2. Считаем бонус от надетых предметов через встроенный калькулятор
     const gearBonus = typeof getEquipmentBonus === 'function' ? getEquipmentBonus(window.player, key) : 0;
     
-    // 3. Вычисляем итоговое боевое значение (база + вещи)
-    const totalVal = baseVal + gearBonus;
+    // 🔥 Добавляем к итоговому значению то, что игрок временно накликал
+    const tempAdded = window._tempStatDistribution[key];
+    const totalVal = baseVal + gearBonus + tempAdded;
 
     const textContainer = document.createElement('span');
     textContainer.style.marginRight = '8px';
     
-    // Собираем безопасную HTML-строку без опасных символов экранирования
-    let htmlContent = '<strong style="color: #ffffff; font-size: 15px;">' + totalVal + '</strong> ';
-    htmlContent += '<span style="color: #9aa0b5; font-size: 12px;">(</span><span style="color: #f1c40f; font-size: 12px; font-weight: bold;">' + baseVal + '</span><span style="color: #9aa0b5; font-size: 12px;">)</span>';
+    let htmlContent = `<strong style="color: #ffffff; font-size: 15px;">${totalVal}</strong> `;
     
-    // Если на персонаже есть шмот с бонусом к этому стату, дорисовываем зеленый тег
+    // Если есть временный плюс, подсвечиваем его синим/фиолетовым
+    if (tempAdded > 0) {
+      htmlContent += `<span style="color: #a29bfe; font-size: 12px; font-weight: bold;">(+${tempAdded} предв.)</span> `;
+    }
+
+    htmlContent += `<span style="color: var(--hint); font-size: 12px;">(</span><span style="color: #f1c40f; font-size: 12px; font-weight: bold;">${baseVal}</span><span style="color: var(--hint); font-size: 12px;">)</span>`;
+    
     if (gearBonus > 0) {
-      htmlContent += ' <span style="color: #2ecc71; font-size: 12px; font-weight: bold;">(+' + gearBonus + ')</span>';
+      htmlContent += ` <span style="color: #2ecc71; font-size: 12px; font-weight: bold;">(+${gearBonus})</span>`;
     }
     
     textContainer.innerHTML = htmlContent;
     vSpan.appendChild(textContainer);
 
-    // Отрисовываем кнопку «+» прокачки характеристик, если есть свободные очки
-    if (window.player.statPoints > 0) {
+    // БЛОК УПРАВЛЕНИЯ: Кнопки «-» и «+»
+    const btnContainer = document.createElement('div');
+    btnContainer.style.cssText = 'display: flex; gap: 4px;';
+
+    // Кнопка МИНУС (активна, если в этой строке есть временные очки)
+    if (tempAdded > 0) {
+      const minusBtn = document.createElement('button');
+      minusBtn.textContent = '-';
+      minusBtn.style.cssText = 'background:#e74c3c; border:none; color:#fff; border-radius:6px; padding:3px 9px; font-weight:bold; cursor:pointer;';
+      minusBtn.addEventListener('click', () => window.stepTempStat(key, 'minus'));
+      btnContainer.appendChild(minusBtn);
+    }
+
+    // Кнопка ПЛЮС (активна, если вообще остались свободные очки в буфере)
+    if (window._tempStatPoints > 0) {
       const plusBtn = document.createElement('button'); 
       plusBtn.textContent = '+';
       plusBtn.style.cssText = 'background:var(--btn); border:none; color:#fff; border-radius:6px; padding:3px 9px; font-weight:bold; cursor:pointer;';
-      plusBtn.addEventListener('click', function() { window.upgradeStat(key); });
-      vSpan.appendChild(plusBtn);
+      plusBtn.addEventListener('click', () => window.stepTempStat(key, 'plus'));
+      btnContainer.appendChild(plusBtn);
     }
-    
+
+    vSpan.appendChild(btnContainer);
     row.appendChild(lSpan); 
     row.appendChild(vSpan); 
     statsBody.appendChild(row);
   });
+
+  // 🔥 Добавляем большую кнопку «ПРИНЯТЬ ИЗМЕНЕНИЯ», если игрок хоть что-то перераспределил
+  const anyChanges = Object.values(window._tempStatDistribution).some(v => v > 0);
+  if (anyChanges) {
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'battle-btn-finish'; // Используем готовый класс широкой кнопки из CSS
+    confirmBtn.style.cssText = 'margin-top: 15px; width: 100%; background: #2ecc71; border: none; color: #fff; padding: 10px; font-weight: bold; border-radius: 10px; cursor: pointer;';
+    confirmBtn.textContent = '💾 Сохранить характеристики';
+    confirmBtn.addEventListener('click', window.submitStatDistribution);
+    statsBody.appendChild(confirmBtn);
+  }
 };
 
 window.closeProfile = function() {
