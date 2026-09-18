@@ -185,17 +185,19 @@ function setupSocketListeners() {
  * 📊 УМНАЯ ОТРИСОВКА ДУЭЛЬНОГО ИНТЕРФЕЙСА (БОЛЬШИЕ КАРТОЧКИ + МАССОВКА)
  */
 function renderFighters() {
+  // Проверяем, завершен ли бой (смотрим на состояние главной кнопки)
+  const strikeBtn = document.getElementById('strike-action-btn');
+  const isBattleOver = strikeBtn && strikeBtn.textContent.includes('ГОРОД');
+
   // 1. Отрендерим вашего главного героя (Левая большая карточка)
   const myFighter = teamA.find(f => f.uuid === myUuid);
   if (myFighter) {
     document.getElementById('hero-lvl-text').textContent = `Lv. ${myFighter.level || 1}`;
     document.getElementById('hero-name-text').textContent = myFighter.name;
-    
     const heroFill = document.getElementById('hero-hp-fill');
     if (heroFill) heroFill.style.width = `${(myFighter.currentHp / myFighter.maxHp) * 100}%`;
     document.getElementById('hero-hp-text').textContent = `${myFighter.currentHp} / ${myFighter.maxHp}`;
     
-    // Если герой погиб, тушим карточку дуэли
     const heroCard = document.getElementById('main-hero-card');
     if (heroCard) {
       if (myFighter.currentHp <= 0) heroCard.classList.add('dead');
@@ -204,7 +206,6 @@ function renderFighters() {
   }
 
   // 2. Отрендерим выбранную цель (Правая большая карточка)
-  // Если цель не была выбрана вручную, автоматически фокусируемся на первом выжившем противнике
   if (!selectedTargetUuid && teamB.length > 0) {
     const firstAlive = teamB.find(e => e.currentHp > 0);
     if (firstAlive) selectedTargetUuid = firstAlive.uuid;
@@ -218,12 +219,10 @@ function renderFighters() {
     document.getElementById('target-lvl-text').textContent = `Lv. ${targetFighter.level || 1}`;
     document.getElementById('target-avatar-text').textContent = targetFighter.icon || '👹';
     document.getElementById('target-name-text').textContent = targetFighter.name;
-    
     const targetFill = document.getElementById('target-hp-fill');
     if (targetFill) targetFill.style.width = `${(targetFighter.currentHp / targetFighter.maxHp) * 100}%`;
     document.getElementById('target-hp-text').textContent = `${targetFighter.currentHp} / ${targetFighter.maxHp}`;
   } else {
-    // Если живых целей нет или все мертвы, сбрасываем правую карточку в пустую заглушку
     if (targetCard) targetCard.classList.add('dead');
     document.getElementById('target-lvl-text').textContent = `Lv. --`;
     document.getElementById('target-avatar-text').textContent = '💀';
@@ -233,20 +232,17 @@ function renderFighters() {
     document.getElementById('target-hp-text').textContent = `0 / 0`;
   }
 
-  // 3. ОТРИСОВКА КОМПАКТНЫХ СПИСКОВ МАССОВКИ (РЕЗЕРВНЫЕ ЗОНЫ СНИЗУ)
+  // 3. ОТРИСОВКА СПИСКОВ МАССОВКИ (РЕЗЕРВНЫЕ ЗОНЫ СНИЗУ)
   const alliesListEl = document.getElementById('allies-reserve-list');
   const enemiesListEl = document.getElementById('enemies-reserve-list');
-
   if (!alliesListEl || !enemiesListEl) return;
   alliesListEl.innerHTML = '';
   enemiesListEl.innerHTML = '';
 
-  // Сборка списка вашей команды (Team A)
   teamA.forEach(ally => {
     const card = document.createElement('div');
     const isDead = ally.currentHp <= 0;
     card.className = `mini-fighter-card ${isDead ? 'dead' : ''}`;
-    
     card.innerHTML = `
       <div class="mini-fighter-info"><span>${ally.icon || '👤'}</span> ${ally.name}</div>
       <span style="font-size: 9px; font-family: monospace; color: var(--success); font-weight: bold;">❤️ ${ally.currentHp}</span>
@@ -254,25 +250,22 @@ function renderFighters() {
     alliesListEl.appendChild(card);
   });
 
-  // Сборка списка противников (Team B)
   teamB.forEach(enemy => {
     const card = document.createElement('div');
     const isDead = enemy.currentHp <= 0;
     const isFocused = selectedTargetUuid === enemy.uuid;
-    
     card.className = `mini-fighter-card ${isDead ? 'dead' : ''} ${isFocused ? 'active-target' : ''}`;
-    
     card.innerHTML = `
       <div class="mini-fighter-info"><span>${enemy.icon || '👹'}</span> ${enemy.name}</div>
       <span style="font-size: 9px; font-family: monospace; color: ${isFocused ? 'var(--danger)' : 'var(--hint)'}; font-weight: bold;">HP: ${enemy.currentHp}</span>
     `;
 
-    // Клик по любому противнику в списке мгновенно выводит его на главную карточку дуэли!
-    if (!isDead) {
+    // 🔥 ФИКС: Если бой ОКОНЧЕН, полностью отключаем кликабельность плашек монстров!
+    if (!isDead && !isBattleOver) {
       card.onclick = function() {
         console.log(`🎯 Смена фокуса дуэли на: ${enemy.name}`);
         selectedTargetUuid = enemy.uuid;
-        renderFighters(); // Полная перерисовка карточек
+        renderFighters();
         checkStrikeButtonState();
       };
     }
@@ -280,13 +273,14 @@ function renderFighters() {
   });
 }
 
-/**
- * 🛠 ИНИЦИАЛИЗАЦИЯ СЛУШАТЕЛЕЙ КЛИКОВ ЦЕНТРАЛЬНОГО ПУЛЬТА ТАКТИКИ
- */
 function initTacticalClickListeners() {
-  // Клики по 5 зонам удара (Глв, Грд, Трс, Пяс, Нг)
+  // Клики по кнопкам атаки
   document.querySelectorAll('.btn-atk').forEach(btn => {
     btn.onclick = function() {
+      // 🔥 ФИКС: Игнорируем клики, если бой окончен
+      const strikeBtn = document.getElementById('strike-action-btn');
+      if (strikeBtn && strikeBtn.textContent.includes('ГОРОД')) return;
+
       document.querySelectorAll('.btn-atk').forEach(b => b.classList.remove('attack-selected'));
       selectedAttackZone = this.getAttribute('data-zone');
       this.classList.add('attack-selected');
@@ -294,11 +288,14 @@ function initTacticalClickListeners() {
     };
   });
 
-  // Клики по 5 зонам блока (Выбор ровно 2-х зон)
+  // Клики по кнопкам защиты
   document.querySelectorAll('.btn-def').forEach(btn => {
     btn.onclick = function() {
-      const zone = this.getAttribute('data-zone');
+      // 🔥 ФИКС: Игнорируем клики, если бой окончен
+      const strikeBtn = document.getElementById('strike-action-btn');
+      if (strikeBtn && strikeBtn.textContent.includes('ГОРОД')) return;
 
+      const zone = this.getAttribute('data-zone');
       if (selectedDefendZones.includes(zone)) {
         selectedDefendZones = selectedDefendZones.filter(z => z !== zone);
         this.classList.remove('defend-selected');
@@ -314,18 +311,15 @@ function initTacticalClickListeners() {
     };
   });
 
-  // Жирная центральная кнопка «Ударить»
-const strikeActionBtn = document.getElementById('strike-action-btn');
+  const strikeActionBtn = document.getElementById('strike-action-btn');
   if (strikeActionBtn) {
     strikeActionBtn.onclick = function() {
-      // Защита: если на кнопке уже написано "ВЕРНУТЬСЯ", не отправляем ход на сервер!
+      // 🔥 ФИКС: Жесткая защита — если на кнопке возврат в город, блокируем сокет-отправку!
       if (this.textContent.includes('ГОРОД')) return;
 
       if (!selectedAttackZone || selectedDefendZones.length !== 2 || !selectedTargetUuid) return;
-
       this.disabled = true;
       this.textContent = 'Расчет...';
-
       socket.emit('submit_turn', {
         roomId: currentRoomId,
         targetUuid: selectedTargetUuid,
@@ -334,6 +328,19 @@ const strikeActionBtn = document.getElementById('strike-action-btn');
       });
     };
   }
+}
+
+function checkStrikeButtonState() {
+  const strikeBtn = document.getElementById('strike-action-btn');
+  if (!strikeBtn) return;
+
+  // 🔥 ФИКС: Если кнопка переведена в режим возврата в город, МЫ НИКОГДА ЕЕ НЕ ОТКЛЮЧАЕМ!
+  if (strikeBtn.textContent.includes('ГОРОД')) {
+    strikeBtn.disabled = false;
+    return;
+  }
+
+  strikeBtn.disabled = !(selectedAttackZone && selectedDefendZones.length === 2 && selectedTargetUuid);
 }
 
 function checkStrikeButtonState() {
