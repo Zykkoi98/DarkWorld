@@ -70,32 +70,43 @@ function setupSecureDataListeners(callback) {
     if (btn) { btn.disabled = false; btn.textContent = '💾 Сохранить характеристики'; }
   });
 
-// Сценарий А: Сервер успешно сохранил или обновил профиль
+  // Сценарий А: Сервер успешно сохранил, обновил или распределил характеристики профиля
   window.socket.on('load_game_success', ({ player }) => {
     console.log(`☁️ Данные игрока [ID: ${player.id}] синхронизированы с сервером.`);
+    
+    // 1. Записываем свежий эталонный профиль от сервера в глобальную память
     window.player = player;
     
-    // Перезаписываем локальный кэш
+    // 2. Перезаписываем локальный кэш телефона для сохранения прогресса при F5
     localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
     
-    // Проверка уровней
+    // 3. 🔥 ФИКС: Принудительно очищаем буфер виртуальных кликов (плюсов/минусов),
+    // чтобы сбросить предв. статы и спрятать зеленую кнопку сохранения!
+    if (typeof window._tempStatDistribution !== 'undefined') {
+      window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, intellect: 0, luck: 0 };
+    }
+    
+    // Синхронизируем остаток свободных очков в буфере (с поддержкой любого регистра от бэкенда)
+    window._tempStatPoints = Number(window.player.statPoints ?? window.player.statpoints ?? 0);
+    
+    // 4. Запускаем проверку уровней (убедитесь, что закомментировали блок сброса античита в game_core.js!)
     if (typeof window.checkLevelUp === 'function') {
       window.checkLevelUp(true); 
     }
     
-    // 🔥 ФИКС: Если в момент ответа сервера открыта модалка профиля,
-    // мы принудительно сбрасываем временные буферы кликов и перерисовываем статы!
+    // 5. 🔥 ФИКС: Если окно профиля открыто прямо сейчас, мы намертво форсируем 
+    // его перерисовку новыми статами без закрытия модалки!
     const modal = document.getElementById('profile-modal');
     if (modal && (modal.style.display === 'flex' || modal.classList.contains('active'))) {
-      if (typeof window._tempStatDistribution !== 'undefined') {
-        window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, intellect: 0, luck: 0 };
-        window._tempStatPoints = window.player.statPoints;
+      if (typeof window.openProfile === 'function') {
+        window.openProfile();
       }
-      if (typeof window.openProfile === 'function') window.openProfile();
     }
 
-    if (typeof window.render === 'function') window.render();
-    if (typeof callback === 'function') callback(null);
+    // 6. Перерисовываем основные показатели ХП и никнейма на площади города
+    if (typeof window.render === 'function') {
+      window.render();
+    }
   });
 
   // Сценарий Б: Сервер ответил, что игрока в базе еще нет (новый пользователь)
