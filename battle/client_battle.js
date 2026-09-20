@@ -245,7 +245,7 @@ function renderFighters() {
   // -------------------------------------------------------------------------
   // 1. ОТРИСОВКА ВАШЕГО ГЕРОЯ (ЛЕВАЯ КАРТОЧКА С ХУДОЖЕСТВЕННЫМ ФОНОМ)
   // -------------------------------------------------------------------------
-  const myFighter = teamA.find(f => f.uuid === myUuid);
+   const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
   if (myFighter) {
     document.getElementById('hero-lvl-text').textContent = `Lv. ${myFighter.level || 1}`;
     document.getElementById('hero-name-text').textContent = myFighter.name;
