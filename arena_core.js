@@ -18,7 +18,7 @@ function initArenaPage() {
   } else {
     console.warn("⚠️ Прямой сокет родителя отсутствует, пробуем локально...");
     if (typeof io === 'function') {
-      socket = io('https://onrender.com');
+      socket = io('https://darkworld-server.onrender.com');
       setupSocketListeners();
     }
   }
@@ -52,11 +52,6 @@ function setupSocketListeners() {
   socket.off('arena_lobby_updated');
   socket.off('arena_lobby_data');
 
-  // Перехватчик принудительного PvP-боя (Срабатывает, когда бэкенд сопоставил соперников и создал комнату)
-  socket.on('arena_redirect_to_battle', (data) => {
-    console.log("⚔️ Сервер прислал команду принудительного PvP-боя! Уходим в battle.html...");
-    closeArenaAndStartBattle(data.roomId);
-  });
   
   // Сервер сообщает, что кто-то добавил или удалил заявку — обновляем экран
   socket.on('arena_lobby_updated', () => { 

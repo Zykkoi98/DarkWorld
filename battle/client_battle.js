@@ -107,9 +107,19 @@ function setupSocketListeners() {
 
     document.getElementById('battle-round-indicator').textContent = `⚔️ Раунд ${data.turnCount}`;
     
-    // Автоматически фокусируемся на первом живом противнике
-    const firstAlive = teamB.find(e => e.currentHp > 0);
-    selectedTargetUuid = firstAlive ? firstAlive.uuid : null;
+   const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+  
+  if (myFighter) {
+    const opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
+
+    // Если текущая цель не выбрана, или выбранная цель умерла/является союзником
+    const currentTarget = opposingTeam.find(e => e.uuid === selectedTargetUuid);
+    if (!currentTarget || currentTarget.currentHp <= 0) {
+      // Ищем первого живого соперника из ВРАЖЕСКОЙ команды
+      const firstAliveEnemy = opposingTeam.find(e => e.currentHp > 0);
+      selectedTargetUuid = firstAliveEnemy ? firstAliveEnemy.uuid : null;
+    }
+  }
 
     resetTacticalButtons();
     renderFighters();
@@ -365,8 +375,8 @@ function renderFighters() {
 
     if (!isDead && !isBattleOver) {
       card.onclick = function() {
-        console.log(`🎯 Выбрана цель для атаки: ${enemy.name}`);
-        selectedTargetUuid = enemy.uuid;
+        console.log(`🎯 Выбрана цель для атаки (UUID): ${enemy.uuid}`);
+        selectedTargetUuid = enemy.uuid; // Теперь запишется честный UUID врага (Evil для Яна)
         renderFighters();
         if (typeof checkStrikeButtonState === 'function') checkStrikeButtonState();
       };
