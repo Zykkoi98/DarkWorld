@@ -810,15 +810,13 @@ function startGame() {
       }
     }
 
-    // Сигнал Б: Редирект в PvP бой
-    if (event.data.type === 'START_ARENA_BATTLE') {
-      console.log(`📡 Ядро города поймало сигнал Арены! Переходим в комнату: ${event.data.roomId}`);
+   if (event.data.type === 'START_ARENA_BATTLE') {
+      console.log(`📡 Ядро города поймало сигнал! Мгновенный переход в PvP комнату: ${event.data.roomId}`);
       
       const iframeWrapper = document.getElementById('arena-iframe-wrapper');
       if (iframeWrapper) iframeWrapper.style.display = 'none';
       
-      // 🔥 ФИКС: Убираем принудительный socket.disconnect(), который ломал переход!
-      // Просто перенаправляем игрока на страницу боевого экрана
+      // 🔥 НАПРЯМУЮ открываем страницу боя с нужным ID комнаты!
       window.location.href = `battle/battle.html?roomId=${event.data.roomId}`;
     }
   });

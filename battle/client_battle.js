@@ -230,49 +230,53 @@ function setupSocketListeners() {
 /**
  * 📊 УМНАЯ ОТРИСОВКА ДУЭЛЬНОГО ИНТЕРФЕЙСА (БОЛЬШИЕ КАРТОЧКИ + МАССОВКА)
  */
-// ============================================================================
-// ===== 🖼️ ОБНОВЛЕННАЯ ФУНКЦИЯ ОТРЕНДЕРИВАНИЯ УЧАСТНИКОВ БОЯ (ХУД. ФОН) =====
-// ============================================================================
 function renderFighters() {
-  // Главный определитель финала: проверяем, переведена ли кнопка в режим выхода в город
   const strikeBtn = document.getElementById('strike-action-btn');
   const isBattleOver = strikeBtn && strikeBtn.textContent.includes('ГОРОД');
 
-  // Относительные пути к стандартным картинкам-заглушкам в корне проекта
   const DEFAULT_HERO_IMG = "../assets/avatars/hero5.jpg";
   const DEFAULT_MONSTER_IMG = "../assets/monsters/monster1.jpg";
 
+  // ============================================================================
+  // 🔥 🔥 🔥 ГЛАВНЫЙ PvP ЗЕРКАЛЬНЫЙ ФИКС: РАЗДЕЛЕНИЕ НА "СВОЙ" И "ЧУЖОЙ"
+  // ============================================================================
+  
+  // 1. Ищем НАШЕГО персонажа в общем пуле участников (он может быть и в teamA, и в teamB)
+  const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+  
+  // 2. Ищем ВРАГА (определяем, в какой команде мы, и берем живого бойца из противоположной)
+  let targetFighter = null;
+  if (myFighter) {
+    const myTeam = teamA.includes(myFighter) ? teamA : teamB;
+    const opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
+    
+    // Если текущая цель не выбрана, берем первого живого врага из противоположной команды
+    if (!selectedTargetUuid) {
+      const firstAliveEnemy = opposingTeam.find(e => e.currentHp > 0);
+      if (firstAliveEnemy) selectedTargetUuid = firstAliveEnemy.uuid;
+    }
+    
+    targetFighter = opposingTeam.find(e => e.uuid === selectedTargetUuid);
+  }
+
   // -------------------------------------------------------------------------
-  // 1. ОТРИСОВКА ВАШЕГО ГЕРОЯ (ЛЕВАЯ КАРТОЧКА С ХУДОЖЕСТВЕННЫМ ФОНОМ)
+  // 👤 ОТРИСОВКА ВАШЕГО ГЕРОЯ (ЛЕВАЯ КАРТОЧКА — ТЕПЕРЬ ВСЕГДА ВЫ!)
   // -------------------------------------------------------------------------
-   const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
   if (myFighter) {
     document.getElementById('hero-lvl-text').textContent = `Lv. ${myFighter.level || 1}`;
-    document.getElementById('hero-name-text').textContent = myFighter.name;
+    document.getElementById('hero-name-text').textContent = myFighter.name; // 👈 Покажет Evil на экране Evil, Ян на экране Яна
     
-    // Синхронизируем большой художественный фон внутри самой карточки героя
     const heroCardBgImg = document.getElementById('hero-card-bg-img');
     if (heroCardBgImg) {
       const av = myFighter.avatar;
       let targetSrc = DEFAULT_HERO_IMG;
-      if (av && (av.includes('.') || av.includes('/'))) {
-        targetSrc = av;
-      }
+      if (av && (av.includes('.') || av.includes('/'))) targetSrc = av;
       
-      // Анти-блик: меняем src только если картинка реально сменилась
       const cleanTarget = targetSrc.split('/').pop();
-      if (!heroCardBgImg.src.includes(cleanTarget)) {
-        heroCardBgImg.src = targetSrc;
-      }
-      
-      // Анти-404: ставим стандартную заглушку при потере файла на хостинге
-      heroCardBgImg.onerror = function() { 
-        this.src = DEFAULT_HERO_IMG; 
-        this.onerror = null; 
-      };
+      if (!heroCardBgImg.src.includes(cleanTarget)) heroCardBgImg.src = targetSrc;
+      heroCardBgImg.onerror = function() { this.src = DEFAULT_HERO_IMG; this.onerror = null; };
     }
 
-    // Расчет здоровья (форсируем честный ноль при отрицательных значениях урона)
     const displayHp = Math.max(0, myFighter.currentHp);
     const heroFill = document.getElementById('hero-hp-fill');
     if (heroFill) heroFill.style.width = `${(displayHp / myFighter.maxHp) * 100}%`;
@@ -286,41 +290,25 @@ function renderFighters() {
   }
 
   // -------------------------------------------------------------------------
-  // 2. ОТРИСОВКА ВЫБРАННОГО ВРАГА (ПРАВАЯ КАРТОЧКА С ХУДОЖЕСТВЕННЫМ ФОНОМ)
+  // 👹/👤 ОТРИСОВКА СОПЕРНИКА (ПРАВАЯ КАРТОЧКА — ТЕПЕРЬ ВСЕГДА ВРАГ!)
   // -------------------------------------------------------------------------
-  if (!selectedTargetUuid && teamB.length > 0) {
-    const firstAlive = teamB.find(e => e.currentHp > 0);
-    if (firstAlive) selectedTargetUuid = firstAlive.uuid;
-  }
-
-  const targetFighter = teamB.find(e => e.uuid === selectedTargetUuid);
   const targetCard = document.getElementById('main-target-card');
   const targetCardBgImg = document.getElementById('target-card-bg-img');
 
   if (targetFighter && targetFighter.currentHp > 0) {
     if (targetCard) targetCard.classList.remove('dead');
     document.getElementById('target-lvl-text').textContent = `Lv. ${targetFighter.level || 1}`;
-    document.getElementById('target-name-text').textContent = targetFighter.name;
+    document.getElementById('target-name-text').textContent = targetFighter.name; // 👈 Покажет соперника!
     
-    // Синхронизируем большой художественный фон внутри карточки монстра
     if (targetCardBgImg) {
-      const iconVal = targetFighter.icon;
+      // Если это игрок, у него поле avatar. Если бот — поле icon. Проверяем оба.
+      const iconVal = targetFighter.avatar || targetFighter.icon;
       let targetSrc = DEFAULT_MONSTER_IMG;
-      if (iconVal && (iconVal.includes('.') || iconVal.includes('/'))) {
-        targetSrc = iconVal;
-      }
+      if (iconVal && (iconVal.includes('.') || iconVal.includes('/'))) targetSrc = iconVal;
 
-      // Анти-блик для монстра
       const cleanTarget = targetSrc.split('/').pop();
-      if (!targetCardBgImg.src.includes(cleanTarget)) {
-        targetCardBgImg.src = targetSrc;
-      }
-      
-      // Анти-404 для монстра
-      targetCardBgImg.onerror = function() { 
-        this.src = DEFAULT_MONSTER_IMG; 
-        this.onerror = null; 
-      };
+      if (!targetCardBgImg.src.includes(cleanTarget)) targetCardBgImg.src = targetSrc;
+      targetCardBgImg.onerror = function() { this.src = DEFAULT_MONSTER_IMG; this.onerror = null; };
     }
 
     const displayTargetHp = Math.max(0, targetFighter.currentHp);
@@ -328,7 +316,6 @@ function renderFighters() {
     if (targetFill) targetFill.style.width = `${(displayTargetHp / targetFighter.maxHp) * 100}%`;
     document.getElementById('target-hp-text').textContent = `${displayTargetHp} / ${targetFighter.maxHp}`;
   } else {
-    // Состояние, если выживших целей на арене больше не осталось
     if (targetCard) targetCard.classList.add('dead');
     document.getElementById('target-lvl-text').textContent = `Lv. --`;
     document.getElementById('target-name-text').textContent = 'Нет живых целей';
@@ -339,7 +326,7 @@ function renderFighters() {
   }
 
   // -------------------------------------------------------------------------
-  // 3. ОТРИСОВКА СПИСКОВ МАССОВКИ (РЕЗЕРВНЫЕ ЗОНЫ ВНИЗУ)
+  // 3. ОТРИСОВКА СПИСКОВ МАССОВКИ (ЗЕРКАЛЬНЫЙ РЕНДЕР)
   // -------------------------------------------------------------------------
   const alliesListEl = document.getElementById('allies-reserve-list');
   const enemiesListEl = document.getElementById('enemies-reserve-list');
@@ -347,8 +334,12 @@ function renderFighters() {
   alliesListEl.innerHTML = '';
   enemiesListEl.innerHTML = '';
 
-  // Рендерим отряд союзников
-  teamA.forEach(ally => {
+  // Вычисляем наши команды на основе нахождения myFighter
+  const myTeamList = myFighter && teamA.includes(myFighter) ? teamA : teamB;
+  const oppTeamList = myFighter && teamA.includes(myFighter) ? teamB : teamA;
+
+  // Рендерим твою команду союзников в левый нижний блок
+  myTeamList.forEach(ally => {
     const card = document.createElement('div');
     const displayAllyHp = Math.max(0, ally.currentHp);
     const isDead = displayAllyHp <= 0;
@@ -360,8 +351,8 @@ function renderFighters() {
     alliesListEl.appendChild(card);
   });
 
-  // Рендерим пачку монстров
-  teamB.forEach(enemy => {
+  // Рендерим команду врагов в правый нижний блок
+  oppTeamList.forEach(enemy => {
     const card = document.createElement('div');
     const displayEnemyHp = Math.max(0, enemy.currentHp);
     const isDead = displayEnemyHp <= 0;
@@ -372,10 +363,9 @@ function renderFighters() {
       <span style="font-size: 9px; font-family: monospace; color: ${isFocused ? 'var(--danger)' : 'var(--hint)'}; font-weight: bold;">HP: ${displayEnemyHp}</span>
     `;
 
-    // Если поединок ОКОНЧЕН, клики по плашкам врагов намертво блокируются!
     if (!isDead && !isBattleOver) {
       card.onclick = function() {
-        console.log(`🎯 Смена фокуса дуэли на: ${enemy.name}`);
+        console.log(`🎯 Выбрана цель для атаки: ${enemy.name}`);
         selectedTargetUuid = enemy.uuid;
         renderFighters();
         if (typeof checkStrikeButtonState === 'function') checkStrikeButtonState();

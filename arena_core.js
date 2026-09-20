@@ -70,16 +70,12 @@ function setupSocketListeners() {
 }
 
 function closeArenaAndStartBattle(roomId) {
-  // Выключаем тикающие интервалы лобби, чтобы не грузить процессор смартфона
-  if (myTimerInterval) clearInterval(myTimerInterval);
+  if (myUuid) clearInterval(myTimerInterval);
   if (globalLobbyInterval) clearInterval(globalLobbyInterval);
   
-  console.log(`⚔️ Отправляю postMessage в город для редиректа в комнату: ${roomId}`);
-  
-  // Передаем точный сигнал родителю index.html с ID созданной PvP комнаты
+  // Просто отправляем родителю команду: "Переключи экран на этот roomId"
   window.parent.postMessage({ 
     type: 'START_ARENA_BATTLE', 
-    userId: localPlayer.id,
     roomId: roomId 
   }, '*');
 }
