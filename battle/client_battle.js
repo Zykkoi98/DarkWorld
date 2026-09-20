@@ -429,22 +429,79 @@ function renderFighters() {
   if (typeof checkStrikeButtonState === 'function') {
     checkStrikeButtonState();
   }
+  initTacticalClickListeners();
 }
 
-// НАЙДИ КНОПКУ СТРАЙКА В ФУНКЦИИ ИНИЦИАЛИЗАЦИИ КЛИКОВ И ОБНОВИ ЕЁ:
 function initTacticalClickListeners() {
-  // ... (кожаные кнопки атаки и защиты без изменений) ...
+  const strikeBtn = document.getElementById('strike-action-btn');
+  if (strikeBtn && strikeBtn.textContent.includes('ГОРОД')) return;
 
+  // 1. Оживляем кнопки УДАРА (Атаки)
+  document.querySelectorAll('.btn-atk').forEach(btn => {
+    // Клонируем кнопку, чтобы гарантированно стереть старые зависшие обработчики раунда
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    
+    const zone = newBtn.getAttribute('data-zone');
+    
+    // Возвращаем подсветку, если зона уже была выбрана
+    if (selectedAttackZone === zone) {
+      newBtn.classList.add('attack-selected');
+    }
+
+    newBtn.onclick = function() {
+      document.querySelectorAll('.btn-atk').forEach(b => b.classList.remove('attack-selected'));
+      selectedAttackZone = zone;
+      newBtn.classList.add('attack-selected');
+      checkStrikeButtonState();
+    };
+  });
+
+  // 2. Оживляем кнопки БЛОКА (Защиты)
+  document.querySelectorAll('.btn-def').forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    
+    const zone = newBtn.getAttribute('data-zone');
+    
+    // Возвращаем подсветку выбранных блоков
+    if (selectedDefendZones.includes(zone)) {
+      newBtn.classList.add('defend-selected');
+    }
+
+    newBtn.onclick = function() {
+      if (selectedDefendZones.includes(zone)) {
+        selectedDefendZones = selectedDefendZones.filter(z => z !== zone);
+        newBtn.classList.remove('defend-selected');
+      } else {
+        if (selectedDefendZones.length >= 2) {
+          const removedZone = selectedDefendZones.shift();
+          // Ищем старую кнопку на обновленном экране и тушим её
+          const oldBtn = document.querySelector(`.btn-def[data-zone="${removedZone}"]`);
+          if (oldBtn) oldBtn.classList.remove('defend-selected');
+        }
+        selectedDefendZones.push(zone);
+        newBtn.classList.add('defend-selected');
+      }
+      checkStrikeButtonState();
+    };
+  });
+
+  // 3. Оживляем главную кнопку "АТАКОВАТЬ" (Страйк)
   const strikeActionBtn = document.getElementById('strike-action-btn');
   if (strikeActionBtn) {
-    strikeActionBtn.onclick = function() {
+    const newStrikeBtn = strikeActionBtn.cloneNode(true);
+    strikeActionBtn.parentNode.replaceChild(newStrikeBtn, strikeActionBtn);
+
+    newStrikeBtn.onclick = function() {
       if (this.textContent.includes('ГОРОД')) return;
       if (!selectedAttackZone || selectedDefendZones.length !== 2 || !selectedTargetUuid) return;
       
       this.disabled = true;
       this.textContent = 'Расчет...';
 
-      // 🔥 Направляем сокету честный строковый UUID реального соперника
+      console.log(`📤 Направляем сокету честный строковый UUID реального соперника: ${selectedTargetUuid}`);
+
       socket.emit('submit_turn', {
         roomId: currentRoomId,
         targetUuid: String(selectedTargetUuid), 
