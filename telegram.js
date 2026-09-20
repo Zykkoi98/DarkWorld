@@ -35,19 +35,6 @@ window.loadGame = function(callback) {
     username = tgUser.first_name || "Рыцарь";
   }
 
-  // Мгновенная попытка прогрузить локальный кэш телефона для моментального старта интерфейса
-  const localSave = localStorage.getItem('rpg_save');
-  if (localSave) {
-    try {
-      const savedData = JSON.parse(localSave);
-      if (savedData.player && Number(savedData.player.id) === Number(userId)) {
-        window.player = savedData.player;
-        if (typeof window.render === 'function') window.render();
-      }
-    } catch(e) {
-      console.warn("⚠️ Локальный кэш поврежден или пуст:", e);
-    }
-  }
 
   // 2. Отправляем защищенный сокет-запрос на бэкенд Render
   window.socket.emit('load_game_secure', { userId, username });
