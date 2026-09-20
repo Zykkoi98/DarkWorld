@@ -612,33 +612,32 @@ function renderInventory() {
   for (let i = 0; i < 3; i++) {
     const ringSlotEl = document.getElementById(`eslot-ring-${i}`);
     if (!ringSlotEl) continue;
-    // 🧪 3. Отрисовываем боевые слоты: Банка (слева) и Свиток (справа) около колец
+// 🧪 Отрисовка боевых слотов с выводом цифры стака до 5 штук
   const consumableSlots = { potion: '🧪', scroll: '📜' };
   
   Object.keys(consumableSlots).forEach(slotKey => {
     const slotEl = document.getElementById(`eslot-${slotKey}`);
     if (!slotEl) return;
 
-    const equippedItemId = window.player.equipped[slotKey];
+    const equippedData = window.player.equipped[slotKey];
 
-    if (equippedItemId) {
-      const itemData = window.getItemData(equippedItemId);
+    if (equippedData && typeof equippedData === 'object' && equippedData.id) {
+      const itemData = window.getItemData(equippedData.id);
       if (itemData) {
-        // 🔥 ПРЕДМЕТ НАДЕТ: Полностью перекрываем слот ярким сплошным кубом
-        slotEl.textContent = itemData.icon;
+        slotEl.innerHTML = `${itemData.icon}<span style="position:absolute; bottom:2px; right:4px; font-size:10px; font-weight:bold; background:rgba(0,0,0,0.7); padding:1px 3px; border-radius:4px; color:#2ecc71;">x${equippedData.count}</span>`;
         slotEl.style.background = '#222f3e';
-        slotEl.style.border = '2px solid #2ecc71'; // Подсветим зеленым для отличия от брони
+        slotEl.style.border = '2px solid #2ecc71'; 
         slotEl.style.borderRadius = '10px';
-        slotEl.style.fontSize = '26px';
+        slotEl.style.fontSize = '22px';
+        slotEl.style.position = 'relative';
         slotEl.style.display = 'flex';
         slotEl.style.alignItems = 'center';
         slotEl.style.justifyContent = 'center';
         slotEl.style.boxShadow = '0 4px 8px rgba(0,0,0,0.4), inset 0 0 10px rgba(46, 204, 113, 0.3)';
-        slotEl.title = `${itemData.name}\n${itemData.desc || ''}`;
+        slotEl.title = `${itemData.name} (Взято в бой: ${equippedData.count} шт.)\n${itemData.desc || ''}`;
       }
     } else {
-      // 💨 СЛОТ ПУСТОЙ: Возвращаем фоновую подсказку
-      slotEl.textContent = consumableSlots[slotKey];
+      slotEl.innerHTML = consumableSlots[slotKey];
       slotEl.style.background = 'rgba(255, 255, 255, 0.03)';
       slotEl.style.border = '1px dashed rgba(255, 255, 255, 0.25)';
       slotEl.style.fontSize = '20px';

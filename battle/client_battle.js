@@ -466,22 +466,19 @@ function checkPotionAvailability() {
   if (!quickPotionBtn) return;
 
   const myFighter = teamA.find(f => f.uuid === myUuid);
-  const potionId = myFighter && myFighter.equipped ? myFighter.equipped.potion : null;
+  const potionSlot = myFighter && myFighter.equipped ? myFighter.equipped.potion : null;
 
-  if (potionId && potionId !== 'null') {
-    const pData = window.getItemData ? window.getItemData(potionId) : null;
+  if (potionSlot && typeof potionSlot === 'object' && potionSlot.id && potionSlot.count > 0) {
+    const pData = window.getItemData ? window.getItemData(potionSlot.id) : null;
     if (pData) {
-      // Подсвечиваем кнопку, делаем активной и выводим эмодзи банки
       quickPotionBtn.disabled = false;
-      quickPotionBtn.innerHTML = pData.icon || '🧪';
+      quickPotionBtn.innerHTML = `${pData.icon} <span style="color:#2ecc71; font-size:11px; font-weight:bold;">x${potionSlot.count}</span>`;
       quickPotionBtn.style.border = "1px solid #2ecc71";
       quickPotionBtn.style.boxShadow = "0 0 8px rgba(46, 204, 113, 0.4)";
-      quickPotionBtn.title = `Выпить: ${pData.name} (+${pData.heal} HP)`;
+      quickPotionBtn.title = `Выпить: ${pData.name} (Осталось: ${potionSlot.count} шт.)`;
       
       quickPotionBtn.onclick = function() {
         this.disabled = true;
-        this.style.border = "1px solid var(--border)";
-        this.style.boxShadow = "none";
         socket.emit('instant_use_potion', { roomId: currentRoomId });
       };
     } else {
@@ -489,7 +486,6 @@ function checkPotionAvailability() {
       quickPotionBtn.innerHTML = '🧪';
     }
   } else {
-    // Если банки нет — тушим кнопку
     quickPotionBtn.disabled = true;
     quickPotionBtn.innerHTML = '🧪';
     quickPotionBtn.style.border = "1px solid var(--border)";
