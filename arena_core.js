@@ -47,18 +47,25 @@ function initArenaPage() {
 function setupSocketListeners() {
   if (!socket) return;
   
-  // Очищаем старые дубликаты слушателей (важно для стабильности WebApp)
   socket.off('arena_redirect_to_battle');
   socket.off('arena_lobby_updated');
   socket.off('arena_lobby_data');
 
+  // 🔥 ГЛАВНЫЙ PvP ПЕРЕХВАТЧИК: Взламывает песочницу iframe и уводит телефон в бой без F5
+  socket.on('arena_redirect_to_battle', (data) => {
+    console.log("⚔️ PvP Комната готова! Мгновенный принудительный переход...");
+    
+    if (myTimerInterval) clearInterval(myTimerInterval);
+    if (globalLobbyInterval) clearInterval(globalLobbyInterval);
+    
+    // Меняем URL самого верхнего (родительского) окна Telegram WebApp напрямую!
+    window.top.location.replace(`battle/battle.html?roomId=${data.roomId}`);
+  });
   
-  // Сервер сообщает, что кто-то добавил или удалил заявку — обновляем экран
   socket.on('arena_lobby_updated', () => { 
     refreshArenaLobby(); 
   });
 
-  // Сервер прислал свежий массив открытых заявок игроков
   socket.on('arena_lobby_data', (lobbyData) => {
     renderLobbyInterface(lobbyData);
   });

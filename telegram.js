@@ -140,23 +140,6 @@ function setupSecureDataListeners(callback) {
     console.error("❌ Не удалось безопасно загрузить игру через бэкенд:", data.message);
     if (typeof callback === 'function') callback(data.message);
   });
-   // 🔥 ГЛАВНЫЙ PvP МОСТ: Автоматический переход в бой прямо из города
-  window.socket.off('arena_redirect_to_battle');
-  window.socket.on('arena_redirect_to_battle', (data) => {
-    console.log(`🚀 [PvP СИГНАЛ] Город поймал старт матча! Комната: ${data.roomId}`);
-    
-    // Мгновенно прячем фрейм лобби Арены, если он открыт
-    const wrapper = document.getElementById('arena-iframe-wrapper');
-    if (wrapper) wrapper.style.display = 'none';
-    
-    // Отключаем мирный сокет города, чтобы не спамить бэкенд
-    if (window.socket) {
-      try { window.socket.disconnect(); } catch(e) {}
-    }
-    
-    // Автоматический редирект обоих игроков на боевой экран!
-    window.location.href = `battle/battle.html?roomId=${data.roomId}`;
-  });
 }
 
 /**
