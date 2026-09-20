@@ -25,7 +25,7 @@ function initBattleSocket() {
   }
 
   console.log("✅ Библиотека Socket.io обнаружена. Подключаемся к Render...");
-  socket = io('https://onrender.com', {
+  socket = io('https://darkworld-server.onrender.com', {
     transports: ['websocket', 'polling']
   });
 
