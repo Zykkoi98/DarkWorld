@@ -790,34 +790,25 @@ function initCSPEvents() {
 function startGame() {
   console.log("🚀 Инициализация ядра игры...");
 
-  // 🔥 Слушатель сигналов от страницы Арены (CSP-безопасный мост)
   window.addEventListener('message', function(event) {
     if (!event.data) return;
 
-    // Сигнал А: Принятие вызова на Арене (В БОЙ!)
-    if (event.data.type === 'EXECUTE_ARENA_CHALLENGE') {
-      console.log(`📡 Главное окно поймало команду запуска боя от Арены!`);
-      const mainSocket = typeof socket !== 'undefined' && socket ? socket : window.socket;
-      if (mainSocket) {
-        mainSocket.emit('accept_arena_challenge', {
-          myId: String(event.data.myId),
-          opponentId: String(event.data.opponentId),
-          myMaxHp: Number(event.data.myMaxHp),
-          oppMaxHp: Number(event.data.oppMaxHp)
-        });
-      } else {
-        console.error("❌ Критическая ошибка: На главной странице не найден active Web-сокет!");
+    // Перехватываем команду закрытия Арены от iframe
+    if (event.data.type === 'CLOSE_ARENA_OVERLAY') {
+      console.log("🧱 Город поймало сигнал закрытия! Разгружаем память и скрываем Арену...");
+      
+      const wrapper = document.getElementById('arena-iframe-wrapper');
+      const frame = document.getElementById('arena-iframe-frame');
+      
+      if (wrapper) {
+        wrapper.style.display = 'none'; // Убираем шторку Арены с экрана
       }
-    }
-
-   if (event.data.type === 'START_ARENA_BATTLE') {
-      console.log(`📡 Ядро города поймало сигнал! Мгновенный переход в PvP комнату: ${event.data.roomId}`);
+      if (frame) {
+        frame.src = 'about:blank'; // 🔥 Намертво выгружаем фрейм Арены, чтобы убить фоновый спам сокетов!
+      }
       
-      const iframeWrapper = document.getElementById('arena-iframe-wrapper');
-      if (iframeWrapper) iframeWrapper.style.display = 'none';
-      
-      // 🔥 НАПРЯМУЮ открываем страницу боя с нужным ID комнаты!
-      window.location.href = `battle/battle.html?roomId=${event.data.roomId}`;
+      // Возвращаем мирным кнопкам на площади города 100% отзывчивость
+      if (typeof window.render === 'function') window.render();
     }
   });
 

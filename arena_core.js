@@ -85,6 +85,30 @@ function closeArenaAndStartBattle(roomId) {
 function setupClickListeners() {
   document.getElementById('create-request-btn')?.addEventListener('click', createMyRequest);
   document.getElementById('cancel-request-btn')?.addEventListener('click', cancelMyRequest);
+   // 🔥 ФИКС КНОПКИ "В ГОРОД": Находим кнопку возврата в город на Арене
+  // Код сам попытается найти кнопку по классу или тексту
+  const backBtn = document.getElementById('back-to-town-btn') || document.querySelector('.back-btn') || document.querySelector('button');
+  
+  if (backBtn) {
+    backBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      console.log("🏃‍♂️ Нажата кнопка 'В город'. Полностью глушим лобби Арены...");
+      
+      // 1. Убиваем таймеры, чтобы Арена перестала слать запросы на сервер каждые 4 секунды
+      if (myTimerInterval) clearInterval(myTimerInterval);
+      if (globalLobbyInterval) clearInterval(globalLobbyInterval);
+      
+      // 2. Отключаем слушатели сокетов Арены
+      if (socket) {
+        socket.off('arena_redirect_to_battle');
+        socket.off('arena_lobby_updated');
+        socket.off('arena_lobby_data');
+      }
+      
+      // 3. Передаем сигнал в главное окно города: "Закрывай экран Арены!"
+      window.parent.postMessage({ type: 'CLOSE_ARENA_OVERLAY' }, '*');
+    });
+  }
 }
 
 // ============================================================================
