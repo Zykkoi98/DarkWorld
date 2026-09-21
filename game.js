@@ -1,6 +1,6 @@
 // ============================================================================
-// ===== 👤 КЛИЕНТСКОЕ ЯДРО ИГРЫ И ХАРАКТЕРИСТИКИ (GAME_CORE.JS) =====
-// ===== ЧАСТЬ 1 ИЗ 3: СОСТОЯНИЕ, МАТЕМАТИКА ПАРАМЕТРОВ И ГЕРОЙ =====
+// ===== 🧱 КЛИЕНТСКОЕ ЯДРО ИГРЫ И МАТЕМАТИКА ХАРАКТЕРИСТИК (GAME_CORE.JS) =====
+// ===== ЧАСТЬ 1 ИЗ 3: ЧИСТЫЕ СТАТЫ, НОВАЯ СТОЙКОСТЬ И ХАРДКОРНЫЙ ТАНК =====
 // ============================================================================
 
 window.player = null; // Глобальный объект игрока для сквозного доступа из всех файлов
@@ -11,17 +11,14 @@ window.rand = function(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
-// Жестко объявляем функцию проверки уровня на объекте window
+// Функция проверки уровня по накопленному опыту гладиатора
 window.getCorrectLevelByXp = function(xp) {
   if (!window.XP_TABLE || !Array.isArray(window.XP_TABLE)) {
     console.error("❌ XP_TABLE не найден в window!");
     return 1;
   }
-  // Идем с конца таблицы опыта к началу
   for (let lvl = window.XP_TABLE.length - 1; lvl >= 1; lvl--) {
-    if (xp >= window.XP_TABLE[lvl]) {
-      return lvl; 
-    }
+    if (xp >= window.XP_TABLE[lvl]) return lvl; 
   }
   return 1;
 };
@@ -29,13 +26,11 @@ window.getCorrectLevelByXp = function(xp) {
 // Расчет лимита опыта для следующего уровня
 function xpToNext(level) {
   const nextLevel = level + 1;
-  if (nextLevel < window.XP_TABLE.length) {
-    return window.XP_TABLE[nextLevel];
-  }
+  if (nextLevel < window.XP_TABLE.length) return window.XP_TABLE[nextLevel];
   return nextLevel * 1000; 
 }
 
-// Расчет характеристик и бонусов от надетой экипировки
+// Универсальный сборщик бонусов параметров от надетой экипировки куклы
 function getEquipmentBonus(playerData, bonusKey) {
   if (!playerData.equipped) return 0;
   let totalBonus = 0;
@@ -77,35 +72,34 @@ window.getAtk = function(playerData) {
   return baseAtk + weaponAtk;
 };
 
-window.getDef = function(playerData) {
-  const totalEndurance = playerData.stats.endurance + getEquipmentBonus(playerData, 'endurance');
-  const baseDef = Math.floor(totalEndurance * 0.5); 
-  const armorDef = getEquipmentBonus(playerData, 'def');
-  return baseDef + armorDef;
-};
-
+// 🔥 ФИКС: Выносливость дает ТОЛЬКО ЧИСТЫЕ ОЧКИ ЗДОРОВЬЯ (HP), без влияния на защиту
 window.getMaxHp = function(playerData) {
   const totalEndurance = playerData.stats.endurance + getEquipmentBonus(playerData, 'endurance');
   const armorHp = getEquipmentBonus(playerData, 'hp');
   return (totalEndurance * 10) + armorHp;
 };
 
-// Конструктор стартового персонажа для новичков
+// 🔥 ВНЕДРЕНИЕ СТОЙКОСТИ: Базовая броня (def) теперь зависит строго от Toughness (или старого intellect для совместимости)
+window.getDef = function(playerData) {
+  const baseToughness = playerData.stats.toughness ?? playerData.stats.intellect ?? 1;
+  const gearToughness = getEquipmentBonus(playerData, 'toughness') + getEquipmentBonus(playerData, 'intellect');
+  
+  // Каждая единица Стойкости увеличивает защиту на 1.0 ед.
+  const baseDef = Math.floor((baseToughness + gearToughness) * 1.0); 
+  const armorDef = getEquipmentBonus(playerData, 'def');
+  return baseDef + armorDef;
+};
+
+// Конструктор стартового персонажа для новичков (Ключ intellect полностью заменен на toughness)
 function createPlayer() {
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
   const name = tgUser?.first_name || 'Новичок';
   const uniqueId = tgUser?.id || 0; 
 
   const newPlayer = {
-    id: uniqueId,
-    name: name,
-    avatar: window.DEFAULT_AVATAR || 'assets/avatars/hero5.jpg',
-    level: 1, 
-    xp: 0, 
-    gold: 50, 
-    currentTownIndex: 0, 
-    statPoints: 5, 
-    stats: { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 },
+    id: uniqueId, name: name, avatar: window.DEFAULT_AVATAR || 'assets/avatars/hero5.jpg',
+    level: 1, xp: 0, gold: 50, currentTownIndex: 0, statPoints: 5, 
+    stats: { strength: 1, agility: 1, endurance: 1, toughness: 1, luck: 1 },
     inventory: { equipment: [], resources: [], consumables: [] },
     equipped: {
       head: null, body: null, legs: null, neck: null, gloves: null,
@@ -134,7 +128,8 @@ window.checkLevelUp = function(isInitialLoad = false) {
       window.player.statPoints = (window.player.statPoints || 0) + (levelsGained * 5);
       window.player.hp = window.getMaxHp(window.player);
     } else {
-      window.player.stats = { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 };
+      // Экстренный античит-сброс
+      window.player.stats = { strength: 1, agility: 1, endurance: 1, toughness: 1, luck: 1 };
       window.player.statPoints = 5 + ((correctLevel - 1) * 5);
     }
 
@@ -148,7 +143,7 @@ window.checkLevelUp = function(isInitialLoad = false) {
   if (modal && modal.classList.contains('active')) window.openProfile();
 };
 
-// --- ОТРИСОВКА ГЛАВНОГО ЭКРАНА ГОРОДА ---
+// --- ОТРИСОВКА ГЛАВНОГО ЭКРАНОМ ГОРОДА ---
 function render() {
   if (!window.player) return;
 
@@ -177,6 +172,7 @@ function renderTown() {
   const town = window.TOWNS[window.player.currentTownIndex];
   document.getElementById('current-town-name').textContent = town.name;
   const grid = document.getElementById('town-locations'); 
+  if (!grid) return;
   grid.innerHTML = '';
   
   town.locations.forEach(loc => {
@@ -216,7 +212,7 @@ function renderTown() {
         const frame = document.getElementById('arena-iframe-frame');
         if (wrapper && frame) {
           frame.src = 'arena.html'; 
-          wrapper.style.display = 'block'; 
+          wrapper.style.display = 'flex'; // Жесткий фикс высоты iframe
         }
       } else { 
         alert(`Вы зашли в здание: ${loc.name}`); 
@@ -231,18 +227,19 @@ function renderTown() {
   travelBtn.innerHTML = `<span>🛒</span><span>В ${window.TOWNS[nextIdx].name}</span>`;
   travelBtn.addEventListener('click', function() {
     window.player.currentTownIndex = nextIdx; 
-    saveGame({ player: window.player }); 
+    if (window.saveGame) window.saveGame({ player: window.player }); 
     render();
   });
   grid.appendChild(travelBtn);
 }
 
-// --- УПРАВЛЕНИЕ ХАРАКТЕРИСТИКАМИ (СТАТАМИ) И БУФЕРОМ ---
-window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, intellect: 0, luck: 0 };
+// --- УПРАВЛЕНИЕ ХАРАКТЕРИСТИКАМИ И ИНТЕРАКТИВНЫМ БУФЕРОМ ---
+// 🔥 ФИКС: intellect заменен на toughness во временном буфере распределения
+window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, toughness: 0, luck: 0 };
 window._tempStatPoints = 0;
 
 function resetStatBuffer() {
-  window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, intellect: 0, luck: 0 };
+  window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, toughness: 0, luck: 0 };
   window._tempStatPoints = window.player ? window.player.statPoints : 0;
 }
 
@@ -274,7 +271,7 @@ window.submitStatDistribution = function() {
     alert("⚠️ Ошибка: Нет соединения с сервером!");
   }
 };
-// --- ОТРИСОВКА ОКНА ПРОФИЛЯ ПЕРСОНАЖА ---
+// --- ОТРИСОВКА ОКНА ПРОФИЛЯ ПЕРСОНАЖА (ОДНОВРЕМЕННЫЙ РАСЧЕТ И СТОЙКОСТЬ) ---
 window.openProfile = function() {
   const modal = document.getElementById('profile-modal'); 
   if (!modal) return;
@@ -286,9 +283,10 @@ window.openProfile = function() {
   let statsBody = modal.querySelector('.modal-body-stats'); 
   if (!statsBody) return;
 
+  // 🔥 ФИКС: Вместо Интеллекта теперь выводится Стойкость танков
   const labels = { 
     strength: '💪 Сила', agility: '🏹 Ловкость', endurance: '🛡️ Выносливость', 
-    intellect: '🔮 Интеллект', luck: '🍀 Удача' 
+    toughness: '🧱 Стойкость', luck: '🍀 Удача' 
   };
   
   statsBody.textContent = '';
@@ -319,7 +317,7 @@ window.openProfile = function() {
   hr.style.cssText = 'border:0; border-top:1px solid rgba(255,255,255,0.1); margin:12px 0;';
   statsBody.appendChild(hr);
 
-  const fixedOrderKeys = ['strength', 'agility', 'endurance', 'intellect', 'luck'];
+  const fixedOrderKeys = ['strength', 'agility', 'endurance', 'toughness', 'luck'];
   fixedOrderKeys.forEach(key => {
     const row = document.createElement('div'); 
     row.className = 'profile-row';
@@ -330,8 +328,9 @@ window.openProfile = function() {
     const vSpan = document.createElement('span'); 
     vSpan.style.display = 'flex'; vSpan.style.alignItems = 'center'; 
     
-    const baseVal = Number(window.player.stats[key] || 1);
-    const gearBonus = typeof getEquipmentBonus === 'function' ? getEquipmentBonus(window.player, key) : 0;
+    // Обратная совместимость ключей бэкенда
+    const baseVal = Number(window.player.stats[key] ?? window.player.stats.intellect ?? 1);
+    const gearBonus = typeof getEquipmentBonus === 'function' ? (getEquipmentBonus(window.player, key) + (key === 'toughness' ? getEquipmentBonus(window.player, 'intellect') : 0)) : 0;
     const tempAdded = window._tempStatDistribution[key];
     const totalVal = baseVal + gearBonus + tempAdded;
 
@@ -407,7 +406,8 @@ window.showItemInfo = function(itemId, isEquipped, slotKey = null, ringIndex = n
       if (b.strength) statsText += `\n💪 Сила: +${b.strength}`;
       if (b.agility) statsText += `\n🏹 Ловкость: +${b.agility}`;
       if (b.endurance) statsText += `\n🛡️ Выносливость: +${b.endurance}`;
-      if (b.intellect) statsText += `\n🔮 Интеллект: +${b.intellect}`;
+      // 🔥 Выводим Стойкость вместо Интеллекта в карточке шмотки
+      if (b.toughness || b.intellect) statsText += `\n🧱 Стойкость: +${b.toughness ?? b.intellect}`;
       if (b.luck) statsText += `\n🍀 Удача: +${b.luck}`;
     }
   }
@@ -517,6 +517,7 @@ function renderInventory() {
       ringSlotEl.style.boxShadow = 'none';
     }
   }
+
   // 3. Отрисовка расходников боя (зелье / свиток) с выводом цифры стака
   const consumableSlots = { potion: '🧪', scroll: '📜' };
   Object.keys(consumableSlots).forEach(slotKey => {
