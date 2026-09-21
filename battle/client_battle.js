@@ -1,621 +1,447 @@
 // ============================================================================
-// ===== ⚔️ МОДУЛЬ СЕРВЕРНОГО БОЕВОГО ДВИЖКА И АРЕНЫ (BATTLE_LOGIC.JS) =====
-// ===== ЧАСТЬ 1 ИЗ 3: РАСЧЕТ БРОНИ И СЛУШАТЕЛИ ВЫЗОВОВ АРЕНЫ =====
+// ===== ⚔️ КЛИЕНТСКИЙ БОЕВОЙ МОДУЛЬ (CLIENT_BATTLE.JS) — ЧАСТЬ 1 ИЗ 4 =====
+// ===== ИНИЦИАЛИЗАЦИЯ СОКЕТ-СОЕДИНЕНИЯ И ПОДКЛЮЧЕНИЕ К БОЕВОЙ СЕССИИ =====
 // ============================================================================
 
-const dbHelper = require('./db_helper');
+let socket = null;
+let currentRoomId = null;
+let myUuid = null;
+
+// Локальные массивы участников боя для рендеринга
+let teamA = []; 
+let teamB = [];
+
+// Выбранные игроком тактические параметры раунда
+let selectedTargetUuid = null;
+let selectedAttackZone = null;
+let selectedDefendZones = [];
 
 const ZONE_NAMES = { head: "Голову", breast: "Грудь", torso: "Торс", belt: "Пояс", legs: "Ноги" };
 
-const CONSUMABLE_DATABASE = {
-  'hp_potion_small': { name: 'Малое зелье HP', heal: 25 },
-  'hp_potion_big':   { name: 'Большое зелье HP', heal: 60 },
-  'fish_soup':       { name: 'Уха из таверны', heal: 40 }
-};
-
-const ITEMS_STAT_DB = {
-  'rusty_sword':    { atk: 2 },
-  'iron_sword':     { atk: 7 },
-  'steel_mace':     { atk: 12 },
-  'heavy_halberd':  { atk: 22 },
-  'wooden_shield':  { def: 2 },
-  'leather_cap':    { def: 1, agility: 1 },
-  'leather_armor':  { def: 4 },
-  'leather_boots':  { def: 1, agility: 2 },
-  'leather_gloves': { def: 1, strength: 1 },
-  'copper_ring':    { toughness: 1 }, // Дает Стойкость вместо Выносливости
-  'wolf_amulet':    { strength: 2, luck: 1 },
-  'lucky_ring':     { luck: 3 },
-  'ruby_ring':      { strength: 3 }
-};
-
-function getEquipmentBonus(equipped, bonusKey) {
-  if (!equipped) return 0;
-  let totalBonus = 0;
-  const slots = ['head', 'body', 'legs', 'gloves', 'neck', 'mainHand', 'offHand', 'extra'];
-  
-  slots.forEach(slot => {
-    const itemId = equipped[slot];
-    if (itemId && ITEMS_STAT_DB[itemId] && ITEMS_STAT_DB[itemId][bonusKey] !== undefined) {
-      totalBonus += ITEMS_STAT_DB[itemId][bonusKey];
-    }
-  });
-
-  if (equipped.rings && Array.isArray(equipped.rings)) {
-    equipped.rings.forEach(itemId => {
-      if (itemId && ITEMS_STAT_DB[itemId] && ITEMS_STAT_DB[itemId][bonusKey] !== undefined) {
-        totalBonus += ITEMS_STAT_DB[itemId][bonusKey];
-      }
-    });
-  }
-  return totalBonus;
-}
-
-function getServerAtk(fighter) {
-  const baseStrength = Number(fighter.strength || 1);
-  const gearStrength = getEquipmentBonus(fighter.equipped, 'strength');
-  const baseAtk = Math.floor(2 + ((baseStrength + gearStrength) * 1.5));
-  return baseAtk + getEquipmentBonus(fighter.equipped, 'atk');
-}
-
-// 🔥 ФИКС: Вызываем честный расчет Защиты через Стойкость из db_helper
-function getServerDef(fighter) {
-  return dbHelper.getServerDef(fighter);
-}
-
-function getServerAgility(fighter) {
-  return Number(fighter.agility || 1) + getEquipmentBonus(fighter.equipped, 'agility');
-}
-
-function getServerLuck(fighter) {
-  return Number(fighter.luck || 1) + getEquipmentBonus(fighter.equipped, 'luck');
-}
-
-function sanitizeTeam(team) {
-  return team.map(f => ({
-    uuid: f.uuid, name: f.name, icon: f.icon, level: f.level,
-    currentHp: f.currentHp, maxHp: f.maxHp, isBot: f.isBot,
-    hasSubmitted: !!f.turn, equipped: f.equipped || null 
-  }));
-}
-
-module.exports = function(io, socket, sb, activeRooms) {
-  
-  // --- 1. ОБРАБОТЧИК: ЗАПРОС СПИСКА ДУЭЛЕЙ НА АРЕНЕ ---
-  socket.on('arena_get_lobby', async () => {
-    try {
-      const nowISO = new Date().toISOString();
-      const { data, error } = await sb.from('arena_lobby').select('*').gt('arena_expires_at', nowISO);
-      if (!error && data) socket.emit('arena_lobby_data', data);
-    } catch (e) { console.error(e); }
-  });
-
-  // --- 2. ОБРАБОТЧИК: ПУБЛИКАЦИЯ СВОЕГО ВЫЗОВА В ЛОББИ ---
-  socket.on('arena_create_request', async ({ playerData, currentHp }) => {
-    try {
-      const expiresAt = new Date(Date.now() + 180000).toISOString();
-      const { error } = await sb.from('arena_lobby').upsert({
-        id: Number(playerData.id),
-        name: playerData.name,
-        level: Number(playerData.level || 1),
-        hp: Number(currentHp),
-        arena_expires_at: expiresAt
-      });
-      if (!error) io.emit('arena_lobby_updated');
-    } catch (e) { console.error(e); }
-  });
-
-  // --- 3. ОБРАБОТЧИК: ОТМЕНА СВОЕГО ВЫЗОВА ---
-  socket.on('arena_cancel_request', async ({ userId }) => {
-    try {
-      const { error } = await sb.from('arena_lobby').delete().eq('id', Number(userId));
-      if (!error) io.emit('arena_lobby_updated');
-    } catch (e) { console.error(e); }
-  });
-
-  // --- 4. ОБРАБОТЧИК: ПРИНЯТИЕ ЧУЖОГО ВЫЗОВА ---
-  socket.on('arena_accept_challenge_request', async ({ myId, opponentId, playerData, currentHp }) => {
-    try {
-      const nMyId = Number(myId);
-      const nOpponentId = Number(opponentId);
-
-      const { data, error } = await sb.from('arena_lobby').delete().eq('id', nOpponentId).select();
-      if (error || !data || data.length === 0) {
-        return socket.emit('error', 'Вызов уже принят другим гладиатором!');
-      }
-
-      await sb.from('arena_lobby').delete().eq('id', nMyId);
-      const roomId = `room_pvp_${opponentId}_vs_${myId}_${Date.now()}`;
-      
-      const { data: oppData, error: oppErr } = await sb.from('players').select('*').eq('id', nOpponentId).maybeSingle();
-      if (oppErr || !oppData) return socket.emit('error', 'Не удалось загрузить профиль соперника.');
-
-      initiatePvpMatch(roomId, playerData, currentHp, oppData, activeRooms, io);
-    } catch (e) { console.error(e); }
-  });
-  // ============================================================================
-// ===== ⚔️ МОДУЛЬ СЕРВЕРНОГО БОЕВОГО ДВИЖКА И АРЕНЫ (BATTLE_LOGIC.JS) =====
-// ===== ЧАСТЬ 2 ИЗ 3: PvE МОНСТРЫ, РЕКОННЕКТЫ И ПРИЕМ ХОДОВ =====
-// ============================================================================
-
-  // --- 5. ОБРАБОТЧИКИ РЕКОННЕКТОВ И ПРОВЕРКИ СЕССИЙ (АНТИ-СБОЙ F5) ---
-  socket.on('check_active_battle_directly', ({ userId }, callback) => {
-    const sUserId = String(userId);
-    const activeRoomId = Object.keys(activeRooms).find(roomId => 
-      activeRooms[roomId].teamA.some(f => String(f.id) === sUserId) ||
-      activeRooms[roomId].teamB.some(f => String(f.id) === sUserId)
-    );
-    callback({ activeRoomId: activeRoomId || null });
-  });
-
-  socket.on('reconnect_to_battle', ({ roomId, userId }) => {
-    const room = activeRooms[roomId];
-    if (!room) return socket.emit('error', 'Бой уже завершился.');
-
-    const sUserId = String(userId);
-    const pFighter = [...room.teamA, ...room.teamB].find(f => String(f.id) === sUserId);
-
-    if (pFighter) {
-      pFighter.socketId = socket.id;
-      socket.join(roomId);
-      socket.emit('battle_init_data', {
-        roomId: roomId, turnCount: room.turnCount, myUuid: pFighter.uuid,
-        teamA: sanitizeTeam(room.teamA), teamB: sanitizeTeam(room.teamB)
-      });
-    }
-  });
-
-  socket.on('check_active_battle', ({ userId }) => {
-    const sUserId = String(userId);
-    const activeRoomId = Object.keys(activeRooms).find(roomId => 
-      activeRooms[roomId].teamA.some(f => String(f.id) === sUserId) ||
-      activeRooms[roomId].teamB.some(f => String(f.id) === sUserId)
-    );
-    if (activeRoomId) socket.emit('arena_redirect_to_battle', { roomId: activeRoomId });
-  });
-
-  // --- 6. ОБРАБОТЧИК: ЗАПУСК PvE БОЯ (ВЫХОД НА ПРИРОДУ) ---
-  socket.on('search_pve_match', async ({ playerData, monsterKey, count }) => {
-    try {
-      const sPlayerId = String(playerData.id);
-      const nPlayerId = Number(playerData.id);
-
-      // Аннулируем вызов на Арене, так как игрок ушел в PvE лес
-      await sb.from('arena_lobby').delete().eq('id', nPlayerId);
-      io.emit('arena_lobby_updated');
-
-      // Защита от дубликатов комнат
-      const existingRoomId = Object.keys(activeRooms).find(rId => 
-        activeRooms[rId].teamA.some(fighter => fighter.id === sPlayerId)
-      );
-
-      if (existingRoomId) {
-        const existingRoom = activeRooms[existingRoomId];
-        const pFighter = existingRoom.teamA.find(fighter => fighter.id === sPlayerId);
-        if (pFighter) pFighter.socketId = socket.id;
-        socket.join(existingRoomId);
-        return socket.emit('battle_init_data', {
-          roomId: existingRoomId, turnCount: existingRoom.turnCount,
-          myUuid: pFighter ? pFighter.uuid : `player_${sPlayerId}`,
-          teamA: sanitizeTeam(existingRoom.teamA), teamB: sanitizeTeam(existingRoom.teamB)
-        });
-      }
-
-      const monsterCount = Math.min(5, Math.max(1, Number(count || 1)));
-      const { data: dbMonster } = await sb.from('bots').select('*').eq('id', monsterKey).maybeSingle();
-      const { data: dbPlayer } = await sb.from('players').select('*').eq('id', nPlayerId).single();
-
-      if (!dbMonster || !dbPlayer) return socket.emit('error', 'Ошибка инициализации данных PvE.');
-
-      const roomId = `room_pve_${dbPlayer.id}_${Date.now()}`;
-      const pMaxHp = dbHelper.getServerMaxHp(dbPlayer);
-
-      const teamA = [{
-        uuid: `player_${dbPlayer.id}`, id: String(dbPlayer.id), name: dbPlayer.name, icon: '👤', isBot: false,
-        level: Number(dbPlayer.level), strength: Number(dbPlayer.strength), agility: Number(dbPlayer.agility),
-        endurance: Number(dbPlayer.endurance), toughness: Number(dbPlayer.toughness ?? dbPlayer.intellect ?? 1),
-        luck: Number(dbPlayer.luck), currentHp: Math.min(Number(dbPlayer.hp), pMaxHp), maxHp: pMaxHp, 
-        socketId: socket.id, turn: null, gold: Number(dbPlayer.gold), xp: Number(dbPlayer.xp), 
-        statpoints: Number(dbPlayer.statpoints ?? dbPlayer.statPoints ?? 0),
-        equipped: dbPlayer.equipped || {}, inventory: dbPlayer.inventory || {}, afkTurns: 0 
-      }];
-
-      const teamB = [];
-      // Рассчитываем параметры для монстров (считывая их выносливость и стойкость)
-      const mMaxHp = dbHelper.getServerMaxHp(dbMonster);
-      for (let i = 0; i < monsterCount; i++) {
-        teamB.push({
-          uuid: `bot_${dbMonster.id}_${i}_${Date.now()}`, id: dbMonster.id,
-          name: monsterCount > 1 ? `${dbMonster.name} #${i + 1}` : dbMonster.name, icon: dbMonster.icon,
-          isBot: true, level: Number(dbMonster.level), strength: Number(dbMonster.strength),
-          agility: Number(dbMonster.agility), endurance: Number(dbMonster.endurance),
-          toughness: Number(dbMonster.toughness ?? dbMonster.intellect ?? 1), luck: Number(dbMonster.luck),
-          currentHp: mMaxHp, maxHp: mMaxHp, rewardXp: Number(dbMonster.reward_xp),
-          rewardGold: Number(dbMonster.reward_gold), lootTable: dbMonster.loot_table || [], turn: null
-        });
-      }
-
-      activeRooms[roomId] = { id: roomId, type: 'pve', teamA, teamB, turnCount: 1, timeoutRef: null };
-      socket.join(roomId);
-      
-      socket.emit('battle_init_data', {
-        roomId, turnCount: 1, myUuid: `player_${dbPlayer.id}`,
-        teamA: sanitizeTeam(teamA), teamB: sanitizeTeam(teamB)
-      });
-
-      startServerTurnTimer(roomId, activeRooms, io);
-    } catch (err) {
-      socket.emit('error', `Внутренняя ошибка: ${err.message}`);
-    }
-  });
-
-  // --- 7. ОБРАБОТЧИК: ПРИЕМ ТАКТИЧЕСКОГО ХОДА ---
-  socket.on('submit_turn', ({ roomId, targetUuid, attack, defends }) => {
-    const room = activeRooms[roomId];
-    if (!room) return;
-
-    const fighter = [...room.teamA, ...room.teamB].find(p => p.socketId === socket.id);
-    if (!fighter || fighter.currentHp <= 0 || fighter.turn) return;
-
-    fighter.turn = { targetUuid, attack, defends: defends || [] };
-    fighter.afkTurns = 0; 
-
-    let canExecuteRound = false;
-
-    if (room.type === 'pve') {
-      const awaitingPvE = room.teamA.filter(p => !p.isBot && p.currentHp > 0 && !p.turn);
-      if (awaitingPvE.length === 0) canExecuteRound = true;
-    } 
-    else if (room.type === 'pvp') {
-      const alivePlayersCount = [...room.teamA, ...room.teamB].filter(p => p.currentHp > 0).length;
-      const submittedTurnsCount = [...room.teamA, ...room.teamB].filter(p => p.turn !== null).length;
-      if (submittedTurnsCount === alivePlayersCount) canExecuteRound = true;
-    }
-
-    if (canExecuteRound) {
-      clearTimeout(room.timeoutRef);
-      executeRoundCalculations(roomId, activeRooms, io); // Вызов калькулятора из Части 3
-    }
-  });
-
-  // --- 8. ОБРАБОТЧИК: МГНОВЕННОЕ ИСПОЛЬЗОВАНИЕ ЗЕЛИЙ В БОЮ ---
-  socket.on('instant_use_potion', async ({ roomId }) => {
-    const room = activeRooms[roomId];
-    if (!room) return;
-
-    const fighter = room.teamA.find(p => p.socketId === socket.id);
-    if (!fighter || fighter.currentHp <= 0) return;
-
-    const potionSlot = fighter.equipped?.potion;
-
-    if (potionSlot && typeof potionSlot === 'object' && potionSlot.id && potionSlot.count > 0) {
-      const potionData = CONSUMABLE_DATABASE[potionSlot.id];
-
-      if (potionData) {
-        fighter.currentHp = Math.min(fighter.maxHp, fighter.currentHp + potionData.heal);
-        potionSlot.count--;
-        let displayCountLog = potionSlot.count;
-
-        if (potionSlot.count <= 0) fighter.equipped.potion = null;
-
-        io.to(roomId).emit('battle_effect_potion', {
-          uuid: fighter.uuid, currentHp: fighter.currentHp, equipped: fighter.equipped, 
-          logMsg: `🧪 <strong>${fighter.name}</strong> выпил ${potionData.name} (+${potionData.heal} HP)! Осталось: ${displayCountLog} шт.`
-        });
-
-        await sb.from('players').update({ hp: fighter.currentHp, equipped: fighter.equipped }).eq('id', Number(fighter.id));
-      }
-    }
-  });
-  // ============================================================================
-// ===== ⚔️ МОДУЛЬ СЕРВЕРНОГО БОЕВОГО ДВИЖКА И АРЕНЫ (BATTLE_LOGIC.JS) =====
-// ===== ЧАСТЬ 3: ОДНОВРЕМЕННЫЕ УДАРЫ И РАСЧЕТ ОЧЕРЕДИ С ТАЙМЕРАМИ =====
-// ============================================================================
-
-}; // Закрывающий тег основной сокет-функции экспорта из Частей 1 и 2
-
-function initiatePvpMatch(roomId, p1Data, p1Hp, p2Data, activeRooms, io) {
-  const dbHelper = require('./db_helper');
-  const p1Stats = {
-    strength: Number(p1Data.strength ?? p1Data.stats?.strength ?? 1),
-    agility: Number(p1Data.agility ?? p1Data.stats?.agility ?? 1),
-    endurance: Number(p1Data.endurance ?? p1Data.stats?.endurance ?? 1),
-    toughness: Number(p1Data.toughness ?? p1Data.intellect ?? 1),
-    luck: Number(p1Data.luck ?? p1Data.stats?.luck ?? 1), equipped: p1Data.equipped || {}
-  };
-  const p2Stats = {
-    strength: Number(p2Data.strength ?? p2Data.stats?.strength ?? 1),
-    agility: Number(p2Data.agility ?? p2Data.stats?.agility ?? 1),
-    endurance: Number(p2Data.endurance ?? p2Data.stats?.endurance ?? 1),
-    toughness: Number(p2Data.toughness ?? p2Data.intellect ?? 1),
-    luck: Number(p2Data.luck ?? p2Data.stats?.luck ?? 1), equipped: p2Data.equipped || {}
-  };
-
-  const p1MaxHp = dbHelper.getServerMaxHp(p1Stats);
-  const p2MaxHp = dbHelper.getServerMaxHp(p2Stats);
-
-  const teamA = [{
-    uuid: `player_${p1Data.id}`, id: String(p1Data.id), name: p1Data.name, icon: '👤', isBot: false,
-    level: Number(p1Data.level ?? 1), strength: p1Stats.strength, agility: p1Stats.agility,
-    endurance: p1Stats.endurance, toughness: p1Stats.toughness, luck: p1Stats.luck,
-    currentHp: Math.min(Number(p1Hp || p1MaxHp), p1MaxHp), maxHp: p1MaxHp, socketId: null, turn: null,
-    equipped: p1Data.equipped || {}, inventory: p1Data.inventory || {}, afkTurns: 0
-  }];
-  const teamB = [{
-    uuid: `player_${p2Data.id}`, id: String(p2Data.id), name: p2Data.name, icon: '👤', isBot: false, 
-    level: Number(p2Data.level ?? 1), strength: p2Stats.strength, agility: p2Stats.agility,
-    endurance: p2Stats.endurance, toughness: p2Stats.toughness, luck: p2Stats.luck,
-    currentHp: Math.min(Number(p2Data.hp || p2MaxHp), p2MaxHp), maxHp: p2MaxHp, socketId: null, turn: null,
-    equipped: p2Data.equipped || {}, inventory: p2Data.inventory || {}, afkTurns: 0
-  }];
-
-  activeRooms[roomId] = { id: roomId, type: 'pvp', teamA, teamB, turnCount: 1, timeoutRef: null };
-  setTimeout(() => { io.emit('arena_lobby_updated'); io.emit('arena_redirect_to_battle', { roomId }); }, 150);
-  startServerTurnTimer(roomId, activeRooms, io);
-}
-
-function startServerTurnTimer(roomId, activeRooms, io) {
-  const room = activeRooms[roomId]; if (!room) return;
-  if (room.timeoutRef) clearTimeout(room.timeoutRef);
-
-  room.timeoutRef = setTimeout(() => {
-    if (!activeRooms[roomId]) return;
-    const allFighters = [...room.teamA, ...room.teamB];
-    allFighters.forEach(f => {
-      if (!f.isBot && f.currentHp > 0 && !f.turn) {
-        f.afkTurns = (f.afkTurns || 0) + 1;
-        const opp = room.teamA.includes(f) ? room.teamB : room.teamA;
-        const alive = opp.filter(e => e.currentHp > 0);
-        f.turn = { targetUuid: alive.length > 0 ? alive.uuid : null, attack: null, defends: [] };
-      }
-    });
-    executeRoundCalculations(roomId, activeRooms, io);
-  }, 30000); 
-}
-// --- 11. ВНУТРЕННЯЯ ФУНКЦИЯ: СЕРВЕРНЫЙ КАЛЬКУЛЯТОР С ОДНОВРЕМЕННЫМИ УДАРАМИ ---
-function executeRoundCalculations(roomId, activeRooms, io) {
-  const room = activeRooms[roomId]; 
-  if (!room) return;
-
-  const logs = []; 
-  const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-
-  // Проверяем игроков на тотальную АФК дисквалификацию (3 пропуска ходов подряд)
-  const allHumanFighters = [...room.teamA, ...room.teamB].filter(f => !f.isBot && f.currentHp > 0);
-  let afkDisqualifiedFighter = allHumanFighters.find(f => (f.afkTurns || 0) >= 3);
-
-  if (afkDisqualifiedFighter) {
-    logs.push(`🛑 Гладиатор <strong>${afkDisqualifiedFighter.name}</strong> застыл на месте слишком долго. Техническое поражение.`);
-    afkDisqualifiedFighter.currentHp = 0;
-
-    const isTeamADead = room.teamA.every(f => f.currentHp <= 0); 
-    const isTeamBDead = room.teamB.every(f => f.currentHp <= 0);
-    
-    let result = 'draw'; 
-    if (!isTeamADead && isTeamBDead) result = 'win'; 
-    if (isTeamADead && !isTeamBDead) result = 'lose';
-
-    if (room.type === 'pve') finalizePveBattle(room, result, logs, room.turnCount, io);
-    else if (room.type === 'pvp') finalizePvpBattle(room, result, logs, room.turnCount, io);
+// Безопасный старт сокетов с ожиданием загрузки внешней библиотеки
+function initBattleSocket() {
+  if (typeof io === 'undefined') {
+    setTimeout(initBattleSocket, 50);
     return;
   }
 
-  // Если идет PvE-бой, рассчитываем тактические ходы для ИИ-монстров
-  if (room.type === 'pve') {
-    room.teamB.forEach(bot => {
-      if (bot.currentHp <= 0 || !bot.isBot) return;
-      const aliveTargets = room.teamA.filter(a => a.currentHp > 0); 
-      if (aliveTargets.length === 0) return;
+  socket = io('https://darkworld-server.onrender.com', {
+    transports: ['websocket', 'polling']
+  });
 
-      const target = aliveTargets[rand(0, aliveTargets.length - 1)]; 
-      const zones = ["head", "breast", "torso", "belt", "legs"];
-      const mDefend = []; 
-      
-      while (mDefend.length < 2) { 
-        const rz = zones[rand(0, 4)]; 
-        if (!mDefend.includes(rz)) mDefend.push(rz); 
-      }
-      bot.turn = { targetUuid: target.uuid, attack: zones[rand(0, 4)], defends: mDefend };
-    });
+  const localSave = localStorage.getItem('rpg_save');
+  let localPlayer = null;
+  if (localSave) {
+    try { localPlayer = JSON.parse(localSave).player; } catch(e) {}
   }
 
-  // Формируем очередь вывода логов в чат на основе Ловкости персонажей
-  let queue = [...room.teamA, ...room.teamB]; 
-  queue.sort((a, b) => getServerAgility(b) - getServerAgility(a));
+  if (!localPlayer) {
+    alert("❌ Ошибка: Профиль персонажа не найден! Вернитесь в город.");
+    window.location.href = '../index.html';
+    return;
+  }
 
-  // 🔥 ХАРДКОРНЫЙ БУФЕР УРОНА: Урон копится сюда, не уменьшая ХП бойцов мгновенно!
-  // Это позволяет абсолютно всем участникам нанести ответные удары, даже если они "умрут" в логах раунда
-  let damageMap = {}; 
-  [...room.teamA, ...room.teamB].forEach(f => damageMap[f.uuid] = 0);
-   // Перебираем атаки участников в раунде
-  queue.forEach(attacker => {
-    if (attacker.currentHp <= 0 || !attacker.turn || !attacker.turn.targetUuid) return;
-
-    let target = [...room.teamA, ...room.teamB].find(f => f.uuid === attacker.turn.targetUuid);
-    
-    // Если изначальная цель погибла в прошлых раундах, ищем живого врага напротив
-    if (!target || target.currentHp <= 0) {
-      const opposingTeam = room.teamA.includes(attacker) ? room.teamB : room.teamA;
-      const newAlive = opposingTeam.filter(t => t.currentHp > 0);
-      if (newAlive.length === 0) return;
-      target = newAlive[0]; // Берем конкретного живого бойца
-    }
-
-    if (attacker.uuid === target.uuid || attacker.turn.attack === null) return;
-
-    // Проверяем, угадал ли защищающийся зону блока
-    if (target.turn && target.turn.defends.includes(attacker.turn.attack)) {
-      logs.push(`🛡️ <strong>${target.name}</strong> заблокировал удар от <strong>${attacker.name}</strong> в ${ZONE_NAMES[attacker.turn.attack]}.`);
+  const urlParams = new URLSearchParams(window.location.search);
+  let existingRoomId = urlParams.get('roomId'); 
+  
+  socket.on('connect', () => {
+    if (existingRoomId && existingRoomId !== 'null' && existingRoomId !== 'undefined') {
+      socket.emit('reconnect_to_battle', {
+        roomId: existingRoomId, userId: String(localPlayer.id)
+      });
     } else {
-      const attLuck = getServerLuck(attacker);
-      const critChance = Math.min(50, 5 + (attLuck * 0.5));
-      const isCrit = rand(1, 100) <= critChance;
-      
-      let baseDmg = getServerAtk(attacker);
-      if (isCrit) baseDmg = Math.floor(baseDmg * 1.5);
-
-      // Защита честно вычитается на основе Стойкости
-      const targetDef = getServerDef(target);
-      const dmg = Math.max(1, baseDmg - targetDef);
-
-      // Накапливаем урон в буфер раунда, не отнимая ХП мгновенно!
-      damageMap[target.uuid] += dmg;
-      logs.push(`⚔️ <strong>${attacker.name}</strong> нанес <strong>${target.name}</strong> <strong>${dmg}</strong> урона в ${ZONE_NAMES[attacker.turn.attack]} ${isCrit ? '💥 КРИТ!' : ''}`);
+      socket.emit('check_active_battle_directly', { userId: localPlayer.id }, (response) => {
+        if (response && response.activeRoomId) {
+          socket.emit('reconnect_to_battle', {
+            roomId: response.activeRoomId, userId: String(localPlayer.id)
+          });
+        } else {
+          const monsterKey = urlParams.get('monster') || 'wild_wolf';
+          const count = urlParams.get('count') || 1;
+          
+          socket.emit('search_pve_match', {
+            playerData: localPlayer, monsterKey: monsterKey, count: Number(count)
+          });
+        }
+      });
     }
   });
 
-  // 🔥 ОДНОВРЕМЕННОЕ НАНЕСЕНИЕ УРОНА: Применяем накопленный буфер для всех участников
-  [...room.teamA, ...room.teamB].forEach(f => {
-    if (damageMap[f.uuid] > 0) {
-      f.currentHp = Math.max(0, f.currentHp - damageMap[f.uuid]);
+  setupSocketListeners();
+}
+// ============================================================================
+// ===== ⚔️ КЛИЕНТСКИЙ БОЕВОЙ МОДУЛЬ (CLIENT_BATTLE.JS) — ЧАСТЬ 2 ИЗ 4 =====
+// ===== ФУНКЦИЯ СЕТЕВЫХ СЛУШАТЕЛЕЙ И НАЧАЛО ОБРАБОТКИ ИТОГОВ РАУНДА =====
+// ============================================================================
+
+function setupSocketListeners() {
+  if (!socket) return;
+
+  // 🌲 1. ПАКЕТ ПЕРВИЧНОЙ ИНИЦИАЛИЗАЦИИ БОЯ (ПЕРВЫЙ ВХОД ИЛИ F5)
+  socket.on('battle_init_data', (data) => {
+    console.log("🌲 Стартовые данные боя получены от сервера:", data);
+    currentRoomId = data.roomId;
+    myUuid = data.myUuid;
+    teamA = data.teamA;
+    teamB = data.teamB;
+
+    const roundIndicator = document.getElementById('battle-round-indicator');
+    if (roundIndicator) roundIndicator.textContent = `⚔️ Раунд ${data.turnCount}`;
+    
+    // Автоматический фокус на первом живом противнике
+    const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+    if (myFighter) {
+      const opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
+      const firstAliveEnemy = opposingTeam.find(e => e.currentHp > 0);
+      selectedTargetUuid = firstAliveEnemy ? firstAliveEnemy.uuid : null;
+    }
+
+    resetTacticalButtons();
+    renderFighters();
+    checkPotionAvailability();
+
+    const overlay = document.getElementById('battle-loading-overlay');
+    if (overlay) overlay.style.display = 'none';
+  });
+
+  // 🧪 2. ПАКЕТ МГНОВЕННОГО ЭФФЕКТА ЗЕЛИЙ В БОЮ
+  socket.on('battle_effect_potion', (data) => {
+    const fighter = [...teamA, ...teamB].find(p => p.uuid === data.uuid);
+    if (fighter) fighter.currentHp = data.currentHp;
+    if (data.equipped && fighter) fighter.equipped = data.equipped;
+    
+    renderFighters();
+    checkPotionAvailability();
+
+    const logBox = document.getElementById('battle-log-viewport');
+    if (logBox && data.logMsg) {
+      const d = document.createElement('div');
+      d.innerHTML = data.logMsg;
+      logBox.appendChild(d);
+      logBox.scrollTop = logBox.scrollHeight;
     }
   });
 
-  // Сбрасываем тактические ходы для нового раунда
-  room.teamA.forEach(f => f.turn = null);
-  room.teamB.forEach(f => f.turn = null);
+  // ⚔️ 3. ПАКЕТ РЕЗУЛЬТАТОВ РАУНДА ОТ БЭКЕНДА (ИТОГИ ОБМЕНА УДАРАМИ)
+  socket.on('round_result', (data) => {
+    console.log("📊 Получены итоги обмена ударами:", data);
+    teamA = data.teamA;
+    teamB = data.teamB;
 
-  const isTeamADead = room.teamA.every(f => f.currentHp <= 0);
-  const isTeamBDead = room.teamB.every(f => f.currentHp <= 0);
-  const currentRound = room.turnCount;
-  room.turnCount++;
-
-  // Проверяем условия завершения поединка
-  if (isTeamADead || isTeamBDead || room.turnCount > 40) {
-    let result = 'draw';
-    // 🔥 РАСЧЕТ НИЧЬЕЙ: Если обе команды погибли одновременно в этом раунде
-    if (!isTeamADead && isTeamBDead) result = 'win';
-    if (isTeamADead && !isTeamBDead) result = 'lose';
-    if (isTeamADead && isTeamBDead) result = 'draw';
-
-    console.log(`🏁 [ФИНАЛ] Исход для TeamA: ${result}. Раунд: ${currentRound}`);
-
-    // Формируем текстовые логи наград для вывода на экран ДО отправки пакета
-    if (room.type === 'pve') {
-      const player = room.teamA[0];
-      if (player && result === 'win') {
-        let gainedXp = 0; let gainedGold = 0;
-        room.teamB.forEach(m => { gainedXp += Number(m.rewardXp || 0); gainedGold += Number(m.rewardGold || 0); });
-        const correctLevel = dbHelper.getServerCorrectLevelByXp(player.xp + gainedXp);
-        if (correctLevel > Number(player.level)) logs.push(`🎉 <strong>УРОВЕНЬ ПОВЫШЕН!</strong> Вы достигли ${correctLevel} уровня!`);
-        logs.push(`🏁 <strong>ПОБЕДА!</strong> Награда: 💰 ${gainedGold} монет, ✨ ${gainedXp} опыта.`);
-      } else if (player && result === 'lose') {
-        logs.push(`🏁 <strong>ВАС ОДОЛЕЛИ...</strong> Воскрешение в городе.`);
-      } else {
-        logs.push(`🏁 <strong>ОБОЮДНАЯ СМЕРТЬ!</strong> Ничья в глухом лесу.`);
+    const roundIndicator = document.getElementById('battle-round-indicator');
+    if (roundIndicator) roundIndicator.textContent = `⚔️ Раунд ${data.turnCount + 1}`;
+    
+    // Сбрасываем выбранные зоны для следующего раунда
+    selectedAttackZone = null;
+    selectedDefendZones = [];
+    
+    // Автоматически переносим прицел на живого врага, если текущий погиб
+    const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+    if (myFighter) {
+      const opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
+      const currentTarget = opposingTeam.find(e => e.uuid === selectedTargetUuid);
+      if (!currentTarget || currentTarget.currentHp <= 0) {
+        const nextAlive = opposingTeam.find(e => e.currentHp > 0);
+        selectedTargetUuid = nextAlive ? nextAlive.uuid : null;
       }
     }
 
-    if (room.type === 'pvp') {
-      const playerA = room.teamA[0]; const playerB = room.teamB[0];
-      if (result === 'win' && playerA) logs.push(`🏁 <strong>ПОБЕДА НА АРЕНЕ!</strong> Гладиатор <strong>${playerA.name}</strong> поверг соперника! Награда: 💰 25 монет.`);
-      else if (result === 'lose' && playerB) logs.push(`🏁 <strong>ПОБЕДА НА АРЕНЕ!</strong> Гладиатор <strong>${playerB.name}</strong> одержал верх! Награда: 💰 25 монет.`);
-      else logs.push(`🏁 <strong>ОБОЮДНАЯ СМЕРТЬ!</strong> Оба гладиатора пали без сил. Объявлена ничья!`);
+    resetTacticalButtons();
+    renderFighters();
+    checkPotionAvailability();
+    // ============================================================================
+// ===== ⚔️ КЛИЕНТСКИЙ БОЕВОЙ МОДУЛЬ (CLIENT_BATTLE.JS) — ЧАСТЬ 3 ИЗ 4 =====
+// ===== ВЫВОД ЛОГОВ БОЯ, КНОПКА ФИНАЛА И НАЧАЛО ОТРИСОВКИ КАРТОЧЕК =====
+// ============================================================================
+
+    // Печатаем логи обмена ударами в текстовое поле
+    const logBox = document.getElementById('battle-log-viewport');
+    if (logBox && data.logs) {
+      const divBreak = document.createElement('div');
+      divBreak.className = 'log-round-break';
+      divBreak.innerHTML = `<span style="color:var(--hint)">--- Итоги раунда ${data.turnCount} ---</span>`;
+      logBox.appendChild(divBreak);
+
+      data.logs.forEach(msg => {
+        if (!msg) return;
+        const strMsg = String(msg);
+        const d = document.createElement('div');
+        d.innerHTML = strMsg;
+        
+        if (strMsg.includes('нанес') || strMsg.includes('повержен') || strMsg.includes('убил')) d.className = 'log-damage';
+        if (strMsg.includes('заблокировал') || strMsg.includes('🛡️')) d.className = 'log-miss';
+        if (strMsg.includes('🎉') || strMsg.includes('🏁') || strMsg.includes('🛑')) d.className = 'log-system';
+        logBox.appendChild(d);
+      });
+      logBox.scrollTop = logBox.scrollHeight;
     }
 
-    // Рассылаем пакет финала на сокеты участников
-    [...room.teamA, ...room.teamB].forEach(p => {
-      if (p.socketId) {
-        let personalResult = result;
-        if (room.type === 'pvp') {
-          const isTargetInTeamA = room.teamA.some(f => f.uuid === p.uuid);
-          if (isTargetInTeamA) personalResult = result;
-          else personalResult = (result === 'win') ? 'lose' : (result === 'lose' ? 'win' : 'draw');
-        }
+    // Управляем главной кнопкой в зависимости от статуса поединка
+    const strikeBtn = document.getElementById('strike-action-btn');
+    if (!data.isOver) {
+      if (strikeBtn) {
+        strikeBtn.textContent = 'Атаковать';
+        strikeBtn.disabled = true;
+      }
+    } else {
+      if (strikeBtn) {
+        strikeBtn.textContent = 'ВЕРНУТЬСЯ В ГОРОД';
+        strikeBtn.disabled = false;
+        strikeBtn.style.background = '#2ecc71';
+        
+        strikeBtn.onclick = function() {
+          console.log("🏃‍♂️ Покидаем поле боя. Отключаем сокеты...");
+          if (socket) socket.disconnect();
+          window.location.replace('../index.html');
+        };
+      }
+    }
+  });
 
-        io.to(p.socketId).emit('round_result', { 
-          turnCount: currentRound, logs, isOver: true, resultType: personalResult,
-          teamA: sanitizeTeam(room.teamA), teamB: sanitizeTeam(room.teamB) 
+  socket.on('error', (msg) => { alert(`❌ Ошибка боя: ${msg}`); });
+} // Конец функции setupSocketListeners
+
+// --- 4. ДИНАМИЧЕСКИЙ БЕЗОПАСНЫЙ РЕНДЕРИНГ КАРТОЧЕК ХП И МАССОВКИ ---
+function renderFighters() {
+  const strikeBtn = document.getElementById('strike-action-btn');
+  const isBattleOver = strikeBtn && strikeBtn.textContent.includes('ГОРОД');
+
+  const DEFAULT_HERO_IMG = "../assets/avatars/hero5.jpg";
+  const DEFAULT_MONSTER_IMG = "../assets/monsters/monster1.jpg";
+
+  const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+  let opposingTeam = [];
+
+  if (myFighter) {
+    opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
+  } else {
+    const localSave = localStorage.getItem('rpg_save');
+    if (localSave) {
+      try {
+        const localPlayerId = String(JSON.parse(localSave).player.id);
+        if (teamA.length > 0 && teamA && String(teamA.id) === localPlayerId) {
+          opposingTeam = teamB;
+        } else {
+          opposingTeam = teamA;
+        }
+      } catch(e) { opposingTeam = teamB; }
+    }
+  }
+
+  const targetFighter = opposingTeam.find(e => e.uuid === selectedTargetUuid);
+
+  // Отрисовка левой большой HUD карточки (Вы)
+  if (myFighter) {
+    const elLvl = document.getElementById('hero-lvl-text');
+    const elName = document.getElementById('hero-name-text');
+    const elHpFill = document.getElementById('hero-hp-fill');
+    const elHpText = document.getElementById('hero-hp-text');
+    const heroImg = document.getElementById('hero-card-bg-img');
+
+    if (elLvl) elLvl.textContent = `Lv. ${myFighter.level || 1}`;
+    if (elName) elName.textContent = myFighter.name;
+    if (heroImg) heroImg.src = (myFighter.avatar && myFighter.avatar.includes('.')) ? myFighter.avatar : DEFAULT_HERO_IMG;
+    
+    const dHp = Math.max(0, myFighter.currentHp);
+    if (elHpFill) elHpFill.style.width = `${(dHp / myFighter.maxHp) * 100}%`;
+    if (elHpText) elHpText.textContent = `${dHp} / ${myFighter.maxHp}`;
+  }
+  // ============================================================================
+// ===== ⚔️ КЛИЕНТСКИЙ БОЕВОЙ МОДУЛЬ (CLIENT_BATTLE.JS) — ЧАСТЬ 4 ИЗ 4 =====
+// ===== РЕНДЕРИНГ МАССОВКИ И СЛУШАТЕЛИ ТАКТИЧЕСКИХ ЗОН УДАРОВ/БЛОКОВ =====
+// ============================================================================
+
+  // Отрисовка правой большой HUD карточки (Текущий монстр/цель)
+  const targetCard = document.getElementById('main-target-card');
+  if (targetFighter && targetFighter.currentHp > 0) {
+    if (targetCard) targetCard.classList.remove('dead');
+    
+    const elTName = document.getElementById('target-name-text');
+    const elTLvl = document.getElementById('target-lvl-text');
+    const elTHpFill = document.getElementById('target-hp-fill');
+    const elTHpText = document.getElementById('target-hp-text');
+    const tImg = document.getElementById('target-card-bg-img');
+
+    if (elTName) elTName.textContent = targetFighter.name;
+    if (elTLvl) elTLvl.textContent = `Lv. ${targetFighter.level || 1}`;
+    if (elTHpFill) elTHpFill.style.width = `${(targetFighter.currentHp / targetFighter.maxHp) * 100}%`;
+    if (elTHpText) elTHpText.textContent = `${targetFighter.currentHp} / ${targetFighter.maxHp}`;
+    if (tImg) tImg.src = (targetFighter.avatar && targetFighter.avatar.includes('.')) ? targetFighter.avatar : DEFAULT_MONSTER_IMG;
+  } else {
+    if (targetCard) targetCard.classList.add('dead');
+    const elTName = document.getElementById('target-name-text');
+    const elTLvl = document.getElementById('target-lvl-text');
+    const elTHpFill = document.getElementById('target-hp-fill');
+    const elTHpText = document.getElementById('target-hp-text');
+
+    if (elTName) elTName.textContent = 'Нет живых целей';
+    if (elTLvl) elTLvl.textContent = `Lv. --`;
+    if (elTHpFill) elTHpFill.style.width = `0%`;
+    if (elTHpText) elTHpText.textContent = `0 / 0`;
+  }
+
+  // Списки резервов массовки внизу экрана
+  const alliesListEl = document.getElementById('allies-reserve-list');
+  const enemiesListEl = document.getElementById('enemies-reserve-list');
+  if (alliesListEl && enemiesListEl) {
+    alliesListEl.innerHTML = '';
+    enemiesListEl.innerHTML = '';
+
+    const myTeamList = myFighter && teamA.includes(myFighter) ? teamA : teamB;
+    const oppTeamList = myFighter && teamA.includes(myFighter) ? teamB : teamA;
+
+    myTeamList.forEach(ally => {
+      const card = document.createElement('div');
+      card.className = `mini-fighter-card ${ally.currentHp <= 0 ? 'dead' : ''}`;
+      card.innerHTML = `<div>${ally.name}</div><span style="font-size:9px; color:var(--success);">❤️ ${Math.max(0, ally.currentHp)}</span>`;
+      alliesListEl.appendChild(card);
+    });
+
+    oppTeamList.forEach(enemy => {
+      const card = document.createElement('div');
+      const isDead = enemy.currentHp <= 0;
+      const isFocused = selectedTargetUuid === enemy.uuid;
+      card.className = `mini-fighter-card ${isDead ? 'dead' : ''} ${isFocused ? 'active-target' : ''}`;
+      card.innerHTML = `<div>${enemy.name}</div><span style="font-size:9px; color:${isFocused ? 'var(--danger)' : 'var(--hint)'};">HP: ${Math.max(0, enemy.currentHp)}</span>`;
+
+      if (!isDead && !isBattleOver) {
+        card.addEventListener('click', function() {
+          selectedTargetUuid = enemy.uuid;
+          document.querySelectorAll('.mini-fighter-card').forEach(c => c.classList.remove('active-target'));
+          card.classList.add('active-target');
+          
+          const tName = document.getElementById('target-name-text');
+          const tLvl = document.getElementById('target-lvl-text');
+          const tFill = document.getElementById('target-hp-fill');
+          const tText = document.getElementById('target-hp-text');
+          const tImg = document.getElementById('target-card-bg-img');
+
+          if (tName) tName.textContent = enemy.name;
+          if (tLvl) tLvl.textContent = `Lv. ${enemy.level || 1}`;
+          if (tFill) tFill.style.width = `${(enemy.currentHp / enemy.maxHp) * 100}%`;
+          if (tText) tText.textContent = `${enemy.currentHp} / ${enemy.maxHp}`;
+          if (tImg) tImg.src = (enemy.avatar && enemy.avatar.includes('.')) ? enemy.avatar : DEFAULT_MONSTER_IMG;
+          
+          checkStrikeButtonState();
         });
       }
+      enemiesListEl.appendChild(card);
     });
+  }
 
-    // Вызываем фоновое сохранение наград в базу данных Supabase
-    if (room.type === 'pve') finalizePveBattle(room, result, logs, currentRound, io);
-    else if (room.type === 'pvp') finalizePvpBattle(room, result, logs, currentRound, io);
+  checkStrikeButtonState();
+  initTacticalClickListeners();
+}
+
+// Слушатели кнопок атак и блоков
+function initTacticalClickListeners() {
+  const strikeBtn = document.getElementById('strike-action-btn');
+  if (strikeBtn && strikeBtn.textContent.includes('ГОРОД')) return;
+
+  document.querySelectorAll('.btn-atk').forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    const zone = newBtn.getAttribute('data-zone');
     
-    // Мягко стираем комнату из оперативной памяти бэкенда через 1.2 секунды
-    setTimeout(() => { delete activeRooms[room.id]; }, 1200);
-  } else {
-    // Бой продолжается — шлем обычный пакет обновления ХП
-    [...room.teamA, ...room.teamB].forEach(p => {
-      if (p.socketId) io.to(p.socketId).emit('round_result', { turnCount: currentRound, logs, isOver: false, teamA: sanitizeTeam(room.teamA), teamB: sanitizeTeam(room.teamB) });
-    });
-    startServerTurnTimer(roomId, activeRooms, io);
+    if (selectedAttackZone === zone) newBtn.classList.add('attack-selected');
+
+    newBtn.onclick = function() {
+      document.querySelectorAll('.btn-atk').forEach(b => b.classList.remove('attack-selected'));
+      selectedAttackZone = zone;
+      newBtn.classList.add('attack-selected');
+      checkStrikeButtonState();
+    };
+  });
+
+  document.querySelectorAll('.btn-def').forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    const zone = newBtn.getAttribute('data-zone');
+    
+    if (selectedDefendZones.includes(zone)) newBtn.classList.add('defend-selected');
+
+    newBtn.onclick = function() {
+      if (selectedDefendZones.includes(zone)) {
+        selectedDefendZones = selectedDefendZones.filter(z => z !== zone);
+        newBtn.classList.remove('defend-selected');
+      } else {
+        if (selectedDefendZones.length >= 2) {
+          const removedZone = selectedDefendZones.shift();
+          const oldBtn = document.querySelector(`.btn-def[data-zone="${removedZone}"]`);
+          if (oldBtn) oldBtn.classList.remove('defend-selected');
+        }
+        selectedDefendZones.push(zone);
+        newBtn.classList.add('defend-selected');
+      }
+      checkStrikeButtonState();
+    };
+  });
+
+  const strikeActionBtn = document.getElementById('strike-action-btn');
+  if (strikeActionBtn) {
+    const newStrikeBtn = strikeActionBtn.cloneNode(true);
+    strikeActionBtn.parentNode.replaceChild(newStrikeBtn, strikeActionBtn);
+
+    newStrikeBtn.onclick = function() {
+      if (this.textContent.includes('ГОРОД')) return;
+      if (!selectedAttackZone || selectedDefendZones.length !== 2 || !selectedTargetUuid) return;
+      
+      this.disabled = true;
+      this.textContent = 'Расчет...';
+
+      socket.emit('submit_turn', {
+        roomId: currentRoomId,
+        targetUuid: String(selectedTargetUuid), 
+        attack: selectedAttackZone,
+        defends: selectedDefendZones
+      });
+    };
   }
 }
 
-// --- 12. ВНУТРЕННЯЯ ФУНКЦИЯ: ТРАНЗАКЦИЯ PvE НАГРАД ---
-async function finalizePveBattle(room, result, logs, finalRound, io) {
-  const sb = require('@supabase/supabase-js').createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-  const player = room.teamA[0]; if (!player) return;
-  let gainedXp = 0; let gainedGold = 0; let dbHpPayload = player.currentHp;
-
-  if (result === 'win') {
-    room.teamB.forEach(m => { gainedXp += Number(m.rewardXp || 0); gainedGold += Number(m.rewardGold || 0); });
-    player.gold += gainedGold; player.xp += gainedXp;
-    
-    const oldLevel = Number(player.level || 1); const correctLevel = dbHelper.getServerCorrectLevelByXp(player.xp);
-    if (correctLevel > oldLevel) {
-      player.statpoints = (player.statpoints || 0) + ((correctLevel - oldLevel) * 5);
-      player.level = correctLevel; player.currentHp = dbHelper.getServerMaxHp(player);
-    }
-    dbHpPayload = player.currentHp;
-  } else {
-    player.currentHp = 0; dbHpPayload = Math.max(1, Math.floor(dbHelper.getServerMaxHp(player) * 0.2));
+function checkStrikeButtonState() {
+  const strikeBtn = document.getElementById('strike-action-btn');
+  if (!strikeBtn) return;
+  if (strikeBtn.textContent.includes('ГОРОД')) {
+    strikeBtn.disabled = false;
+    return;
   }
-
-  try {
-    await sb.from('players').update({ 
-      gold: Number(player.gold), xp: Number(player.xp), hp: Number(dbHpPayload), 
-      level: Number(player.level), statpoints: Number(player.statpoints) 
-    }).eq('id', Number(player.id));
-  } catch (err) { console.error(err); }
+  strikeBtn.disabled = !(selectedAttackZone && selectedDefendZones.length === 2 && selectedTargetUuid);
 }
 
-// --- 13. ВНУТРЕННЯЯ ФУНКЦИЯ: БРОНИРОВАННАЯ ТРАНЗАКЦИЯ PvP НАГРАД ---
-async function finalizePvpBattle(room, result, logs, finalRound, io) {
-  const sb = require('@supabase/supabase-js').createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-  const playerA = room.teamA[0]; const playerB = room.teamB[0]; if (!playerA || !playerB) return;
-  const goldReward = 25;
-  const calculatePvpXp = (w, l) => Math.floor((Number(l || 1) * 15) * (l > w ? 1 + (l - w) * 0.25 : Math.max(0.1, 1 - (w - l) * 0.2)));
+function resetTacticalButtons() {
+  document.querySelectorAll('.btn-atk').forEach(b => b.classList.remove('attack-selected'));
+  document.querySelectorAll('.btn-def').forEach(b => b.classList.remove('defend-selected'));
+}
 
-  try {
-    const [dbDataA, dbDataB] = await Promise.all([
-      sb.from('players').select('*').eq('id', Number(playerA.id)).maybeSingle(),
-      sb.from('players').select('*').eq('id', Number(playerB.id)).maybeSingle()
-    ]);
-    if (!dbDataA.data || !dbDataB.data) return;
+function checkPotionAvailability() {
+  const quickPotionBtn = document.getElementById('quick-potion-btn');
+  if (!quickPotionBtn) return;
 
-    const rowA = dbDataA.data; const rowB = dbDataB.data;
-    const safeRead = (row, f, d = 0) => Number(row[f.toLowerCase()] ?? row[f.toUpperCase()] ?? row[f.charAt(0).toUpperCase() + f.slice(1)] ?? row[f] ?? d);
-    
-    let pKeyA = rowA.statpoints !== undefined ? 'statpoints' : 'statPoints';
-    let pKeyB = rowB.statpoints !== undefined ? 'statpoints' : 'statPoints';
+  const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+  const potionSlot = myFighter && myFighter.equipped ? myFighter.equipped.potion : null;
 
-    let gA = safeRead(rowA, 'gold'), xA = safeRead(rowA, 'xp'), lA = safeRead(rowA, 'level'), sA = safeRead(rowA, pKeyA);
-    let gB = safeRead(rowB, 'gold'), xB = safeRead(rowB, 'xp'), lB = safeRead(rowB, 'level'), sB = safeRead(rowB, pKeyB);
-
-    const maxA = dbHelper.getServerMaxHp({ endurance: safeRead(rowA, 'endurance', 1), equipped: rowA.equipped || {} });
-    const maxB = dbHelper.getServerMaxHp({ endurance: safeRead(rowB, 'endurance', 1), equipped: rowB.equipped || {} });
-    let hpA = maxA, hpB = maxB;
-
-    if (result === 'win') {
-      const xp = calculatePvpXp(lA, lB); gA += goldReward; xA += xp;
-      const cL = dbHelper.getServerCorrectLevelByXp(xA); if (cL > lA) { sA += (cL - lA) * 5; lA = cL; }
-      hpA = maxA; hpB = Math.max(1, Math.floor(maxB * 0.2));
-    } else if (result === 'lose') {
-      const xp = calculatePvpXp(lB, lA); gB += goldReward; xB += xp;
-      const cL = dbHelper.getServerCorrectLevelByXp(xB); if (cL > lB) { sB += (cL - lB) * 5; lB = cL; }
-      hpA = Math.max(1, Math.floor(maxA * 0.2)); hpB = maxB;
-    } else {
-      hpA = Math.max(1, Math.floor(maxA * 0.2)); hpB = Math.max(1, Math.floor(maxB * 0.2));
+  if (potionSlot && typeof potionSlot === 'object' && potionSlot.id && potionSlot.count > 0) {
+    const pData = window.getItemData ? window.getItemData(potionSlot.id) : null;
+    if (pData) {
+      quickPotionBtn.disabled = false;
+      quickPotionBtn.innerHTML = `${pData.icon} <span style="color:#2ecc71; font-size:11px; font-weight:bold;">x${potionSlot.count}</span>`;
+      quickPotionBtn.style.border = "1px solid #2ecc71";
+      quickPotionBtn.style.boxShadow = "0 0 8px rgba(46, 204, 113, 0.4)";
+      
+      quickPotionBtn.onclick = function() {
+        this.disabled = true;
+        socket.emit('instant_use_potion', { roomId: currentRoomId });
+      };
     }
-
-    await Promise.all([
-      sb.from('players').update({ gold: Number(gA), xp: Number(xA), level: Number(lA), [pKeyA]: Number(sA), hp: Number(hpA) }).eq('id', Number(playerA.id)),
-      sb.from('players').update({ gold: Number(gB), xp: Number(xB), level: Number(lB), [pKeyB]: Number(sB), hp: Number(hpB) }).eq('id', Number(playerB.id))
-    ]);
-    console.log("☁️ [БД PvP УСПЕХ] Награды одновременного размена зафиксированы.");
-  } catch (err) { console.error(err); }
+  } else {
+    quickPotionBtn.disabled = true;
+    quickPotionBtn.innerHTML = '🧪';
+    quickPotionBtn.style.border = "1px solid var(--border)";
+    quickPotionBtn.style.boxShadow = "none";
+  }
 }
+
+// ТОЧКА ВХОДА НА СТРАНИЦУ
+window.addEventListener('browse_battle', () => { console.log('Смена контекста...'); });
+window.addEventListener('DOMContentLoaded', () => { initBattleSocket(); });
