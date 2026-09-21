@@ -1,32 +1,34 @@
 // ============================================================================
-// ===== 🛡️ ЗАЩИЩЕННЫЙ КЛИЕНТСКИЙ МОДУЛЬ (БЕЗ API КЛЮЧЕЙ СУПЕРБЕЙЗА) =====
+// ===== 🛡️ ЗАЩИЩЕННЫЙ КЛИЕНТСКИЙ СЕТЕВОЙ МОСТ (TELEGRAM_SUPABASE.JS) =====
+// ===== ЧАСТЬ 1 ИЗ 2: ПОДКЛЮЧЕНИЕ СОКЕТОВ И АВТОРИЗАЦИЯ ИГРОКА =====
 // ============================================================================
+
 const TG = window.Telegram?.WebApp;
 
 /**
  * ГЛАВНАЯ ФУНКЦИЯ БЕЗОПАСНОЙ ЗАГРУЗКИ ПРОФИЛЯ
- * Вместо прямых запросов fetch к Supabase — отправляет сокет-сигнал на бэкенд!
+ * Устанавливает соединение с сервером и запрашивает синхронизацию аккаунта
  */
 window.loadGame = function(callback) {
   const TG = window.Telegram?.WebApp;
   const tgUser = TG?.initDataUnsafe?.user;
   
-  // Инициализируем базовое сокет-соединение города, если его еще нет
-  if (!window.socket || typeof io === 'undefined') {
-    console.log("📡 Подключаем глобальный сокет города к Render...");
+  // Инициализируем базовое сокет-соединение с сервером Render, если его еще нет
+  if (!window.socket) {
+    console.log("📡 Подключаем сокет города к боевому серверу Render...");
     if (typeof io !== 'undefined') {
       window.socket = io('https://darkworld-server.onrender.com');
       setupSecureDataListeners(callback);
     } else {
-      console.error("❌ Критическая ошибка: Библиотека Socket.io не подключена на странице index.html!");
-      return callback("Socket.io missing");
+      console.error("❌ Критическая ошибка: Библиотека Socket.io не подключена в index.html!");
+      if (typeof callback === 'function') callback("Socket.io missing");
+      return;
     }
   } else {
-    // Если сокет уже был создан ранее (например, при реконектах), просто вешаем слушатели данных
     setupSecureDataListeners(callback);
   }
 
-  // 1. Извлекаем ID игрока (из Телеграма или Тестовый для ПК)
+  // Извлекаем реальный ID из Телеграма (или даем тестовый для отладки на ПК)
   let userId = 777777;
   let username = "Браузерный_Тестер";
 
@@ -35,75 +37,76 @@ window.loadGame = function(callback) {
     username = tgUser.first_name || "Рыцарь";
   }
 
-
-  // 2. Отправляем защищенный сокет-запрос на бэкенд Render
+  // Отправляем защищенный сокет-запрос на авторизацию бэкенду
   window.socket.emit('load_game_secure', { userId, username });
 };
 
 /**
- * ВНУТРЕННИЙ ПЕРЕХВАТЧИК СЕТЕВЫХ ОТВЕТОВ ОТ БЭКЕНДА
+ * ВНУТРЕННИЙ ПЕРЕХВАТЧИК СЕТЕВЫХ ОТВЕТОВ ОТ СЕРВЕРА
  */
 function setupSecureDataListeners(callback) {
   if (!window.socket) return;
 
-  // Сбрасываем старые дубликаты слушателей, чтобы не спамить память при перезаходах
+  // Сбрасываем старые дубликаты слушателей, чтобы не плодить их в памяти телефона
   window.socket.off('load_game_success');
   window.socket.off('player_not_found');
   window.socket.off('load_game_failed');
   window.socket.off('stat_distribution_error');
+
+  // Перехват ошибок распределения характеристик
   window.socket.on('stat_distribution_error', (msg) => {
     alert(`❌ Ошибка сохранения: ${msg}`);
     const btn = document.getElementById('stat-save-btn');
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Сохранить характеристики'; }
+    if (btn) { 
+      btn.disabled = false; 
+      btn.textContent = '💾 Сохранить характеристики'; 
+    }
   });
 
-  // Сценарий А: Сервер успешно сохранил, обновил или распределил характеристики профиля
+  // УСПЕШНЫЙ СЦЕНАРИЙ: Сервер прислал чистые и проверенные данные профиля
   window.socket.on('load_game_success', ({ player }) => {
-    console.log(`☁️ Данные игрока [ID: ${player.id}] синхронизированы с сервером.`);
+    console.log(`☁️ Данные персонажа [ID: ${player.id}] успешно синхронизированы.`);
     
-    // 1. Записываем свежий эталонный профиль от сервера в глобальную память
+    // Записываем эталонный профиль в память и локальный кэш смартфона
     window.player = player;
-    
-    // 2. Перезаписываем локальный кэш телефона для сохранения прогресса при F5
     localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
     
-    // 3. 🔥 ФИКС: Принудительно очищаем буфер виртуальных кликов (плюсов/минусов),
-    // чтобы сбросить предв. статы и спрятать зеленую кнопку сохранения!
+    // Очищаем буфер виртуальных кликов в окне характеристик
     if (typeof window._tempStatDistribution !== 'undefined') {
       window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, intellect: 0, luck: 0 };
     }
     
-    // Синхронизируем остаток свободных очков в буфере (с поддержкой любого регистра от бэкенда)
-    window._tempStatPoints = Number(window.player.statPoints ?? window.player.statpoints ?? 0);
+    window._tempStatPoints = Number(window.player.statPoints ?? 0);
     
-    // 4. Запускаем проверку уровней (убедитесь, что закомментировали блок сброса античита в game_core.js!)
+    // Запускаем перерасчет уровней на клиенте
     if (typeof window.checkLevelUp === 'function') {
       window.checkLevelUp(true); 
     }
     
-    // 5. 🔥 ФИКС: Если окно профиля открыто прямо сейчас, мы намертво форсируем 
-    // его перерисовку новыми статами без закрытия модалки!
+    // Если окно характеристик открыто прямо сейчас — мгновенно обновляем цифры
     const modal = document.getElementById('profile-modal');
     if (modal && (modal.style.display === 'flex' || modal.classList.contains('active'))) {
-      if (typeof window.openProfile === 'function') {
-        window.openProfile();
-      }
+      if (typeof window.openProfile === 'function') window.openProfile();
     }
 
-    // 6. Перерисовываем основные показатели ХП и никнейма на площади города
-    if (typeof window.render === 'function') {
-      window.render();
+    // Если открыт инвентарь — перерисовываем вещи с учетом обновлений от сервера
+    const invModal = document.getElementById('inventory-modal');
+    if (invModal && (invModal.style.display === 'flex' || invModal.classList.contains('active'))) {
+      if (typeof window.renderInventory === 'function') window.renderInventory();
     }
+
+    // Перерисовываем никнейм и полоску здоровья на площади города
+    if (typeof window.render === 'function') window.render();
+    
+    if (typeof callback === 'function') callback(null);
   });
-
-  // Сценарий Б: Сервер ответил, что игрока в базе еще нет (новый пользователь)
+   // СЦЕНАРИЙ ДЛЯ НОВИЧКА: Игрока еще нет в базе, генерируем стартовый профиль
   window.socket.on('player_not_found', ({ userId, username }) => {
-    console.log("🆕 Приветствуем нового гладиатора! Генерируем дефолтный профиль...");
+    console.log("🆕 Приветствуем нового героя! Генерируем стартовый профиль...");
     
     if (typeof window.createPlayer === 'function') {
       window.player = window.createPlayer();
     } else {
-      // Экстренный фоллбэк на случай сбоя загрузки конструктора
       window.player = { 
         id: Number(userId), name: username, level: 1, xp: 0, gold: 50, hp: 10, statPoints: 5, currentTownIndex: 0, 
         stats: { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 }, 
@@ -115,40 +118,75 @@ function setupSecureDataListeners(callback) {
     window.player.id = Number(userId);
     window.player.name = username;
 
-    // Сразу же принудительно просим сервер создать под него первую строчку в Supabase
+    // Сразу просим бэкенд создать запись о персонаже в Supabase
     window.saveGame();
     
     if (typeof window.render === 'function') window.render();
     if (typeof callback === 'function') callback(null);
   });
 
-  // Сценарий В: Ошибка базы данных или парсинга на бэкенде
+  // Ошибка на стороне бэкенда
   window.socket.on('load_game_failed', (data) => {
-    console.error("❌ Не удалось безопасно загрузить игру через бэкенд:", data.message);
+    console.error("❌ Ошибка загрузки игры через бэкенд:", data.message);
     if (typeof callback === 'function') callback(data.message);
   });
 }
 
 /**
- * ГЛАВНАЯ ФУНКЦИЯ БЕЗОПАСНОГО СОХРАНЕНИЯ ПРОФИЛЯ
- * Синхронизирует данные без раскрытия секретных токенов
+ * 📡 НАДЕТЬ ПРЕДМЕТ ЧЕРЕЗ СЕРВЕР
+ * Отправляет запрос бэкенду на перенос вещи из рюкзака на куклу
+ */
+window.equipItem = function(itemId) {
+  if (!window.player) return;
+
+  if (window.socket && window.socket.connected) {
+    console.log(`📡 Отправка запроса на экипировку: ${itemId}`);
+    window.socket.emit('equip_item_secure', {
+      userId: window.player.id,
+      itemId: itemId
+    });
+  } else {
+    alert("⚠️ Нет стабильного соединения с сервером!");
+  }
+};
+
+/**
+ * 📡 СНЯТЬ ПРЕДМЕТ ЧЕРЕЗ СЕРВЕР
+ * Отправляет запрос бэкенду на возвращение вещи с куклы в рюкзак
+ */
+window.unequipItem = function(slotKey, ringIndex = null) {
+  if (!window.player) return;
+
+  if (window.socket && window.socket.connected) {
+    console.log(`📡 Отправка запроса на снятие из слота: ${slotKey}`);
+    window.socket.emit('unequip_item_secure', {
+      userId: window.player.id,
+      slotKey: slotKey,
+      ringIndex: ringIndex
+    });
+  } else {
+    alert("⚠️ Нет стабильного соединения с сервером!");
+  }
+};
+
+/**
+ * 📦 РЕЗЕРВНАЯ ФУНКЦИЯ СОХРАНЕНИЯ ПРОФИЛЯ
+ * Используется для быстрой синхронизации мирных кэш-данных интерфейса
  */
 window.saveGame = function(customData, callback) {
-  // Определяем, какой объект игрока сохранять (переданный или глобальный)
   const player = (customData && customData.player) ? customData.player : window.player;
   if (!player) return;
 
-  // 1. Мгновенно обновляем локальный кэш устройства для плавности UI
+  // Обновляем локальный кэш смартфона
   localStorage.setItem('rpg_save', JSON.stringify({ player: player }));
 
-  // 2. Отправляем изменения плоского пакета на бэкенд Render
+  // Отправляем пакет мирных данных бэкенду для обновления рюкзака/аватара
   if (window.socket && window.socket.connected) {
     window.socket.emit('save_game_secure', { player });
   } else {
-    console.warn("⚠️ Сокет временно отключен, сейв синхронизируется при следующем стабильном коннекте.");
+    console.warn("⚠️ Сессия сокета оффлайн. Изменения сохранятся при стабильном коннекте.");
   }
 
-  // Безопасно выполняем колбэки
   if (typeof customData === 'function') customData();
   if (typeof callback === 'function') callback();
 };

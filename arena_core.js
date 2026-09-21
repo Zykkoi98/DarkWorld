@@ -1,6 +1,8 @@
 // ============================================================================
-// ===== 🛡️ ЗАЩИЩЕННОЕ КЛИЕНТСКОЕ ЯДРО АРЕНЫ: БЕЗ API КЛЮЧЕЙ БД =====
+// ===== 🏆 КЛИЕНТСКОЕ ЛОББИ PvP АРЕНЫ И СОКЕТ-СИНХРОНИЗАЦИЯ (ARENA.JS) =====
+// ===== ЧАСТЬ 1 ИЗ 2: ИНИЦИАЛИЗАЦИЯ И СЛУШАТЕЛИ СЕТЕВЫХ PvP СОБЫТИЙ =====
 // ============================================================================
+
 let socket = null; 
 let localPlayer = null;
 let myTimerInterval = null; 
@@ -8,10 +10,9 @@ let globalLobbyInterval = null;
 
 function initArenaPage() {
   console.log("🚀 Запуск лобби Арены через защищенный сокет-мост...");
-  
   const parentWindow = window.parent;
 
-  // Забираем уже подключенный безопасный сокет из города (родительского окна)
+  // Безопасно забираем уже подключенный сокет города из родительского WebApp окна
   if (parentWindow && parentWindow.socket) {
     socket = parentWindow.socket;
     setupSocketListeners();
@@ -23,7 +24,7 @@ function initArenaPage() {
     }
   }
   
-  // Безопасно достаем профиль игрока из локального кэша устройства
+  // Достаем профиль персонажа из локального кэша телефона
   const localSave = localStorage.getItem('rpg_save');
   if (localSave) {
     try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
@@ -31,16 +32,16 @@ function initArenaPage() {
   
   if (!localPlayer) {
     alert("❌ Профиль персонажа не найден! Вернитесь в город.");
-    location.href = 'index.html'; 
+    window.parent.postMessage({ type: 'CLOSE_ARENA_OVERLAY' }, '*');
     return;
   }
   
   setupClickListeners();
   
-  // Запрашиваем актуальный список дуэлей у сервера при входе
+  // Делаем первый запрос актуального списка дуэлей у сервера при входе
   refreshArenaLobby();
   
-  // Раз в 4 секунды бэкенд будет присылать нам обновления доски объявлений
+  // Автоматически обновляем доску объявлений Арены каждые 4 секунды
   globalLobbyInterval = setInterval(refreshArenaLobby, 4000);
 }
 
@@ -51,96 +52,76 @@ function setupSocketListeners() {
   socket.off('arena_lobby_updated');
   socket.off('arena_lobby_data');
 
-  // 🔥 ГЛАВНЫЙ PvP ПЕРЕХВАТЧИК: Взламывает песочницу iframe и уводит телефон в бой без F5
+  // 🔥 PvP ПЕРЕХВАТЧИК: Ловит сигнал готовности PvP комнаты и уводит WebApp в бой без F5
   socket.on('arena_redirect_to_battle', (data) => {
-    console.log("⚔️ PvP Комната готова! Мгновенный принудительный переход...");
+    console.log("⚔️ PvP Комната сформирована сервером! Мгновенный принудительный переход...");
     
     if (myTimerInterval) clearInterval(myTimerInterval);
     if (globalLobbyInterval) clearInterval(globalLobbyInterval);
     
-    // Меняем URL самого верхнего (родительского) окна Telegram WebApp напрямую!
+    // Меняем URL самого верхнего (родительского) окна Telegram WebApp на боевую страницу!
     window.top.location.replace(`battle/battle.html?roomId=${data.roomId}`);
   });
   
+  // Сервер сообщает, что список заявок изменился -> обновляем доску
   socket.on('arena_lobby_updated', () => { 
     refreshArenaLobby(); 
   });
 
+  // Получаем свежий срез комнат от сервера и отправляем на отрисовку в UI
   socket.on('arena_lobby_data', (lobbyData) => {
     renderLobbyInterface(lobbyData);
   });
 }
-
-function closeArenaAndStartBattle(roomId) {
-  if (myUuid) clearInterval(myTimerInterval);
-  if (globalLobbyInterval) clearInterval(globalLobbyInterval);
-  
-  // Просто отправляем родителю команду: "Переключи экран на этот roomId"
-  window.parent.postMessage({ 
-    type: 'START_ARENA_BATTLE', 
-    roomId: roomId 
-  }, '*');
-}
+// ============================================================================
+// ===== 🏆 КЛИЕНТСКОЕ ЛОББИ PvP АРЕНЫ И СОКЕТ-СИНХРОНИЗАЦИЯ (ARENA.JS) =====
+// ===== ЧАСТЬ 2 ИЗ 2: ОПЕРАЦИОННЫЙ БЛОК, ТАКТИКА И ИНТЕРФЕЙС ТАБЛИЦЫ =====
+// ============================================================================
 
 function setupClickListeners() {
   document.getElementById('create-request-btn')?.addEventListener('click', createMyRequest);
   document.getElementById('cancel-request-btn')?.addEventListener('click', cancelMyRequest);
-   // 🔥 ФИКС КНОПКИ "В ГОРОД": Находим кнопку возврата в город на Арене
-  // Код сам попытается найти кнопку по классу или тексту
-  const backBtn = document.getElementById('back-to-town-btn') || document.querySelector('.back-btn') || document.querySelector('button');
   
+  // Безопасный выход с Арены обратно на площадь города Ашенваль
+  const backBtn = document.getElementById('back-to-town-btn') || document.querySelector('.back-btn') || document.querySelector('button');
   if (backBtn) {
     backBtn.addEventListener('click', function(e) {
       e.preventDefault();
-      console.log("🏃‍♂️ Нажата кнопка 'В город'. Полностью глушим лобби Арены...");
+      console.log("🏃‍♂️ Покидаем Арену. Полностью глушим фоновые процессы лобби...");
       
-      // 1. Убиваем таймеры, чтобы Арена перестала слать запросы на сервер каждые 4 секунды
+      // Глушим таймеры, чтобы Арена перестала спамить сервер запросами каждые 4 секунды
       if (myTimerInterval) clearInterval(myTimerInterval);
       if (globalLobbyInterval) clearInterval(globalLobbyInterval);
       
-      // 2. Отключаем слушатели сокетов Арены
+      // Снимаем слушатели сокетов Арены
       if (socket) {
         socket.off('arena_redirect_to_battle');
         socket.off('arena_lobby_updated');
         socket.off('arena_lobby_data');
       }
       
-      // 3. Передаем сигнал в главное окно города: "Закрывай экран Арены!"
+      // Передаем сигнал в главное окно города: "Закрывай iframe Арены!"
       window.parent.postMessage({ type: 'CLOSE_ARENA_OVERLAY' }, '*');
     });
   }
 }
 
-// ============================================================================
-// ===== 🧠 ЗАКРЫТЫЙ ОПЕРАЦИОННЫЙ БЛОК ЛОББИ PvP (ОБЩЕНИЕ ЧЕРЕЗ СОКЕТЫ) =====
-// ============================================================================
-
-/**
- * 1. ПУБЛИКАЦИЯ СВОЕГО ВЫЗОВА
- * Вместо прямой записи upsert в Supabase отправляем запрос на бэкенд
- */
+// --- 1. ПУБЛИКАЦИЯ СВОЕГО ВЫЗОВА В ЛОББИ ---
 function createMyRequest() {
   if (!socket || !localPlayer) return;
-  if (Number(localPlayer.hp || 0) <= 0) return alert("Вы слишком слабы для боя! Излечитесь в городе.");
+  if (Number(localPlayer.hp || 0) <= 0) return alert("❌ Вы слишком слабы для боя! Излечитесь в городе.");
   
   console.log("🎲 Отправка запроса на создание дуэли бэкенду...");
-  
-  // Сервер сам рассчитает время экспирации (3 минуты) и запишет заявку в БД
   socket.emit('arena_create_request', {
     playerData: localPlayer,
     currentHp: Number(localPlayer.hp)
   });
-  
   refreshArenaLobby();
 }
 
-/**
- * 2. ОТМЕНА СВОЕГО ВЫЗОВА
- * Просим бэкенд удалить нашу строчку из очереди
- */
+// --- 2. ОТМЕНА СВОЕГО ВЫЗОВА В ЛОББИ ---
 function cancelMyRequest() {
   if (!socket || !localPlayer) return;
-
   console.log("❌ Отмена собственной заявки на бой...");
   socket.emit('arena_cancel_request', { userId: localPlayer.id });
 
@@ -154,18 +135,12 @@ function cancelMyRequest() {
   refreshArenaLobby();
 }
 
-/**
- * 3. ПРИНЯТИЕ ЧУЖОГО ВЫЗОВА (КНОПКА «В БОЙ»)
- * Сигнализируем серверу, с кем именно мы хотим скрестить мечи
- */
+// --- 3. ПРИНЯТИЕ ЧУЖОГО PvP ВЫЗОВА (КНОПКА «В БОЙ») ---
 function acceptChallenge(opponentId) {
   if (!socket || !localPlayer) return;
-  if (Number(localPlayer.hp || 0) <= 0) return alert("Вы слишком слабы! Излечитесь в городе.");
+  if (Number(localPlayer.hp || 0) <= 0) return alert("❌ Вы слишком слабы! Излечитесь в городе.");
 
-  console.log(`🎯 Пытаюсь принять вызов у игрока ID: ${opponentId}`);
-
-  // Сервер проверит атомарность транзакции удаления в БД. 
-  // Кто первый отправил сокет-сигнал — тот и заходит в созданную PvP-комнату.
+  console.log(`Target 🎯 Принимаем вызов у игрока ID: ${opponentId}`);
   socket.emit('arena_accept_challenge_request', {
     myId: localPlayer.id,
     opponentId: opponentId,
@@ -174,18 +149,13 @@ function acceptChallenge(opponentId) {
   });
 }
 
-/**
- * 4. ЗАПРОС ОБНОВЛЕНИЯ ТАБЛИЦЫ
- * Просто дергаем сервер, чтобы он выдал текущий срез лобби
- */
+// --- 4. ЗАПРОС СВЕЖЕГО ЛОББИ С СЕРВЕРА ---
 function refreshArenaLobby() {
   if (!socket || !localPlayer) return;
   socket.emit('arena_get_lobby');
 }
 
-/**
- * 5. ВИЗУАЛЬНЫЙ РЕНДЕРИНГ СЕТКИ И ТАЙМЕРОВ
- */
+// --- 5. ВИЗУАЛЬНЫЙ РЕНДЕРИНГ И ТАЙМЕРЫ ОБРАТНОГО ОТСЧЕТА ---
 function renderLobbyInterface(lobbyData) {
   if (!localPlayer || !Array.isArray(lobbyData)) return;
 
@@ -193,7 +163,6 @@ function renderLobbyInterface(lobbyData) {
   if (!container) return;
 
   const myId = Number(localPlayer.id);
-  // Ищем, опубликована ли сейчас наша собственная заявка
   const myActiveRequest = lobbyData.find(item => Number(item.id) === myId);
 
   const sPanel = document.getElementById('my-search-panel');
@@ -203,7 +172,6 @@ function renderLobbyInterface(lobbyData) {
     if (cPanel) cPanel.style.display = 'none';
     if (sPanel) sPanel.style.display = 'block';
     
-    // Вычисляем оставшееся время до автоматического снятия заявки
     let timeLeft = Math.max(0, Math.floor((new Date(myActiveRequest.arena_expires_at) - Date.now()) / 1000));
     if (myTimerInterval) clearInterval(myTimerInterval);
     
@@ -227,7 +195,7 @@ function renderLobbyInterface(lobbyData) {
     if (cPanel) cPanel.style.display = 'block';
   }
 
-  // Фильтруем список, оставляя только чужие заявки
+  // Оставляем на доске только чужие карточки вызовов
   const opponentsRequests = lobbyData.filter(item => Number(item.id) !== myId);
   const counter = document.getElementById('total-requests-counter');
   if (counter) counter.textContent = `Всего: ${opponentsRequests.length}`;
@@ -242,9 +210,8 @@ function renderLobbyInterface(lobbyData) {
     return;
   }
 
-  // Выводим карточки оппонентов
   opponentsRequests.forEach(opp => {
-    const timeLeft = Math.max(0, Math.floor((new Date(opp.arena_expires_at) - Date.now()) / 1000));
+    let timeLeft = Math.max(0, Math.floor((new Date(opp.arena_expires_at) - Date.now()) / 1000));
     const mins = Math.floor(timeLeft / 60); 
     const secs = timeLeft % 60;
     
@@ -261,7 +228,6 @@ function renderLobbyInterface(lobbyData) {
       </div>
     `;
     
-    // Навешиваем безопасное CSP-событие на кнопку вызова
     card.querySelector('.btn-accept').addEventListener('click', function() {
       acceptChallenge(this.getAttribute('data-opp-id'));
     });
@@ -270,4 +236,5 @@ function renderLobbyInterface(lobbyData) {
   });
 }
 
+window.addEventListener('browse_arena', () => { console.log('Переключение контекста...'); });
 window.addEventListener('DOMContentLoaded', initArenaPage);
