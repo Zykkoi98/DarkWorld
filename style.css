@@ -561,40 +561,52 @@ body {
   background: transparent !important;
 }
 /* ============================================================================
-   ===== 🎒 СДВИГ РЮКЗАКA: УМЕНЬШЕНИЕ КУКЛЫ ПЕРСОНАЖА В 1.2 РАЗА =====
+   ===== 🎒 ИДЕАЛЬНОЕ ВЫРАВНИВАНИЕ КУКЛЫ И СДВИГ РЮКЗАКА (БЕЗ ПЕРЕКОСОВ) =====
    ============================================================================ */
 
-/* 1. Ужимаем центральный аватар героя внутри куклы (был 200px, делаем ~166px) */
-#inv-hero-avatar {
-  width: 166px !important;
-  height: 166px !important;
-  object-fit: cover !important;
-  border-radius: 10px !important;
-}
-
-/* 2. Ужимаем основные слоты экипировки куклы (были 52px, делаем ~43px) */
+/* 1. Центрируем эмодзи строго посередине каждого уменьшенного слота */
 #eslot-head, #eslot-neck, #eslot-gloves, #eslot-mainHand,
-#eslot-body, #eslot-legs, #eslot-extra, #eslot-offHand {
-  width: 43px !important;
-  height: 43px !important;
-  font-size: 18px !important; /* Чуть уменьшаем эмодзи внутри */
-  line-height: 43px !important;
-}
-
-/* 3. Ужимаем нижний ряд (кольца, зелья, свитки), чтобы они были на одном уровне с куклой */
+#eslot-body, #eslot-legs, #eslot-extra, #eslot-offHand,
 #eslot-potion, #eslot-scroll,
 #eslot-ring-0, #eslot-ring-1, #eslot-ring-2 {
-  height: 40px !important;
+  width: 44px !important;
+  height: 44px !important;
   font-size: 18px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important; /* Убираем внутренние паддинги, чтобы иконки не съезжали */
+  line-height: normal !important;
 }
 
-/* 4. Стягиваем всю верхнюю секцию куклы плотнее, убирая лишние пустые отступы */
-.inventory-top-doll-section {
-  margin-bottom: 4px !important;
+/* 2. Сжимаем внешнюю синюю рамку строго под размер уменьшенного аватара */
+.inventory-top-doll-section div:has(> #inv-hero-avatar),
+#inv-hero-avatar {
+  width: 160px !important; /* Было ~200px, ужимаем рамку и портрет */
+  height: 160px !important;
+  max-width: 160px !important;
+  max-height: 160px !important;
+  object-fit: cover !important;
+  border-radius: 12px !important;
+  padding: 0 !important; /* Убираем лишние распирающие отступы внутри рамки */
 }
 
-/* 5. Настраиваем рюкзак: теперь он занимает больше высоты экрана смартфона */
+/* Если рамка задается отдельным контейнером с картинкой внутри */
+.inventory-top-doll-section > div > div {
+  width: 160px !important;
+  height: 160px !important;
+}
+
+/* 3. Делаем сетку куклы компактнее, чтобы слоты встали вплотную к аватарке */
+.inv-equipment-doll {
+  grid-template-columns: 44px 1fr 44px !important;
+  gap: 8px !important; /* Стягиваем боковые слоты ближе к центру */
+  max-width: 280px !important; /* Ограничиваем общую ширину куклы */
+  margin: 0 auto !important;
+}
+
+/* 4. Расширяем нижний рюкзак, позволяя ему подняться выше */
 #inventory-content {
-  max-height: 340px !important; /* Увеличили лимит высоты, чтобы влезало больше рядов */
-  overflow-y: auto !important; /* Включаем плавную прокрутку */
+  max-height: 350px !important;
+  overflow-y: auto !important;
 }
