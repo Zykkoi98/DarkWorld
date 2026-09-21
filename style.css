@@ -561,20 +561,48 @@ body {
   background: transparent !important;
 }
 /* ============================================================================
-   ===== 🎒 ВЕРТИКАЛЬНАЯ КУКЛА И УМЕНЬШЕННЫЕ КНОПКИ ВКЛАДОК РЮКЗАКА =====
+   ===== 🎒 УЛЬТИМАТИВНЫЙ ФИКС: УЛЬТРА-КОМПАКТНЫЕ СЛОТЫ ВНУТРИ ВКЛАДОК =====
    ============================================================================ */
 
-/* 1. Жёстко фиксируем модальное окно рюкзака на экране, блокируя уползание вверх */
-#inventory-modal .modal-content {
-  height: 85vh !important;
-  max-height: 85vh !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: flex-start !important;
-  overflow: hidden !important;
+/* 1. Настраиваем сетку вкладок рюкзака (сжимаем саму ширину контейнера кнопок) */
+.inv-tabs {
+  gap: 4px !important;
+  margin: 0 auto 8px auto !important;
+  padding-bottom: 4px !important;
+  max-width: 270px !important; /* Намертво стягиваем кнопки вкладок по ширине куклы! */
+  width: 100% !important;
 }
 
-/* 2. 🔥 ФИКС РАМКИ: Делаем её ВЫТЯНУТОЙ по вертикали (ширина 145px, высота 185px) */
+.inv-tab {
+  font-size: 11px !important;
+  padding: 6px 2px !important;
+  border-radius: 6px !important;
+}
+
+/* 2. 🔥 ЖЕСТКИЙ ФИКС СЛОТОВ: Делаем ячейки вещей маленькими и аккуратными */
+#inventory-content {
+  display: grid !important;
+  /* Увеличиваем до 5 колонок, чтобы ячейки физически уменьшились в размере! */
+  grid-template-columns: repeat(5, 1fr) !important; 
+  gap: 6px !important; /* Уменьшаем зазоры между предметами */
+  flex: 1 !important;
+  overflow-y: auto !important;
+  max-width: 270px !important; /* Центрируем и стягиваем рюкзак строго по ширине куклы! */
+  width: 100% !important;
+  margin: 0 auto !important;
+  padding: 4px 0 16px 0 !important;
+}
+
+/* Принудительно уменьшаем размер самих ячеек рюкзака */
+#inventory-content .inv-slot {
+  width: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  height: auto !important;
+  font-size: 16px !important; /* Делаем эмодзи вещей внутри сумок меньше */
+  border-radius: 6px !important;
+}
+
+/* 3. Оставляем благородную вертикальную куклу Яна без изменений */
 #inv-avatar-frame {
   width: 145px !important;
   height: 185px !important;
@@ -584,68 +612,20 @@ body {
   margin: 0 auto !important;
 }
 
-/* Идеально вписываем аватар Яна внутрь новой вытянутой рамки */
 #inv-hero-avatar {
   width: 145px !important;
   height: 185px !important;
   max-width: 145px !important;
   max-height: 185px !important;
-  object-fit: cover !important; /* Обрезает бока картинки, красиво вытягивая портрет */
+  object-fit: cover !important;
   border-radius: 12px !important;
 }
 
-/* 3. Перестраиваем сетку куклы под новые вытянутые пропорции */
 .inv-equipment-doll {
-  grid-template-columns: 44px 145px 44px !important; /* Сузили центральную колонку до 145px */
-  gap: 14px !important; /* Оставили комфортный зазор до слотов */
+  grid-template-columns: 44px 145px 44px !important;
+  gap: 14px !important;
   justify-content: center !important;
   width: 100% !important;
   max-width: 270px !important;
   margin: 0 auto !important;
-}
-
-/* Центрируем эмодзи и иконки строго посередине каждого уменьшенного слота */
-#eslot-head, #eslot-neck, #eslot-gloves, #eslot-mainHand,
-#eslot-body, #eslot-legs, #eslot-extra, #eslot-offHand,
-#eslot-potion, #eslot-scroll,
-#eslot-ring-0, #eslot-ring-1, #eslot-ring-2 {
-  width: 44px !important;
-  height: 44px !important;
-  font-size: 18px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 0 !important;
-  line-height: normal !important;
-}
-
-/* 4. 🔥 СНИЖАЕМ ГАБАРИТЫ СЛОТОВ-ВКЛАДОК (Амуниция, Ресурсы, Расходники) */
-.inv-tabs {
-  gap: 4px !important;
-  margin-bottom: 8px !important;
-  padding-bottom: 4px !important;
-}
-
-.inv-tab {
-  font-size: 11px !important; /* Уменьшили шрифт надписей */
-  padding: 6px 2px !important; /* Ужали внутренние отступы кнопок по высоте */
-  border-radius: 6px !important;
-}
-
-/* 5. Настраиваем компактную сетку нижнего рюкзака */
-#inventory-content {
-  display: grid !important;
-  grid-template-columns: repeat(4, 1fr) !important;
-  gap: 8px !important;
-  flex: 1 !important;
-  overflow-y: auto !important;
-  padding-bottom: 16px !important;
-}
-
-#inventory-content .inv-slot {
-  width: 100% !important;
-  aspect-ratio: 1 / 1 !important;
-  height: auto !important;
-  font-size: 18px !important;
-  border-radius: 8px !important;
 }
