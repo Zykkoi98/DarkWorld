@@ -561,10 +561,33 @@ body {
   background: transparent !important;
 }
 /* ============================================================================
-   ===== 🎒 ИДЕАЛЬНОЕ ВЫРАВНИВАНИЕ КУКЛЫ И СДВИГ РЮКЗАКА (БЕЗ ПЕРЕКОСОВ) =====
+   ===== 🎒 ИДЕАЛЬНОЕ ЦЕНТРИРОВАНИЕ КУКЛЫ И СЖАТИЕ ВНЕШНЕЙ РАМКИ =====
    ============================================================================ */
 
-/* 1. Центрируем эмодзи строго посередине каждого уменьшенного слота */
+/* 1. Намертво ужимаем внешнюю фиолетовую обертку-контейнер вокруг аватара */
+.inventory-top-doll-section div,
+.inv-equipment-doll > div:not([style*="column"]) {
+  width: 160px !important;
+  height: 160px !important;
+  max-width: 160px !important;
+  max-height: 160px !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+}
+
+/* 2. Идеально вписываем саму картинку Яна внутрь сжатой рамки */
+#inv-hero-avatar {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 160px !important;
+  max-height: 160px !important;
+  object-fit: cover !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 3. Центрируем эмодзи и иконки строго посередине каждого уменьшенного слота */
 #eslot-head, #eslot-neck, #eslot-gloves, #eslot-mainHand,
 #eslot-body, #eslot-legs, #eslot-extra, #eslot-offHand,
 #eslot-potion, #eslot-scroll,
@@ -575,38 +598,22 @@ body {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 0 !important; /* Убираем внутренние паддинги, чтобы иконки не съезжали */
+  padding: 0 !important; /* Сносим паддинги, которые кривили иконки */
   line-height: normal !important;
 }
 
-/* 2. Сжимаем внешнюю синюю рамку строго под размер уменьшенного аватара */
-.inventory-top-doll-section div:has(> #inv-hero-avatar),
-#inv-hero-avatar {
-  width: 160px !important; /* Было ~200px, ужимаем рамку и портрет */
-  height: 160px !important;
-  max-width: 160px !important;
-  max-height: 160px !important;
-  object-fit: cover !important;
-  border-radius: 12px !important;
-  padding: 0 !important; /* Убираем лишние распирающие отступы внутри рамки */
-}
-
-/* Если рамка задается отдельным контейнером с картинкой внутри */
-.inventory-top-doll-section > div > div {
-  width: 160px !important;
-  height: 160px !important;
-}
-
-/* 3. Делаем сетку куклы компактнее, чтобы слоты встали вплотную к аватарке */
+/* 4. Стягиваем боковые колонки слотов ближе к сжатой рамке аватара */
 .inv-equipment-doll {
-  grid-template-columns: 44px 1fr 44px !important;
-  gap: 8px !important; /* Стягиваем боковые слоты ближе к центру */
-  max-width: 280px !important; /* Ограничиваем общую ширину куклы */
+  grid-template-columns: 44px 160px 44px !important; /* Жестко фиксируем пропорции сетки */
+  gap: 12px !important; /* Уменьшаем боковое расстояние */
+  justify-content: center !important;
+  width: 100% !important;
+  max-width: 280px !important;
   margin: 0 auto !important;
 }
 
-/* 4. Расширяем нижний рюкзак, позволяя ему подняться выше */
+/* 5. Поднимаем рюкзак выше */
 #inventory-content {
-  max-height: 350px !important;
+  max-height: 360px !important;
   overflow-y: auto !important;
 }
