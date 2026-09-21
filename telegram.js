@@ -64,42 +64,35 @@ function setupSecureDataListeners(callback) {
   });
 
   // УСПЕШНЫЙ СЦЕНАРИЙ: Сервер прислал чистые и проверенные данные профиля
-  window.socket.on('load_game_success', ({ player }) => {
-    console.log(`☁️ Данные персонажа [ID: ${player.id}] успешно синхронизированы.`);
-    
-    // Записываем эталонный профиль в память и локальный кэш смартфона
-    window.player = player;
-    localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
-    
-    // Очищаем буфер виртуальных кликов в окне характеристик
-    if (typeof window._tempStatDistribution !== 'undefined') {
-      window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, intellect: 0, luck: 0 };
-    }
-    
-    window._tempStatPoints = Number(window.player.statPoints ?? 0);
-    
-    // Запускаем перерасчет уровней на клиенте
-    if (typeof window.checkLevelUp === 'function') {
-      window.checkLevelUp(true); 
-    }
-    
-    // Если окно характеристик открыто прямо сейчас — мгновенно обновляем цифры
-    const modal = document.getElementById('profile-modal');
-    if (modal && (modal.style.display === 'flex' || modal.classList.contains('active'))) {
-      if (typeof window.openProfile === 'function') window.openProfile();
-    }
+socket.on('load_game_success', (data) => {
+  if (!data || !data.player) return;
 
-    // Если открыт инвентарь — перерисовываем вещи с учетом обновлений от сервера
-    const invModal = document.getElementById('inventory-modal');
-    if (invModal && (invModal.style.display === 'flex' || invModal.classList.contains('active'))) {
-      if (typeof window.renderInventory === 'function') window.renderInventory();
-    }
+  console.log("☁️ [УСПЕХ] Свежий профиль получен от сервера. Синхронизируем интерфейс...");
 
-    // Перерисовываем никнейм и полоску здоровья на площади города
-    if (typeof window.render === 'function') window.render();
-    
-    if (typeof callback === 'function') callback(null);
-  });
+  // 🔥 ФИКС 1: Жестко гарантируем, что структура статов в памяти телефона 
+  // содержит правильный ключ toughness, присланный сервером
+  window.player = data.player;
+  if (window.player.stats && window.player.stats.intellect !== undefined && window.player.stats.toughness === undefined) {
+    window.player.stats.toughness = window.player.stats.intellect;
+  }
+
+  // Сохраняем свежий легальный слепок в локальный кэш смартфона
+  localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
+
+  // 🔥 ФИКС 2: Принудительно вызываем ядро перерисовки! 
+  // Это мгновенно обновит ХП, Броню и закроет/обновит модалку профиля БЕЗ F5
+  if (typeof window.checkLevelUp === 'function') {
+    window.checkLevelUp(true); 
+  } else if (typeof render === 'function') {
+    render();
+  }
+
+  // Если окно профиля открыто в этот момент — принудительно обновляем его внутренности
+  const modal = document.getElementById('profile-modal');
+  if (modal && (modal.classList.contains('active') || modal.style.display === 'flex')) {
+    if (typeof window.openProfile === 'function') window.openProfile();
+  }
+});
    // СЦЕНАРИЙ ДЛЯ НОВИЧКА: Игрока еще нет в базе, генерируем стартовый профиль
   window.socket.on('player_not_found', ({ userId, username }) => {
     console.log("🆕 Приветствуем нового героя! Генерируем стартовый профиль...");
