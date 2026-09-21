@@ -67,27 +67,29 @@ function setupSecureDataListeners(callback) {
 socket.on('load_game_success', (data) => {
   if (!data || !data.player) return;
 
-  console.log("☁️ [УСПЕХ] Свежий профиль получен от сервера. Синхронизируем интерфейс...");
+  console.log("☁️ [СИНХРОНИЗАЦИЯ] Свежий профиль получен от сервера. Обновляем интерфейс города...");
 
-  // 🔥 ФИКС 1: Жестко гарантируем, что структура статов в памяти телефона 
-  // содержит правильный ключ toughness, присланный сервером
+  // 1. Записываем легальные серверные данные в глобальный объект игры
   window.player = data.player;
-  if (window.player.stats && window.player.stats.intellect !== undefined && window.player.stats.toughness === undefined) {
-    window.player.stats.toughness = window.player.stats.intellect;
+
+  // 2. 🔥 ЖЕСТКИЙ ФИКС БАГА КНОПКИ: Обнуляем временный буфер распределения,
+  // так как сервер уже успешно применил и зафиксировал в облаке прошлые очки!
+  if (typeof resetStatBuffer === 'function') {
+    resetStatBuffer();
   }
 
-  // Сохраняем свежий легальный слепок в локальный кэш смартфона
+  // 3. Сохраняем свежий слепок персонажа в локальный кэш смартфона (для режима офлайн/F5)
   localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
 
-  // 🔥 ФИКС 2: Принудительно вызываем ядро перерисовки! 
-  // Это мгновенно обновит ХП, Броню и закроет/обновит модалку профиля БЕЗ F5
+  // 4. Запускаем перерасчет уровней, опыта и перерисовку характеристик HUD
   if (typeof window.checkLevelUp === 'function') {
     window.checkLevelUp(true); 
   } else if (typeof render === 'function') {
     render();
   }
 
-  // Если окно профиля открыто в этот момент — принудительно обновляем его внутренности
+  // 5. Если модалка профиля открыта прямо сейчас — принудительно перерисовываем статы,
+  // чтобы мгновенно отобразить чистые числа без перезагрузки страницы
   const modal = document.getElementById('profile-modal');
   if (modal && (modal.classList.contains('active') || modal.style.display === 'flex')) {
     if (typeof window.openProfile === 'function') window.openProfile();
