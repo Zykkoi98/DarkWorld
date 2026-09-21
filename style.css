@@ -561,12 +561,11 @@ body {
   background: transparent !important;
 }
 /* ============================================================================
-   ===== 🎒 ИДЕАЛЬНОЕ ЦЕНТРИРОВАНИЕ КУКЛЫ И СЖАТИЕ ВНЕШНЕЙ РАМКИ =====
+   ===== 🎒 БРОНИРОВАННЫЙ ФИКС ЦЕНТРИРОВАНИЯ И СЖАТИЯ РАМКИ КУКЛЫ =====
    ============================================================================ */
 
-/* 1. Намертво ужимаем внешнюю фиолетовую обертку-контейнер вокруг аватара */
-.inventory-top-doll-section div,
-.inv-equipment-doll > div:not([style*="column"]) {
+/* 1. Намертво ужимаем фиолетовую рамку по её новому точному ID */
+#inv-avatar-frame {
   width: 160px !important;
   height: 160px !important;
   max-width: 160px !important;
@@ -575,19 +574,17 @@ body {
   margin: 0 auto !important;
 }
 
-/* 2. Идеально вписываем саму картинку Яна внутрь сжатой рамки */
+/* 2. Идеально вписываем аватарку Яна в рамку без черных пустот */
 #inv-hero-avatar {
-  width: 100% !important;
-  height: 100% !important;
+  width: 160px !important;
+  height: 160px !important;
   max-width: 160px !important;
   max-height: 160px !important;
   object-fit: cover !important;
   border-radius: 12px !important;
-  padding: 0 !important;
-  margin: 0 !important;
 }
 
-/* 3. Центрируем эмодзи и иконки строго посередине каждого уменьшенного слота */
+/* 3. Выравниваем иконки шмоток ровно по центру уменьшенных слотов */
 #eslot-head, #eslot-neck, #eslot-gloves, #eslot-mainHand,
 #eslot-body, #eslot-legs, #eslot-extra, #eslot-offHand,
 #eslot-potion, #eslot-scroll,
@@ -598,21 +595,21 @@ body {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 0 !important; /* Сносим паддинги, которые кривили иконки */
+  padding: 0 !important; /* Убираем паддинги, которые косили эмодзи */
   line-height: normal !important;
 }
 
-/* 4. Стягиваем боковые колонки слотов ближе к сжатой рамке аватара */
+/* 4. Заставляем боковые колонки слотов прижаться вплотную к уменьшенной рамке */
 .inv-equipment-doll {
-  grid-template-columns: 44px 160px 44px !important; /* Жестко фиксируем пропорции сетки */
-  gap: 12px !important; /* Уменьшаем боковое расстояние */
+  grid-template-columns: 44px 160px 44px !important; /* Форсируем сетку под новые размеры */
+  gap: 12px !important; /* Стягиваем элементы к центру */
   justify-content: center !important;
   width: 100% !important;
   max-width: 280px !important;
   margin: 0 auto !important;
 }
 
-/* 5. Поднимаем рюкзак выше */
+/* 5. Поднимаем нижний рюкзак выше */
 #inventory-content {
   max-height: 360px !important;
   overflow-y: auto !important;

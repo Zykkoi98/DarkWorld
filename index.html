@@ -16,7 +16,7 @@
   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
 
   <!-- 3. Стили игры -->
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css?v=18">
 
   <!-- 4. Игровые скрипты СТРОГО с параметром defer -->
   <script src="config.js?v=4" defer></script>
@@ -174,63 +174,76 @@
   </div>
 
 
-  <!-- ============================================================================
-       ===== 🎒 МОДАЛЬНОЕ ОКНО ИНВЕНТАРЯ И СНАРЯЖЕНИЯ (КУКЛА НА 11 СЛОТОВ) =====
-       ============================================================================ -->
-  <div id="inventory-modal" class="modal-overlay">
-    <div class="modal-content" style="max-height: 95vh; width: 100%; max-width: 480px; display: flex; flex-direction: column; padding: 12px 8px; border-radius: 20px 20px 0 0; margin: 0 auto;">
-      
-      <!-- Шапка инвентаря -->
-      <div class="modal-header" style="margin-bottom: 12px; padding: 0 4px;">
-        <h3 style="font-size: 16px; margin: 0;">🎒 Инвентарь и Снаряжение</h3>
-        <button class="close-btn" id="inventory-close-btn" style="width: 32px; height: 32px; font-size: 14px;">✕</button>
-      </div>
-
-      <!-- 🛡️ КУКЛА ПЕРСОНАЖА (11 слотов вокруг большого вертикального аватара) -->
-      <div style="display: flex; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.2); padding: 12px 4px; border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255, 255, 255, 0.05); width: 100%;">
-        
-        <div style="display: grid; grid-template-columns: repeat(5, 70px); grid-template-rows: repeat(5, 60px); gap: 6px; justify-content: center; align-items: center; position: relative; width: 100%; max-width: 380px; margin: 0 auto;">
-          
-          <!-- Центр: Вертикальный аватар героя -->
-          <div style="grid-column: 2 / 5; grid-row: 1 / 5; width: 100%; height: 258px; border-radius: 10px; border: 2px solid var(--btn); overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
-            <img id="inv-hero-avatar" src="assets/avatars/hero1.png" style="width: 100%; height: 100%; object-fit: cover;">
-          </div>
-
-          <!-- Левая колонка (4 слота) -->
-          <div class="inv-slot" id="eslot-head" data-slot="head" style="grid-column: 1; grid-row: 1; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.25); opacity: 0.85; width: 70px; height: 60px; margin: 0; font-size: 20px;" title="Голова (Шлем)">🪖</div>
-          <div class="inv-slot" id="eslot-neck" data-slot="neck" style="grid-column: 1; grid-row: 2; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.25); opacity: 0.85; width: 70px; height: 60px; margin: 0; font-size: 20px;" title="Шея (Амулет)">📿</div>
-          <div class="inv-slot" id="eslot-gloves" data-slot="gloves" style="grid-column: 1; grid-row: 3; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.25); opacity: 0.85; width: 70px; height: 60px; margin: 0; font-size: 20px;" title="Руки (Перчатки)">🧤</div>
-          <div class="inv-slot" id="eslot-mainHand" data-slot="mainHand" style="grid-column: 1; grid-row: 4; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.25); opacity: 0.85; width: 70px; height: 60px; margin: 0; font-size: 20px;" title="Правая рука (Оружие)">⚔️</div>
-
-          <!-- Правая колонка (4 слота) -->
-          <div class="inv-slot" id="eslot-body" data-slot="body" style="grid-column: 5; grid-row: 1; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.25); opacity: 0.85; width: 70px; height: 60px; margin: 0; font-size: 20px;" title="Тело (Броня)">👕</div>
-          <div class="inv-slot" id="eslot-legs" data-slot="legs" style="grid-column: 5; grid-row: 2; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.25); opacity: 0.85; width: 70px; height: 60px; margin: 0; font-size: 20px;" title="Ноги (Сапоги)">🥾</div>
-          <div class="inv-slot" id="eslot-extra" data-slot="extra" style="grid-column: 5; grid-row: 3; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.25); opacity: 0.85; width: 70px; height: 60px; margin: 0; font-size: 20px;" title="Особый слот">✨</div>
-          <div class="inv-slot" id="eslot-offHand" data-slot="offHand" style="grid-column: 5; grid-row: 4; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.25); opacity: 0.85; width: 70px; height: 60px; margin: 0; font-size: 20px;" title="Левая рука (Щит)">🛡️</div>
-          <!-- Зелье слева -->
-          <div id="eslot-potion" class="inv-slot">🧪</div>
-          <!-- Нижний ряд (3 слота под кольца) -->
-          <div class="inv-slot" id="eslot-ring-0" data-slot="ring" data-index="0" style="grid-column: 2; grid-row: 5; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.25); opacity: 0.85; width: 70px; height: 60px; margin: 0; font-size: 20px;" title="Кольцо 1">💍</div>
-          <div class="inv-slot" id="eslot-ring-1" data-slot="ring" data-index="1" style="grid-column: 3; grid-row: 5; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.25); opacity: 0.85; width: 70px; height: 60px; margin: 0; font-size: 20px;" title="Кольцо 2">💍</div>
-          <div class="inv-slot" id="eslot-ring-2" data-slot="ring" data-index="2" style="grid-column: 4; grid-row: 5; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.25); opacity: 0.85; width: 70px; height: 60px; margin: 0; font-size: 20px;" title="Кольцо 3">💍</div>
-          <!-- Свиток справа -->
-          <div id="eslot-scroll" class="inv-slot">📜</div>
-
-        </div>
-      </div>
-
-      <!-- Вкладки рюкзака (строго внутри инвентаря) -->
-      <div class="inv-tabs" style="margin-bottom: 8px; width: 100%;">
-        <button class="inv-tab active" id="tab-btn-equipment" style="font-size: 13px; padding: 8px 4px;">Амуниция</button>
-        <button class="inv-tab" id="tab-btn-resources" style="font-size: 13px; padding: 8px 4px;">Ресурсы</button>
-        <button class="inv-tab" id="tab-btn-consumables" style="font-size: 13px; padding: 8px 4px;">Расходники</button>
-      </div>
-
-      <!-- Контент содержимого рюкзака (строго внутри инвентаря) -->
-      <div class="inv-content" id="inventory-content" style="flex: 1; min-height: 180px; width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; justify-items: center;"></div>
-
+  <!-- ============================================================================ -->
+<!-- ===== 🎒 ПОЛНОСТЬЮ ВЫРОВНЕННАЯ МОДАЛКА ИНВЕНТАРЯ (ФИКС ГЕОМЕТРИИ КУКЛЫ) ===== -->
+<!-- ============================================================================ -->
+<div id="inventory-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;">
+  <div class="modal-content" style="display: flex; flex-direction: column; width: 100%; max-width: 480px; margin: 0 auto; height: auto;">
+    
+    <!-- Шапка модального окна рюкзака -->
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h3 style="margin: 0; font-size: 18px;">🎒 Инвентарь и Снаряжение</h3>
+      <button id="inventory-close-btn" class="close-btn">✕</button>
     </div>
-  </div>
+
+    <!-- Верхняя секция: Кукла персонажа вокруг аватара Яна (Сжатая в 1.2 раза) -->
+    <div class="inventory-top-doll-section" style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 0 auto 8px;">
+      <div class="inv-equipment-doll" style="display: grid; grid-template-columns: 44px 160px 44px; gap: 12px; align-items: center; justify-content: center; width: 100%; max-width: 280px;">
+        
+        <!-- Левая колонка слотов куклы (Атака и верхние шмотки) -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div id="eslot-head" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🪖</div>
+          <div id="eslot-neck" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">📿</div>
+          <div id="eslot-gloves" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🧤</div>
+          <div id="eslot-mainHand" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">⚔️</div>
+        </div>
+
+        <!-- 🔥 ФИКС: Центральная рамка с точным ID для управления из style.css -->
+        <div id="inv-avatar-frame" style="display: flex; justify-content: center; align-items: center; overflow: hidden; border-radius: 14px; border: 2px solid var(--btn); width: 160px; height: 160px; max-width: 160px; max-height: 160px; padding: 0; margin: 0 auto;">
+          <img id="inv-hero-avatar" src="assets/avatars/hero5.jpg" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; padding: 0; margin: 0;">
+        </div>
+
+        <!-- Правая колонка слотов куклы (Защита и нижние шмотки) -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div id="eslot-body" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">👕</div>
+          <div id="eslot-legs" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🥾</div>
+          <div id="eslot-extra" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">✨</div>
+          <div id="eslot-offHand" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🛡️</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Линейка бижутерии и быстрых слотов (Уменьшенная по высоте) -->
+    <div style="display: flex; justify-content: space-between; gap: 6px; width: 100%; max-width: 280px; margin: 0 auto 10px;">
+      <div id="eslot-potion" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">🧪</div>
+      <div id="eslot-ring-0" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
+      <div id="eslot-ring-1" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
+      <div id="eslot-ring-2" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
+      <div id="eslot-scroll" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">📜</div>
+    </div>
+
+    <!-- Вкладки рюкзака -->
+    <div class="inv-tabs" style="margin-bottom: 10px;">
+      <button id="tab-btn-equipment" class="inv-tab active">Амуниция</button>
+      <button id="tab-btn-resources" class="inv-tab">Ресурсы</button>
+      <button id="tab-btn-consumables" class="inv-tab">Расходники</button>
+    </div>
+
+    <!-- Нижняя вместительная сетка рюкзака (Наполняется через JS) -->
+    <div id="inventory-content" class="inv-content" style="
+      display: grid !important;
+      grid-template-columns: repeat(4, 1fr) !important;
+      gap: 10px !important;
+      max-height: 350px !important;
+      overflow-y: auto !important;
+      width: 100% !important;
+    ">
+      <!-- Сюда функция renderInventory() вставит ячейки вещей -->
+    </div>
+
+  </div> <!-- /modal-content -->
+</div> <!-- /inventory-modal -->
 
 <!-- ============================================================================ -->
 <!-- ===== 🪟 ВСЛЫВАЮЩЕЕ ОКНО ОСМОТРА И ИНФОРМАЦИИ О ВЕЩАХ (ЧАСТЬ 1 ИЗ 2) ===== -->
