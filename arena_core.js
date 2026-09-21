@@ -50,23 +50,6 @@ function setupSocketListeners() {
   
   socket.off('arena_lobby_updated');
   socket.off('arena_lobby_data');
-
-  // 🔥 PvP ПЕРЕХВАТЧИК: Ловит сигнал готовности PvP комнаты и уводит WebApp в бой без F5
- socket.on('arena_redirect_to_battle', (data) => {
-    console.log("⚔️ PvP Комната сформирована сервером! Пробиваем редирект на самый верх...");
-    
-    if (myTimerInterval) clearInterval(myTimerInterval);
-    if (globalLobbyInterval) clearInterval(globalLobbyInterval);
-    
-    // 🔥 НАДЁЖНЫЙ ФИКС: Принудительно заставляем родительское (главное) окно Telegram WebApp перейти в бой!
-    if (window.top) {
-      window.top.location.href = `battle/battle.html?roomId=${data.roomId}`;
-    } else if (window.parent) {
-      window.parent.location.href = `battle/battle.html?roomId=${data.roomId}`;
-    } else {
-      window.location.href = `battle/battle.html?roomId=${data.roomId}`;
-    }
-  });
   
   // Сервер сообщает, что список заявок изменился -> обновляем доску
   socket.on('arena_lobby_updated', () => { 

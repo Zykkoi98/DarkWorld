@@ -47,12 +47,28 @@ window.loadGame = function(callback) {
 function setupSecureDataListeners(callback) {
   if (!window.socket) return;
 
-  // Сбрасываем старые дубликаты слушателей, чтобы не плодить их в памяти телефона
+  // Сбрасываем старые дубликаты слушателей
   window.socket.off('load_game_success');
   window.socket.off('player_not_found');
   window.socket.off('load_game_failed');
   window.socket.off('stat_distribution_error');
+  // 🔥 НАДЕЖНЫЙ ФИКС: Гарантированно сбрасываем старый боевой редирект
+  window.socket.off('arena_redirect_to_battle');
 
+  // 🔥 ГЛОБАЛЬНЫЙ ПЕРЕХВАТЧИК PvP (В КОРНЕ ГОРОДА):
+  // Сокет гарантированно создан и активен. Поймает вызов из любой точки Mini App!
+  window.socket.on('arena_redirect_to_battle', (data) => {
+    console.log("⚔️ [ГЛОБАЛЬНЫЙ ПЕРЕХВАТ] Оппонент принял вызов! Мгновенный переход в бой...");
+    
+    // Очищаем iframe Арены на верхнем уровне, чтобы он не мешал
+    const wrapper = document.getElementById('arena-iframe-wrapper');
+    const frame = document.getElementById('arena-iframe-frame');
+    if (wrapper) wrapper.style.display = 'none';
+    if (frame) frame.src = 'about:blank';
+
+    // Совершаем чистый переход на боевой экран прямо из корня города
+    window.location.href = `battle/battle.html?roomId=${data.roomId}`;
+  });
   // Перехват ошибок распределения характеристик
   window.socket.on('stat_distribution_error', (msg) => {
     alert(`❌ Ошибка сохранения: ${msg}`);

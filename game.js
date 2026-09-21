@@ -637,6 +637,7 @@ function initCSPEvents() {
 
 function startGame() {
   console.log("🚀 Инициализация ядра игры...");
+  
   window.addEventListener('message', function(event) {
     if (!event.data) return;
     if (event.data.type === 'CLOSE_ARENA_OVERLAY') {
@@ -647,14 +648,13 @@ function startGame() {
       if (typeof window.render === 'function') window.render();
     }
   });
+
+  // 🔥 ГЛОБАЛЬНЫЙ ПЕРЕХВАТЧИК PvP (ГЛАВНОЕ ОКНО ИГРЫ):
+  // Этот сокет всегда активен. Он поймает вызов, даже если Арена полностью скрыта!
   setTimeout(() => {
-    if (window.socket) {
-      window.socket.on('arena_redirect_to_battle', (data) => {
-        console.log("⚔️ Глобальный перехват: Вас вызвали на дуэль! Переходим в бой...");
-        window.location.replace(`battle/battle.html?roomId=${data.roomId}`);
-      });
+    if (window.socket && window.socket.connected) {
     }
-  }, 1000);
+  }, 1200);
 
   if (typeof initCSPEvents === 'function') initCSPEvents();
 
