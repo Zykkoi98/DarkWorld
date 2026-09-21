@@ -582,12 +582,12 @@ body {
 /* 2. 🔥 ЖЕСТКИЙ ФИКС СЛОТОВ: Делаем ячейки вещей маленькими и аккуратными */
 #inventory-content {
   display: grid !important;
-  /* Увеличиваем до 5 колонок, чтобы ячейки физически уменьшились в размере! */
+  /* Добавляем !important прямо на колонки, чтобы перебить инлайновые стили JS во всех вкладках! */
   grid-template-columns: repeat(5, 1fr) !important; 
-  gap: 6px !important; /* Уменьшаем зазоры между предметами */
+  gap: 6px !important;
   flex: 1 !important;
   overflow-y: auto !important;
-  max-width: 270px !important; /* Центрируем и стягиваем рюкзак строго по ширине куклы! */
+  max-width: 270px !important; /* Удерживаем рюкзак строго по ширине куклы */
   width: 100% !important;
   margin: 0 auto !important;
   padding: 4px 0 16px 0 !important;
@@ -598,7 +598,7 @@ body {
   width: 100% !important;
   aspect-ratio: 1 / 1 !important;
   height: auto !important;
-  font-size: 16px !important; /* Делаем эмодзи вещей внутри сумок меньше */
+  font-size: 16px !important;
   border-radius: 6px !important;
 }
 
