@@ -232,24 +232,17 @@
     </div>
   </div>
 
-
-  <!-- ============================================================================
-       ===== ⚔️ ДИНАМИЧЕСКОЕ МОДАЛЬНОЕ ОКНО ДЛЯ БОЕВОЙ СИСТЕМЫ =====
-       ============================================================================ -->
-  <!-- Содержимое этого окна подгружается через fetch из battle_template.html -->
-  <div id="battle-modal" class="modal-overlay" style="z-index: 2000;"></div>
-  <div id="shop-modal" class="modal-overlay"></div>
-  <!-- Полноэкранный контейнер для страницы Арены -->
-<div id="arena-iframe-wrapper" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 888888; background: #1a1a2e;">
-  <iframe id="arena-iframe-frame" src="about:blank" style="width: 100%; height: 100%; border: none; margin: 0; padding: 0;"></iframe>
-</div>
-</div>
-<!-- Окно принудительного возврата в прерванный поединок -->
-<div id="reconnect-battle-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(26, 26, 46, 0.98); z-index: 99999; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 20px; text-align: center;">
-  <div style="font-size: 54px; animation: pulse 1.5s infinite;">⚔️</div>
-  <h2 style="color: #f1c40f; margin: 0; font-family: sans-serif;">Обнаружен идущий бой!</h2>
-  <p style="color: #9aa0b5; max-width: 300px; margin: 0; font-size: 14px; font-family: sans-serif; line-height: 1.4;">Вы вылетели или закрыли игру во время сражения. Монстры продолжают атаковать раунд за раундом!</p>
-  <button id="reconnect-battle-action-btn" style="background: #6c5ce7; color: white; border: none; padding: 16px 32px; font-size: 16px; font-weight: bold; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4); text-transform: uppercase; width: 100%; max-width: 280px;">Вернуться в бой</button>
+  <!-- Всплывающее окно информации о предмете -->
+<div id="item-info-popover" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; max-width: 320px; background: #111111; border: 2px solid var(--btn); border-radius: 14px; padding: 16px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 0 1000px rgba(0,0,0,0.6); z-index: 3000; flex-direction: column; gap: 12px;">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h4 id="popover-item-name" style="margin: 0; font-size: 16px; color: #fff;">Название предмета</h4>
+    <button onclick="document.getElementById('item-info-popover').style.display = 'none'" style="background: transparent; border: none; color: var(--hint); font-size: 18px; cursor: pointer;">✕</button>
+  </div>
+  <div style="display: flex; gap: 12px; align-items: center; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 8px;">
+    <div id="popover-item-icon" style="font-size: 32px; min-width: 50px; text-align: center;">🗡️</div>
+    <div id="popover-item-desc" style="font-size: 12px; color: var(--hint); line-height: 1.4;">Описание характеристик...</div>
+  </div>
+  <button id="popover-item-action-btn" class="battle-btn-finish" style="margin: 0; padding: 10px; font-size: 14px;"></button>
 </div>
 
 <style>

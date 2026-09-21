@@ -548,6 +548,67 @@ window.switchTab = function(tabName) {
  * @param {string} itemId - ID добавляемого предмета
  * @returns {boolean} true, если место есть или предмет уже есть в рюкзаке и стакается
  */
+window.showItemInfo = function(itemId, isEquipped, slotKey = null, ringIndex = null) {
+  const itemData = window.getItemData(itemId);
+  if (!itemData) return;
+
+  const popover = document.getElementById('item-info-popover');
+  const pName = document.getElementById('popover-item-name');
+  const pIcon = document.getElementById('popover-item-icon');
+  const pDesc = document.getElementById('popover-item-desc');
+  const pBtn = document.getElementById('popover-item-action-btn');
+
+  if (!popover || !pName || !pIcon || !pDesc || !pBtn) return;
+
+  // 1. Заполняем текстовые данные
+  pName.textContent = itemData.name;
+  pIcon.textContent = itemData.icon;
+
+  // Формируем описание свойств
+  let statsText = itemData.desc || '';
+  if (itemData.bonus) {
+    if (itemData.bonus.atk) statsText += `\n⚔️ Атака: +${itemData.bonus.atk}`;
+    if (itemData.bonus.def) statsText += `\n🛡️ Защита: +${itemData.bonus.def}`;
+    if (itemData.bonus.stats) {
+      if (itemData.bonus.stats.strength) statsText += `\n💪 Сила: +${itemData.bonus.stats.strength}`;
+      if (itemData.bonus.stats.agility) statsText += `\n🏹 Ловкость: +${itemData.bonus.stats.agility}`;
+      if (itemData.bonus.stats.endurance) statsText += `\n🛡️ Выносливость: +${itemData.bonus.stats.endurance}`;
+      if (itemData.bonus.stats.intellect) statsText += `\n🔮 Интеллект: +${itemData.bonus.stats.intellect}`;
+      if (itemData.bonus.stats.luck) statsText += `\n🍀 Удача: +${itemData.bonus.stats.luck}`;
+    }
+  }
+  if (itemData.level) statsText += `\n🔒 Требуемый уровень: ${itemData.level}`;
+  
+  pDesc.innerText = statsText; // Используем innerText для сохранения переносов строк
+
+  // 2. Настраиваем кнопку действия в зависимости от того, где находится вещь
+  if (isEquipped) {
+    // ВЕЩЬ НА КУКЛЕ -> Кнопка СНЯТЬ
+    pBtn.textContent = '❌ Снять в рюкзак';
+    pBtn.style.background = '#e74c3c'; // Красный цвет
+    pBtn.onclick = function() {
+      popover.style.display = 'none';
+      if (slotKey === 'ring') {
+        window.unequipItem('ring', ringIndex);
+      } else {
+        window.unequipItem(slotKey);
+      }
+    };
+  } else {
+    // ВЕЩЬ В РЮКЗАКЕ -> Кнопка НАДЕТЬ (или Использовать для расходников)
+    let isConsumable = itemData.heal || itemId.includes('potion') || itemId.includes('soup') || itemData.duration || itemId.includes('scroll');
+    
+    pBtn.textContent = isConsumable ? '🧪 Взять в бой' : '🛡️ Экипировать';
+    pBtn.style.background = '#6c5ce7'; // Фиолетовый цвет игровых кнопок
+    pBtn.onclick = function() {
+      popover.style.display = 'none';
+      window.equipItem(itemId);
+    };
+  }
+
+  // Показываем окно
+  popover.style.display = 'flex';
+};
 window.hasInventorySpace = function(tabName, itemId) {
   if (!window.player || !window.player.inventory) return false;
   const items = window.player.inventory[tabName] || [];
@@ -732,13 +793,10 @@ function renderInventory() {
       slot.appendChild(countEl);
     }
     
-    // Навешиваем клик на предмет в рюкзаке для автоматического НАДЕВАНИЯ (из equipment.js)
+      // НАЙДИТЕ ЭТОТ КУСОК В ФУНКЦИИ renderInventory() И ЗАМЕНИТЕ НА:
     slot.addEventListener('click', function() {
-      if (typeof window.equipItem === 'function') {
-        window.equipItem(item.id);
-      } else {
-        console.error("❌ Ошибка: Функция equipItem не найдена в системе!");
-      }
+      // Вместо моментального equipItem вызываем окно описания
+      window.showItemInfo(item.id, false); 
     });
     
     container.appendChild(slot);
@@ -761,27 +819,42 @@ function initCSPEvents() {
     document.getElementById(`tab-btn-${tab}`)?.addEventListener('click', function() { window.switchTab(tab); });
   });
 
+  // ЧАСТЬ А: Клик по 8 основным слотам куклы
   const equSlots = ['head', 'neck', 'gloves', 'mainHand', 'body', 'legs', 'extra', 'offHand'];
   equSlots.forEach(slotKey => {
     document.getElementById(`eslot-${slotKey}`)?.addEventListener('click', function() {
-      if (window.player && window.player.equipped && window.player.equipped[slotKey]) {
-        window.unequipItem(slotKey);
+      const equippedItemId = window.player && window.player.equipped ? window.player.equipped[slotKey] : null;
+      if (equippedItemId) {
+        // Показываем окно информации с флагом надетой вещи (true)
+        window.showItemInfo(equippedItemId, true, slotKey);
       }
     });
   });
 
+  // ЧАСТЬ Б: Клик по 3 слотам колец куклы
   for (let i = 0; i < 3; i++) {
     document.getElementById(`eslot-ring-${i}`)?.addEventListener('click', function() {
-      if (window.player && window.player.equipped && window.player.equipped.rings && window.player.equipped.rings[i]) {
-        window.unequipItem('ring', i);
+      if (window.player && window.player.equipped && window.player.equipped.rings) {
+        const ringId = window.player.equipped.rings[i];
+        if (ringId) {
+          // Передаем слот 'ring' и его индекс в массиве
+          window.showItemInfo(ringId, true, 'ring', i);
+        }
       }
     });
   }
 
+  // ЧАСТЬ В: Клик по боевым расходникам (зелье / свиток)
   ['potion', 'scroll'].forEach(slotKey => {
     document.getElementById(`eslot-${slotKey}`)?.addEventListener('click', function() {
-      if (window.player && window.player.equipped && window.player.equipped[slotKey]) {
-        window.unequipItem(slotKey);
+      if (window.player && window.player.equipped) {
+        const equippedData = window.player.equipped[slotKey];
+        // У вас расходники в памяти лежат как объект {id: '...', count: X}
+        const itemId = equippedData && typeof equippedData === 'object' ? equippedData.id : equippedData;
+        
+        if (itemId) {
+          window.showItemInfo(itemId, true, slotKey);
+        }
       }
     });
   });
