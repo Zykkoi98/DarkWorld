@@ -561,10 +561,39 @@ body {
   background: transparent !important;
 }
 /* ============================================================================
-   ===== 🎒 БРОНИРОВАННЫЙ ФИКС ЦЕНТРИРОВАНИЯ И СЖАТИЯ РАМКИ КУКЛЫ =====
+   ===== 🎒 ФИНАЛЬНЫЙ ФИКС РЮКЗАКА: МЕНЬШЕ СЛОТЫ И БЛОКИРОВКА СДВИГА ВВЕРХ =====
    ============================================================================ */
 
-/* 1. Намертво ужимаем фиолетовую рамку по её новому точному ID */
+/* 1. Жёстко фиксируем модальное окно рюкзака на экране, чтобы оно НЕ могло уползти вверх */
+#inventory-modal .modal-content {
+  height: 85vh !important; /* Намертво фиксируем высоту окна: 85% от экрана смартфона */
+  max-height: 85vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  overflow: hidden !important; /* Запрещаем всему окну скроллиться целиком */
+}
+
+/* 2. Уменьшаем ячейки самого рюкзака (были большими, делаем компактными под куклу) */
+#inventory-content .inv-slot {
+  width: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  height: auto !important;
+  font-size: 18px !important; /* Чуть уменьшаем эмодзи вещей внутри рюкзака */
+  border-radius: 8px !important;
+}
+
+/* Настраиваем сетку нижнего рюкзака для маленьких ячеек */
+#inventory-content {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important; /* Строго 4 колонки */
+  gap: 8px !important; /* Чуть уменьшаем зазоры между ячейками */
+  flex: 1 !important; /* Заставляем рюкзак забрать всё свободное место внизу */
+  overflow-y: auto !important; /* Разрешаем скроллиться СТРОГО внутри рюкзака! */
+  padding-bottom: 16px !important;
+}
+
+/* 3. Оставляем прошлые идеальные настройки сжатия верхней куклы */
 #inv-avatar-frame {
   width: 160px !important;
   height: 160px !important;
@@ -574,7 +603,6 @@ body {
   margin: 0 auto !important;
 }
 
-/* 2. Идеально вписываем аватарку Яна в рамку без черных пустот */
 #inv-hero-avatar {
   width: 160px !important;
   height: 160px !important;
@@ -584,7 +612,6 @@ body {
   border-radius: 12px !important;
 }
 
-/* 3. Выравниваем иконки шмоток ровно по центру уменьшенных слотов */
 #eslot-head, #eslot-neck, #eslot-gloves, #eslot-mainHand,
 #eslot-body, #eslot-legs, #eslot-extra, #eslot-offHand,
 #eslot-potion, #eslot-scroll,
@@ -595,22 +622,15 @@ body {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 0 !important; /* Убираем паддинги, которые косили эмодзи */
+  padding: 0 !important;
   line-height: normal !important;
 }
 
-/* 4. Заставляем боковые колонки слотов прижаться вплотную к уменьшенной рамке */
 .inv-equipment-doll {
-  grid-template-columns: 44px 160px 44px !important; /* Форсируем сетку под новые размеры */
-  gap: 12px !important; /* Стягиваем элементы к центру */
+  grid-template-columns: 44px 160px 44px !important;
+  gap: 12px !important;
   justify-content: center !important;
   width: 100% !important;
   max-width: 280px !important;
   margin: 0 auto !important;
-}
-
-/* 5. Поднимаем нижний рюкзак выше */
-#inventory-content {
-  max-height: 360px !important;
-  overflow-y: auto !important;
 }
