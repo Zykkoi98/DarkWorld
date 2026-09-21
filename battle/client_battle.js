@@ -17,14 +17,11 @@ let selectedDefendZones = [];
 
 // Функция безопасного старта сокетов из интернета с ожиданием библиотеки
 function initBattleSocket() {
-  console.log("📡 Проверяем готовность интернет-библиотеки Socket.io...");
-
   if (typeof io === 'undefined') {
     setTimeout(initBattleSocket, 50);
     return;
   }
 
-  console.log("✅ Библиотека Socket.io обнаружена. Подключаемся к Render...");
   socket = io('https://darkworld-server.onrender.com', {
     transports: ['websocket', 'polling']
   });
@@ -32,11 +29,11 @@ function initBattleSocket() {
   const localSave = localStorage.getItem('rpg_save');
   let localPlayer = null;
   if (localSave) {
-    try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
+    try { localPlayer = JSON.parse(localSave).player; } catch(e) {}
   }
 
   if (!localPlayer) {
-    alert("❌ Ошибка: Профиль персонажа не найден в кэше! Вернитесь в город.");
+    alert("❌ Ошибка: Профиль персонажа не найден!");
     window.location.href = '../index.html';
     return;
   }
@@ -45,28 +42,27 @@ function initBattleSocket() {
   let existingRoomId = urlParams.get('roomId'); 
   
   socket.on('connect', () => {
-    console.log("🟢 Сокет успешно подключен к бэкенду. Верификация сессии...");
+    console.log("🟢 Сокет подключен к боевому ядру.");
 
     if (existingRoomId && existingRoomId !== 'null' && existingRoomId !== 'undefined') {
-      console.log(`🔄 [РЕКОННЕКТ] Восстанавливаем бой по URL: ${existingRoomId}`);
       socket.emit('reconnect_to_battle', {
         roomId: existingRoomId,
         userId: String(localPlayer.id)
       });
     } else {
-      console.log(`🔍 Проверяем ОЗУ сервера перед созданием PvE матча...`);
+      // 🔥 ФИКС: Сначала проверяем, не висит ли уже активная комната, чтобы не создавать дубликаты
       socket.emit('check_active_battle_directly', { userId: localPlayer.id }, (response) => {
-        
         if (response && response.activeRoomId) {
-          console.log(`🔄 [ПЕРЕХВАТ ДУБЛИКАТА] Восстанавливаем активную комнату ${response.activeRoomId}`);
+          // Если комната на сервере есть, просто подселяемся в неё БЕЗ перезагрузки страницы URL
+          currentRoomId = response.activeRoomId;
           socket.emit('reconnect_to_battle', {
             roomId: response.activeRoomId,
             userId: String(localPlayer.id)
           });
         } else {
+          // Если комнат нет, создаем новую PvE битву
           const monsterKey = urlParams.get('monster') || 'wild_wolf';
           const count = urlParams.get('count') || 1;
-          console.log(`⚔️ Генерируем новый поединок для ${monsterKey} х${count}...`);
           
           socket.emit('search_pve_match', {
             playerData: localPlayer,
@@ -208,7 +204,24 @@ function renderFighters() {
   const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
   let opposingTeam = [];
 
-  if (myFighter) opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
+  if (myFighter) {
+  opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
+} else {
+  const localSave = localStorage.getItem('rpg_save');
+  if (localSave) {
+    try {
+      const localPlayerId = String(JSON.parse(localSave).player.id);
+      // 🔥 ФИКС: Проверяем id первого элемента массива teamA[0], а не самого массива!
+      if (teamA.length > 0 && String(teamA[0].id) === localPlayerId) {
+        opposingTeam = teamB;
+      } else {
+        opposingTeam = teamA;
+      }
+    } catch(e) {
+      opposingTeam = teamB;
+    }
+  }
+}
 
   const targetFighter = opposingTeam.find(e => e.uuid === selectedTargetUuid);
 
