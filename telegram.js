@@ -67,29 +67,25 @@ function setupSecureDataListeners(callback) {
 socket.on('load_game_success', (data) => {
   if (!data || !data.player) return;
 
-  console.log("☁️ [СИНХРОНИЗАЦИЯ] Свежий профиль получен от сервера. Обновляем интерфейс города...");
-
-  // 1. Записываем легальные серверные данные в глобальный объект игры
+  console.log("☁️ [СИНХРОНИЗАЦИЯ] Свежий профиль получен от сервера...");
   window.player = data.player;
 
-  // 2. 🔥 ЖЕСТКИЙ ФИКС БАГА КНОПКИ: Обнуляем временный буфер распределения,
-  // так как сервер уже успешно применил и зафиксировал в облаке прошлые очки!
-  if (typeof resetStatBuffer === 'function') {
-    resetStatBuffer();
-  }
+  if (typeof resetStatBuffer === 'function') resetStatBuffer();
 
-  // 3. Сохраняем свежий слепок персонажа в локальный кэш смартфона (для режима офлайн/F5)
   localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
 
-  // 4. Запускаем перерасчет уровней, опыта и перерисовку характеристик HUD
   if (typeof window.checkLevelUp === 'function') {
     window.checkLevelUp(true); 
   } else if (typeof render === 'function') {
     render();
   }
 
-  // 5. Если модалка профиля открыта прямо сейчас — принудительно перерисовываем статы,
-  // чтобы мгновенно отобразить чистые числа без перезагрузки страницы
+  // 🔥 ЖЕСТКИЙ ФИКС ОТОБРАЖЕНИЯ ЭКИПИРОВКИ: 
+  // Если открыто окно инвентаря, мгновенно перерисовываем куклу персонажа БЕЗ F5!
+  if (typeof window.renderInventory === 'function') {
+    window.renderInventory();
+  }
+
   const modal = document.getElementById('profile-modal');
   if (modal && (modal.classList.contains('active') || modal.style.display === 'flex')) {
     if (typeof window.openProfile === 'function') window.openProfile();

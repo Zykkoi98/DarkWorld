@@ -23,9 +23,10 @@ window.equipItem = function(itemId) {
     return;
   }
   
+  // 🔒 ПРОВЕРКА ТРЕБУЕМОГО УРОВНЯ ПРЕДМЕТА (РАБОТАЕТ ИДЕАЛЬНО)
   const requiredLevel = itemData.level || 1;
   if (window.player.level < requiredLevel) {
-    alert(`🔒 Требуется уровень: ${requiredLevel}`);
+    alert(`🔒 Этот предмет требует ${requiredLevel}-й уровень! Ваш текущий уровень: ${window.player.level}.`);
     return;
   }
 
@@ -39,7 +40,6 @@ window.equipItem = function(itemId) {
   if (slotType === 'potion' || slotType === 'scroll') {
     const currentEquipped = window.player.equipped[slotType];
     const availableInInv = inv[itemIdx].count || 1;
-
     let alreadyEquippedCount = 0;
 
     if (currentEquipped && typeof currentEquipped === 'object' && currentEquipped.id) {
@@ -68,9 +68,16 @@ window.equipItem = function(itemId) {
       inv.splice(itemIdx, 1);
     }
 
-    if (window.saveGame) window.saveGame({ player: window.player });
+    // 🔥 ФИКС БЕЗ F5: Сначала локально перерисовываем куклу, чтобы игрок видел анимацию надевания
     if (window.renderInventory) window.renderInventory();
     if (window.render) window.render();
+
+    // Отправляем синхронизацию в облако через сокеты
+    if (window.socket && window.socket.connected) {
+      window.socket.emit('confirm_inventory_sync_secure', { userId: window.player.id, equipped: window.player.equipped, inventory: window.player.inventory });
+    } else if (window.saveGame) {
+      window.saveGame({ player: window.player });
+    }
     return;
   }
 
@@ -108,9 +115,20 @@ window.equipItem = function(itemId) {
     window.player.equipped[targetSlot] = itemId;
   }
 
-  if (window.saveGame) window.saveGame({ player: window.player });
+  // 🔥 ФИКС БЕЗ F5: Мгновенно отрисовываем вещь на кукле в интерфейсе
   if (window.renderInventory) window.renderInventory();
   if (window.render) window.render();
+
+  // Жестко пушим обновленную куклу на сервер, перезаписывая кэш бэкенда актуальными данными
+  if (window.socket && window.socket.connected) {
+    window.socket.emit('confirm_inventory_sync_secure', {
+      userId: window.player.id,
+      equipped: window.player.equipped,
+      inventory: window.player.inventory
+    });
+  } else if (window.saveGame) {
+    window.saveGame({ player: window.player });
+  }
 };
 
 
