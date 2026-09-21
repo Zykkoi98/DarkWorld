@@ -293,4 +293,38 @@
     transition: background 0.2s, transform 0.1s;
   "></button>
 </div> <!-- /item-info-popover -->
+<!-- ============================================================================ -->
+<!-- ===== 🏆 ТАКТИЧЕСКИЙ ФРЕЙМ PvP АРЕНЫ (ARENA OVERLAY) — ЧАСТЬ 1 ИЗ 2 ===== -->
+<!-- ============================================================================ -->
+<div id="arena-iframe-wrapper" style="
+  display: none; 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%; 
+  background: var(--bg); 
+  z-index: 1500; 
+  max-width: 480px; 
+  left: 50%; 
+  transform: translateX(-50%);
+">
+  <!-- Внутренний контейнер для центрирования и шапки Арены -->
+  <div style="display: flex; flex-direction: column; width: 100%; height: 100%; padding: 16px;">
+    
+    <!-- Шапка окна Арены (чтобы игрок понимал, где находится) -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: #f1c40f; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">🏆 Колизей Гладиаторов</h3>
+    </div>
+      <!-- Тег iframe, который намертво выгружается при уходе в город, чтобы убить спам сокетов -->
+    <iframe id="arena-iframe-frame" src="about:blank" style="
+      width: 100%; 
+      flex: 1; 
+      border: none; 
+      background: transparent;
+      border-radius: 12px;
+    "></iframe>
+
+  </div>
+</div> <!-- /arena-iframe-wrapper -->
 </body>
