@@ -560,3 +560,41 @@ body {
   border: none !important;
   background: transparent !important;
 }
+/* ============================================================================
+   ===== 🎒 СДВИГ РЮКЗАКA: УМЕНЬШЕНИЕ КУКЛЫ ПЕРСОНАЖА В 1.2 РАЗА =====
+   ============================================================================ */
+
+/* 1. Ужимаем центральный аватар героя внутри куклы (был 200px, делаем ~166px) */
+#inv-hero-avatar {
+  width: 166px !important;
+  height: 166px !important;
+  object-fit: cover !important;
+  border-radius: 10px !important;
+}
+
+/* 2. Ужимаем основные слоты экипировки куклы (были 52px, делаем ~43px) */
+#eslot-head, #eslot-neck, #eslot-gloves, #eslot-mainHand,
+#eslot-body, #eslot-legs, #eslot-extra, #eslot-offHand {
+  width: 43px !important;
+  height: 43px !important;
+  font-size: 18px !important; /* Чуть уменьшаем эмодзи внутри */
+  line-height: 43px !important;
+}
+
+/* 3. Ужимаем нижний ряд (кольца, зелья, свитки), чтобы они были на одном уровне с куклой */
+#eslot-potion, #eslot-scroll,
+#eslot-ring-0, #eslot-ring-1, #eslot-ring-2 {
+  height: 40px !important;
+  font-size: 18px !important;
+}
+
+/* 4. Стягиваем всю верхнюю секцию куклы плотнее, убирая лишние пустые отступы */
+.inventory-top-doll-section {
+  margin-bottom: 4px !important;
+}
+
+/* 5. Настраиваем рюкзак: теперь он занимает больше высоты экрана смартфона */
+#inventory-content {
+  max-height: 340px !important; /* Увеличили лимит высоты, чтобы влезало больше рядов */
+  overflow-y: auto !important; /* Включаем плавную прокрутку */
+}
