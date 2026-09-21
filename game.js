@@ -108,7 +108,9 @@ function createPlayer() {
     }
   };
 
-  newPlayer.hp = newPlayer.stats.endurance * 10;
+ if (newPlayer.hp === undefined || newPlayer.hp === null) {
+    newPlayer.hp = (newPlayer.stats.endurance || 1) * 10;
+  }
   return newPlayer;
 }
 // --- ЛОГИКА ПРОВЕРКИ УРОВНЕЙ И СВОБОДНЫХ ОЧКОВ ---
