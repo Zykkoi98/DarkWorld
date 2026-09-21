@@ -283,7 +283,6 @@ window.openProfile = function() {
   let statsBody = modal.querySelector('.modal-body-stats'); 
   if (!statsBody) return;
 
-  // 🔥 ФИКС: Вместо Интеллекта теперь выводится Стойкость танков
   const labels = { 
     strength: '💪 Сила', agility: '🏹 Ловкость', endurance: '🛡️ Выносливость', 
     toughness: '🧱 Стойкость', luck: '🍀 Удача' 
@@ -328,10 +327,12 @@ window.openProfile = function() {
     const vSpan = document.createElement('span'); 
     vSpan.style.display = 'flex'; vSpan.style.alignItems = 'center'; 
     
-    // Обратная совместимость ключей бэкенда
-    const baseVal = Number(window.player.stats[key] ?? window.player.stats.intellect ?? 1);
-    const gearBonus = typeof getEquipmentBonus === 'function' ? (getEquipmentBonus(window.player, key) + (key === 'toughness' ? getEquipmentBonus(window.player, 'intellect') : 0)) : 0;
-    const tempAdded = window._tempStatDistribution[key];
+    // 🔥 БРОНИРОВАННЫЙ ФИКС ЧТЕНИЯ: Никаких intellect и ??, только прямое чтение ключей Стойкости
+    const baseVal = Number(window.player.stats[key] ?? 1);
+    const gearBonus = typeof getEquipmentBonus === 'function' ? Number(getEquipmentBonus(window.player, key) || 0) : 0;
+    const tempAdded = Number(window._tempStatDistribution[key] || 0);
+    
+    // Гарантируем математическое сложение чисел
     const totalVal = baseVal + gearBonus + tempAdded;
 
     const textContainer = document.createElement('span');
