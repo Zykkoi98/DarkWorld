@@ -647,6 +647,14 @@ function startGame() {
       if (typeof window.render === 'function') window.render();
     }
   });
+  setTimeout(() => {
+    if (window.socket) {
+      window.socket.on('arena_redirect_to_battle', (data) => {
+        console.log("⚔️ Глобальный перехват: Вас вызвали на дуэль! Переходим в бой...");
+        window.location.replace(`battle/battle.html?roomId=${data.roomId}`);
+      });
+    }
+  }, 1000);
 
   if (typeof initCSPEvents === 'function') initCSPEvents();
 

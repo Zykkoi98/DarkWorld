@@ -48,7 +48,6 @@ function initArenaPage() {
 function setupSocketListeners() {
   if (!socket) return;
   
-  socket.off('arena_redirect_to_battle');
   socket.off('arena_lobby_updated');
   socket.off('arena_lobby_data');
 
