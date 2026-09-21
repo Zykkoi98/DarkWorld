@@ -561,57 +561,50 @@ body {
   background: transparent !important;
 }
 /* ============================================================================
-   ===== 🎒 ФИНАЛЬНЫЙ ФИКС РЮКЗАКА: МЕНЬШЕ СЛОТЫ И БЛОКИРОВКА СДВИГА ВВЕРХ =====
+   ===== 🎒 ВЕРТИКАЛЬНАЯ КУКЛА И УМЕНЬШЕННЫЕ КНОПКИ ВКЛАДОК РЮКЗАКА =====
    ============================================================================ */
 
-/* 1. Жёстко фиксируем модальное окно рюкзака на экране, чтобы оно НЕ могло уползти вверх */
+/* 1. Жёстко фиксируем модальное окно рюкзака на экране, блокируя уползание вверх */
 #inventory-modal .modal-content {
-  height: 85vh !important; /* Намертво фиксируем высоту окна: 85% от экрана смартфона */
+  height: 85vh !important;
   max-height: 85vh !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: flex-start !important;
-  overflow: hidden !important; /* Запрещаем всему окну скроллиться целиком */
+  overflow: hidden !important;
 }
 
-/* 2. Уменьшаем ячейки самого рюкзака (были большими, делаем компактными под куклу) */
-#inventory-content .inv-slot {
-  width: 100% !important;
-  aspect-ratio: 1 / 1 !important;
-  height: auto !important;
-  font-size: 18px !important; /* Чуть уменьшаем эмодзи вещей внутри рюкзака */
-  border-radius: 8px !important;
-}
-
-/* Настраиваем сетку нижнего рюкзака для маленьких ячеек */
-#inventory-content {
-  display: grid !important;
-  grid-template-columns: repeat(4, 1fr) !important; /* Строго 4 колонки */
-  gap: 8px !important; /* Чуть уменьшаем зазоры между ячейками */
-  flex: 1 !important; /* Заставляем рюкзак забрать всё свободное место внизу */
-  overflow-y: auto !important; /* Разрешаем скроллиться СТРОГО внутри рюкзака! */
-  padding-bottom: 16px !important;
-}
-
-/* 3. Оставляем прошлые идеальные настройки сжатия верхней куклы */
+/* 2. 🔥 ФИКС РАМКИ: Делаем её ВЫТЯНУТОЙ по вертикали (ширина 145px, высота 185px) */
 #inv-avatar-frame {
-  width: 160px !important;
-  height: 160px !important;
-  max-width: 160px !important;
-  max-height: 160px !important;
+  width: 145px !important;
+  height: 185px !important;
+  max-width: 145px !important;
+  max-height: 185px !important;
   padding: 0 !important;
   margin: 0 auto !important;
 }
 
+/* Идеально вписываем аватар Яна внутрь новой вытянутой рамки */
 #inv-hero-avatar {
-  width: 160px !important;
-  height: 160px !important;
-  max-width: 160px !important;
-  max-height: 160px !important;
-  object-fit: cover !important;
+  width: 145px !important;
+  height: 185px !important;
+  max-width: 145px !important;
+  max-height: 185px !important;
+  object-fit: cover !important; /* Обрезает бока картинки, красиво вытягивая портрет */
   border-radius: 12px !important;
 }
 
+/* 3. Перестраиваем сетку куклы под новые вытянутые пропорции */
+.inv-equipment-doll {
+  grid-template-columns: 44px 145px 44px !important; /* Сузили центральную колонку до 145px */
+  gap: 14px !important; /* Оставили комфортный зазор до слотов */
+  justify-content: center !important;
+  width: 100% !important;
+  max-width: 270px !important;
+  margin: 0 auto !important;
+}
+
+/* Центрируем эмодзи и иконки строго посередине каждого уменьшенного слота */
 #eslot-head, #eslot-neck, #eslot-gloves, #eslot-mainHand,
 #eslot-body, #eslot-legs, #eslot-extra, #eslot-offHand,
 #eslot-potion, #eslot-scroll,
@@ -626,11 +619,33 @@ body {
   line-height: normal !important;
 }
 
-.inv-equipment-doll {
-  grid-template-columns: 44px 160px 44px !important;
-  gap: 12px !important;
-  justify-content: center !important;
+/* 4. 🔥 СНИЖАЕМ ГАБАРИТЫ СЛОТОВ-ВКЛАДОК (Амуниция, Ресурсы, Расходники) */
+.inv-tabs {
+  gap: 4px !important;
+  margin-bottom: 8px !important;
+  padding-bottom: 4px !important;
+}
+
+.inv-tab {
+  font-size: 11px !important; /* Уменьшили шрифт надписей */
+  padding: 6px 2px !important; /* Ужали внутренние отступы кнопок по высоте */
+  border-radius: 6px !important;
+}
+
+/* 5. Настраиваем компактную сетку нижнего рюкзака */
+#inventory-content {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 8px !important;
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding-bottom: 16px !important;
+}
+
+#inventory-content .inv-slot {
   width: 100% !important;
-  max-width: 280px !important;
-  margin: 0 auto !important;
+  aspect-ratio: 1 / 1 !important;
+  height: auto !important;
+  font-size: 18px !important;
+  border-radius: 8px !important;
 }
