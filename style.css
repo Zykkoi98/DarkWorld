@@ -542,3 +542,21 @@ body {
   width: 100% !important;
   height: auto !important;
 }
+#arena-iframe-wrapper {
+  position: fixed !important;
+  top: 0 !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: 100% !important;
+  max-width: 480px !important;
+  height: 100vh !important;
+  background: #1a1a2e !important; /* Твой фэнтези темно-синий фон города */
+  z-index: 4000 !important; /* Ставим выше всех модалок, чтобы город не перекрывал Арену */
+}
+
+#arena-iframe-frame {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  background: transparent !important;
+}
