@@ -410,9 +410,14 @@ function checkStrikeButtonState() {
 // === КЛИЕНТСКИЙ ФИКС ДИНАМИЧЕСКИХ ЗОН БК (CLIENT_BATTLE.JS) ===
 
 function getMyTacticalLimits() {
+  // Находим объект бойца на Арене
   const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+  
   let maxAttacks = 1;
-  let maxDefends = 1; // По канону БК со 2 уровня у всех 1 блок, если нет щита
+  let maxDefends = 1; // Базовое правило БК: 1 зона блока для всех старше 1 уровня
+
+  // Сначала берём точный уровень игрока из глобального профиля города
+  const myRealLevel = (window.player && window.player.level) ? Number(window.player.level) : (myFighter ? Number(myFighter.level || 1) : 1);
 
   if (myFighter && myFighter.equipped) {
     const mainHand = myFighter.equipped.mainHand;
@@ -424,14 +429,17 @@ function getMyTacticalLimits() {
       maxAttacks = 2;
     }
 
-    // Проверяем наличие щита в левой руке -> дает 3 зоны блока
-    if (offHand && offHand.includes('shield')) {
+    // Проверяем щит -> дает 3 блока
+    if (offHand && String(offHand).includes('shield')) {
       maxDefends = 3;
-    } else if (myFighter.level <= 1) {
-      maxDefends = 2; // Новичкам 1 уровня даем поблажку — 2 зоны блока
+    } 
+    // Если щита нет, но игрок СТРОГО 1-го уровня — даем 2 зоны блока
+    else if (myRealLevel <= 1) {
+      maxDefends = 2;
     }
   } else {
-    maxDefends = 2; // Дефолт, если профиль еще не прогрузился
+    // Подстраховка на случай, если бой только загружается — смотрим по реальному лвл
+    maxDefends = (myRealLevel <= 1) ? 2 : 1;
   }
 
   return { maxAttacks, maxDefends };
