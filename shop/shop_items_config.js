@@ -1,4 +1,4 @@
-window.GAME_ITEMS_DATABASE = Object.assign(window.GAME_ITEMS_DATABASE || {},  {
+window.GAME_ITEMS_DATABASE = Object.assign(window.GAME_ITEMS_DATABASE || {}, {
    // === УРОВЕНЬ 1: СЕТ ПЛУТА ===
   'rogue_knife_1': { name: 'Нож Плута', icon: '🗡️', slotType: 'mainHand', price: 10, level: 1, req: { agility: 3 }, desc: 'Легкий нож для финтов.', bonus: { atk: 2, mf_antiinv: 10 } },
   'rogue_offknife_1': { name: 'Левый Нож Плута', icon: '🗡️', slotType: 'offHand', price: 10, level: 1, req: { agility: 3 }, desc: 'Нож в левую руку. Повышает Ловкость.', bonus: { atk: 1, stats: { agility: 1 } } },
@@ -319,4 +319,4 @@ window.GAME_ITEMS_DATABASE = Object.assign(window.GAME_ITEMS_DATABASE || {},  {
   'immortal_gauntlets_10': { name: 'Краги Бессмертного', icon: '🧤', slotType: 'gloves', price: 650, level: 10, req: { endurance: 62 }, desc: 'Сегментные стальные латные рукавицы.', bonus: { def: 10, mf_anticrit: 75 } },
   'immortal_talisman_10': { name: 'Реликвия Бессмертного', icon: '📿', slotType: 'neck', price: 950, level: 10, req: { endurance: 66 }, desc: 'Тяжелый платиновый венец древних стражей.', bonus: { def: 8, stats: { endurance: 6, strength: 4 } } },
   'immortal_seal_10': { name: 'Печать Бессмертного', icon: '💍', slotType: 'ring', price: 900, level: 10, req: { endurance: 66 }, desc: 'Венец эволюции танков. Максимальное поглощение урона.', bonus: { stats: { endurance: 10 }, mf_anticrit: 80 } }
-};
+}); 
