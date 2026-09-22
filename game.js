@@ -619,19 +619,33 @@ function renderInventory() {
     return;
   }
 
-  items.forEach(item => {
+ items.forEach(item => {
+    // 🔥 ИСПРАВЛЕНО: Достаем полные данные шмотки (иконку, имя, бонусы) из базы по её ID!
+    const fullItemData = window.getItemData(item.id || item);
+    if (!fullItemData) return; // Если вещь не найдена, пропускаем ячейку
+
     const slot = document.createElement('div'); 
     slot.className = 'inv-slot'; 
-    slot.textContent = item.icon;
+    
+    // Бронированная проверка на тип иконки: эмодзи или ссылка на картинку .png
+    if (fullItemData.icon && (fullItemData.icon.includes('.') || fullItemData.icon.includes('/'))) {
+      slot.innerHTML = `<img src="${fullItemData.icon}" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">`;
+    } else {
+      slot.textContent = fullItemData.icon || '📦';
+    }
+
     slot.style.cssText = 'width: 70px; height: 60px; position: relative; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;';
     
-    if (item.count && item.count > 1) {
+    // Вывод стака расходников (если есть количество)
+    const countValue = item.count || fullItemData.count || 1;
+    if (countValue > 1) {
       const countEl = document.createElement('span'); 
       countEl.className = 'inv-count'; 
-      countEl.textContent = item.count; 
+      countEl.textContent = countValue; 
       slot.appendChild(countEl);
     }
     
+    // При клике на шмотку в рюкзаке открываем поп-ап информации
     slot.addEventListener('click', function() {
       window.showItemInfo(item.id, false); 
     });
