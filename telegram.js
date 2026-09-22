@@ -187,11 +187,11 @@ window.saveGame = function(customData, callback) {
   // Обновляем локальный кэш смартфона
   localStorage.setItem('rpg_save', JSON.stringify({ player: player }));
 
-  // Отправляем пакет мирных данных бэкенду для обновления рюкзака/аватара
+  // Отправляем пакет бэкенду для физического создания строки
   if (window.socket && window.socket.connected) {
     window.socket.emit('save_game_secure', { player });
   } else {
-    console.warn("⚠️ Сессия сокета оффлайн. Изменения сохранятся при стабильном коннекте.");
+    console.warn("⚠️ Сессия сокета оффлайн. Не удалось отправить save_game_secure");
   }
 
   if (typeof customData === 'function') customData();
