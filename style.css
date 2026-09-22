@@ -586,6 +586,7 @@ body {
   grid-template-columns: repeat(5, 1fr) !important; 
   gap: 6px !important;
   flex: 1 !important;
+   max-height: 220px !important; 
   overflow-y: auto !important;
   max-width: 270px !important; /* Удерживаем рюкзак строго по ширине куклы */
   width: 100% !important;
