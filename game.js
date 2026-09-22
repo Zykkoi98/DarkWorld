@@ -72,23 +72,17 @@ window.getAtk = function(playerData) {
   return baseAtk + weaponAtk;
 };
 
-// 🔥 ФИКС: Выносливость дает ТОЛЬКО ЧИСТЫЕ ОЧКИ ЗДОРОВЬЯ (HP), без влияния на защиту
+
 window.getMaxHp = function(playerData) {
   const totalEndurance = playerData.stats.endurance + getEquipmentBonus(playerData, 'endurance');
-  const armorHp = getEquipmentBonus(playerData, 'hp');
-  return (totalEndurance * 10) + armorHp;
+  return (totalEndurance * 10) + getEquipmentBonus(playerData, 'hp');
 };
 
-// 🔥 ВНЕДРЕНИЕ СТОЙКОСТИ: Базовая броня (def) теперь зависит строго от Toughness (или старого intellect для совместимости)
+
 window.getDef = function(playerData) {
-  const baseToughness = playerData.stats.toughness ?? playerData.stats.intellect ?? 1;
-  const gearToughness = getEquipmentBonus(playerData, 'toughness') + getEquipmentBonus(playerData, 'intellect');
-  
-  // Каждая единица Стойкости увеличивает защиту на 1.0 ед.
-  const baseDef = Math.floor((baseToughness + gearToughness) * 1.0); 
-  const armorDef = getEquipmentBonus(playerData, 'def');
-  return baseDef + armorDef;
-};
+  const totalEndurance = playerData.stats.endurance + getEquipmentBonus(playerData, 'endurance');
+  return Math.floor(totalEndurance * 0.5) + getEquipmentBonus(playerData, 'def');
+}
 
 // Конструктор стартового персонажа для новичков (Ключ intellect полностью заменен на toughness)
 function createPlayer() {
@@ -99,7 +93,7 @@ function createPlayer() {
   const newPlayer = {
     id: uniqueId, name: name, avatar: window.DEFAULT_AVATAR || 'assets/avatars/hero5.jpg',
     level: 1, xp: 0, gold: 50, currentTownIndex: 0, statPoints: 5, 
-    stats: { strength: 1, agility: 1, endurance: 1, toughness: 1, luck: 1 },
+    stats: { strength: 1, agility: 1, endurance: 1, luck: 1 },
     inventory: { equipment: [], resources: [], consumables: [] },
     equipped: {
       head: null, body: null, legs: null, neck: null, gloves: null,
@@ -131,7 +125,7 @@ window.checkLevelUp = function(isInitialLoad = false) {
       window.player.hp = window.getMaxHp(window.player);
     } else {
       // Экстренный античит-сброс
-      window.player.stats = { strength: 1, agility: 1, endurance: 1, toughness: 1, luck: 1 };
+      window.player.stats = { strength: 1, agility: 1, endurance: 1, luck: 1 };
       window.player.statPoints = 5 + ((correctLevel - 1) * 5);
     }
 
@@ -237,11 +231,11 @@ function renderTown() {
 
 // --- УПРАВЛЕНИЕ ХАРАКТЕРИСТИКАМИ И ИНТЕРАКТИВНЫМ БУФЕРОМ ---
 // 🔥 ФИКС: intellect заменен на toughness во временном буфере распределения
-window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, toughness: 0, luck: 0 };
+window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, luck: 0 };
 window._tempStatPoints = 0;
 
 function resetStatBuffer() {
-  window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, toughness: 0, luck: 0 };
+  window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, luck: 0 };
   window._tempStatPoints = window.player ? window.player.statPoints : 0;
 }
 
@@ -286,8 +280,7 @@ window.openProfile = function() {
   if (!statsBody) return;
 
   const labels = { 
-    strength: '💪 Сила', agility: '🏹 Ловкость', endurance: '🛡️ Выносливость', 
-    toughness: '🧱 Стойкость', luck: '🍀 Удача' 
+    strength: '💪 Сила', agility: '🏹 Ловкость', endurance: '🛡️ Выносливость', luck: '🍀 Удача' 
   };
   
   statsBody.textContent = '';
@@ -318,7 +311,7 @@ window.openProfile = function() {
   hr.style.cssText = 'border:0; border-top:1px solid rgba(255,255,255,0.1); margin:12px 0;';
   statsBody.appendChild(hr);
 
-  const fixedOrderKeys = ['strength', 'agility', 'endurance', 'toughness', 'luck'];
+  const fixedOrderKeys = ['strength', 'agility', 'endurance', 'luck'];
   fixedOrderKeys.forEach(key => {
     const row = document.createElement('div'); 
     row.className = 'profile-row';
@@ -404,13 +397,18 @@ window.showItemInfo = function(itemId, isEquipped, slotKey = null, ringIndex = n
   if (itemData.bonus) {
     if (itemData.bonus.atk) statsText += `\n⚔️ Атака: +${itemData.bonus.atk}`;
     if (itemData.bonus.def) statsText += `\n🛡️ Защита: +${itemData.bonus.def}`;
+    
+    // Выводим БК-модификаторы на экран Mini App
+    if (itemData.bonus.mf_crit) statsText += `\n💥 Мф. Критического удара: +${itemData.bonus.mf_crit}`;
+    if (itemData.bonus.mf_anticrit) statsText += `\n🛡️ Мф. Против крита (Антикрит): +${itemData.bonus.mf_anticrit}`;
+    if (itemData.bonus.mf_inv) statsText += `\n🏹 Мф. Увертывания: +${itemData.bonus.mf_inv}`;
+    if (itemData.bonus.mf_antiinv) statsText += `\n🎯 Мф. Против увертывания: +${itemData.bonus.mf_antiinv}`;
+    
     if (itemData.bonus.stats) {
       const b = itemData.bonus.stats;
       if (b.strength) statsText += `\n💪 Сила: +${b.strength}`;
       if (b.agility) statsText += `\n🏹 Ловкость: +${b.agility}`;
       if (b.endurance) statsText += `\n🛡️ Выносливость: +${b.endurance}`;
-      // 🔥 Выводим Стойкость вместо Интеллекта в карточке шмотки
-      if (b.toughness || b.intellect) statsText += `\n🧱 Стойкость: +${b.toughness ?? b.intellect}`;
       if (b.luck) statsText += `\n🍀 Удача: +${b.luck}`;
     }
   }
