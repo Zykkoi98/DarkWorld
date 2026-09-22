@@ -77,28 +77,28 @@ window.JEWELRY_DATABASE = {
 window.getItemData = function(itemId) {
   if (!itemId) return null;
 
-  // Поочередно проверяем каждую из пяти специализированных баз данных
+  // 🔥 ИСПРАВЛЕНО: Сначала проверяем нашу новую объединенную базу вещей магазина!
+  if (window.GAME_ITEMS_DATABASE && window.GAME_ITEMS_DATABASE[itemId]) {
+    return window.GAME_ITEMS_DATABASE[itemId];
+  }
+
+  // Если не нашли, проверяем старые дефолтные массивы
   if (window.WEAPON_DATABASE && window.WEAPON_DATABASE[itemId]) {
     return window.WEAPON_DATABASE[itemId];
   }
-  
   if (window.ARMOR_DATABASE && window.ARMOR_DATABASE[itemId]) {
     return window.ARMOR_DATABASE[itemId];
   }
-  
   if (window.JEWELRY_DATABASE && window.JEWELRY_DATABASE[itemId]) {
     return window.JEWELRY_DATABASE[itemId];
   }
-  
   if (window.CONSUMABLE_DATABASE && window.CONSUMABLE_DATABASE[itemId]) {
     return window.CONSUMABLE_DATABASE[itemId];
   }
-  
   if (window.RESOURCE_DATABASE && window.RESOURCE_DATABASE[itemId]) {
     return window.RESOURCE_DATABASE[itemId];
   }
 
-  // Если прошлись по всем базам и ничего не нашли, выводим предупреждение и возвращаем null
   console.warn(`⚠️ Предмет с ID "${itemId}" не найден ни в одной базе данных.`);
   return null;
 };
