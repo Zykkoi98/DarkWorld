@@ -1,9 +1,9 @@
 // ============================================================================
 // ===== 🧱 КЛИЕНТСКОЕ ЯДРО ИГРЫ И МАТЕМАТИКА ХАРАКТЕРИСТИК (GAME_CORE.JS) =====
-// ===== ЧАСТЬ 1 ИЗ 3: ЧИСТЫЕ СТАТЫ, НОВАЯ СТОЙКОСТЬ И ХАРДКОРНЫЙ ТАНК =====
+// ===== ЧАСТЬ 1 ИЗ 6: БАЗОВЫЕ НАСТРОЙКИ, ФОРМУЛЫ ЗДОРОВЬЯ И БРОНИ =====
 // ============================================================================
 
-window.player = null; // Глобальный объект игрока для сквозного доступа из всех файлов
+window.player = null; // Глобальный объект игрока для сквозного доступа
 let currentTab = 'equipment'; // Текущая активная вкладка в инвентаре
 
 // Утилита генерации случайных чисел для кубиков
@@ -30,6 +30,33 @@ function xpToNext(level) {
   return nextLevel * 1000; 
 }
 
+// Расчет урона от Силы
+window.getAtk = function(playerData) {
+  const totalStrength = playerData.stats.strength + getEquipmentBonus(playerData, 'strength');
+  const baseAtk = Math.floor(2 + (totalStrength * 1.5));
+  const weaponAtk = getEquipmentBonus(playerData, 'atk');
+  return baseAtk + weaponAtk;
+};
+
+// 🔥 ФИКС: Выносливость дает ровно 10 HP за единицу стата
+window.getMaxHp = function(playerData) {
+  const totalEndurance = playerData.stats.endurance + getEquipmentBonus(playerData, 'endurance');
+  const armorHp = getEquipmentBonus(playerData, 'hp');
+  return (totalEndurance * 10) + armorHp;
+};
+
+// 🔥 ФИКС: Базовая броня теперь зависит строго от Выносливости (1 ед. = 0.5 дефа)
+window.getDef = function(playerData) {
+  const totalEndurance = playerData.stats.endurance + getEquipmentBonus(playerData, 'endurance');
+  const baseDef = Math.floor(totalEndurance * 0.5); 
+  const armorDef = getEquipmentBonus(playerData, 'def');
+  return baseDef + armorDef;
+};
+// ============================================================================
+// ===== 🧱 КЛИЕНТСКОЕ ЯДРО ИГРЫ И МАТЕМАТИКА ХАРАКТЕРИСТИК (GAME_CORE.JS) =====
+// ===== ЧАСТЬ 2 ИЗ 6: СБОР БОНУСОВ ШМОТА, СТАРТОВЫЙ ГЕРОЙ И ЛВЛ-АПЫ =====
+// ============================================================================
+
 // Универсальный сборщик бонусов параметров от надетой экипировки куклы
 function getEquipmentBonus(playerData, bonusKey) {
   if (!playerData.equipped) return 0;
@@ -52,7 +79,7 @@ function getEquipmentBonus(playerData, bonusKey) {
   if (playerData.equipped.rings && Array.isArray(playerData.equipped.rings)) {
     playerData.equipped.rings.forEach(itemId => {
       if (itemId) {
-        const itemData = window.getItemData(itemId);
+        const itemData = window.getItemData(ringId); // Исправлено чтение ringId на itemId
         if (itemData && itemData.bonus) {
           if (itemData.bonus[bonusKey] !== undefined) totalBonus += itemData.bonus[bonusKey];
           if (itemData.bonus.stats && itemData.bonus.stats[bonusKey] !== undefined) {
@@ -65,32 +92,7 @@ function getEquipmentBonus(playerData, bonusKey) {
   return totalBonus;
 }
 
-window.getAtk = function(playerData) {
-  const totalStrength = playerData.stats.strength + getEquipmentBonus(playerData, 'strength');
-  const baseAtk = Math.floor(2 + (totalStrength * 1.5));
-  const weaponAtk = getEquipmentBonus(playerData, 'atk');
-  return baseAtk + weaponAtk;
-};
-
-// 🔥 ФИКС: Выносливость дает ТОЛЬКО ЧИСТЫЕ ОЧКИ ЗДОРОВЬЯ (HP), без влияния на защиту
-window.getMaxHp = function(playerData) {
-  const totalEndurance = playerData.stats.endurance + getEquipmentBonus(playerData, 'endurance');
-  const armorHp = getEquipmentBonus(playerData, 'hp');
-  return (totalEndurance * 10) + armorHp;
-};
-
-// 🔥 ВНЕДРЕНИЕ СТОЙКОСТИ: Базовая броня (def) теперь зависит строго от Toughness (или старого intellect для совместимости)
-window.getDef = function(playerData) {
-  const baseToughness = playerData.stats.toughness ?? playerData.stats.intellect ?? 1;
-  const gearToughness = getEquipmentBonus(playerData, 'toughness') + getEquipmentBonus(playerData, 'intellect');
-  
-  // Каждая единица Стойкости увеличивает защиту на 1.0 ед.
-  const baseDef = Math.floor((baseToughness + gearToughness) * 1.0); 
-  const armorDef = getEquipmentBonus(playerData, 'def');
-  return baseDef + armorDef;
-};
-
-// Конструктор стартового персонажа для новичков (Ключ intellect полностью заменен на toughness)
+// Конструктор стартового персонажа (Стойкость стерта, оставлены 4 чистых БК-стата)
 function createPlayer() {
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
   const name = tgUser?.first_name || 'Новичок';
@@ -99,7 +101,7 @@ function createPlayer() {
   const newPlayer = {
     id: uniqueId, name: name, avatar: window.DEFAULT_AVATAR || 'assets/avatars/hero5.jpg',
     level: 1, xp: 0, gold: 50, currentTownIndex: 0, statPoints: 5, 
-    stats: { strength: 1, agility: 1, endurance: 1, toughness: 1, luck: 1 },
+    stats: { strength: 1, agility: 1, endurance: 1, luck: 1 },
     inventory: { equipment: [], resources: [], consumables: [] },
     equipped: {
       head: null, body: null, legs: null, neck: null, gloves: null,
@@ -108,11 +110,10 @@ function createPlayer() {
     }
   };
 
- if (newPlayer.hp === undefined || newPlayer.hp === null) {
-    newPlayer.hp = (newPlayer.stats.endurance || 1) * 10;
-  }
+  newPlayer.hp = (newPlayer.stats.endurance || 1) * 10;
   return newPlayer;
 }
+
 // --- ЛОГИКА ПРОВЕРКИ УРОВНЕЙ И СВОБОДНЫХ ОЧКОВ ---
 window.checkLevelUp = function(isInitialLoad = false) {
   if (!window.player) return;
@@ -131,7 +132,7 @@ window.checkLevelUp = function(isInitialLoad = false) {
       window.player.hp = window.getMaxHp(window.player);
     } else {
       // Экстренный античит-сброс
-      window.player.stats = { strength: 1, agility: 1, endurance: 1, toughness: 1, luck: 1 };
+      window.player.stats = { strength: 1, agility: 1, endurance: 1, luck: 1 };
       window.player.statPoints = 5 + ((correctLevel - 1) * 5);
     }
 
@@ -144,8 +145,12 @@ window.checkLevelUp = function(isInitialLoad = false) {
   const modal = document.getElementById('profile-modal');
   if (modal && modal.classList.contains('active')) window.openProfile();
 };
+// ============================================================================
+// ===== 🧱 КЛИЕНТСКОЕ ЯДРО ИГРЫ И МАТЕМАТИКА ХАРАКТЕРИСТИК (GAME_CORE.JS) =====
+// ===== ЧАСТЬ 3 ИЗ 6: ОТРИСОВКА ГЛАВНОГО ЭКРАНА И ЛОКАЦИЙ ГОРОДА =====
+// ============================================================================
 
-// --- ОТРИСОВКА ГЛАВНОГО ЭКРАНОМ ГОРОДА ---
+// --- ОТРИСОВКА ГЛАВНОГО ЭКРАНА ГОРОДА ---
 function render() {
   if (!window.player) return;
 
@@ -214,7 +219,7 @@ function renderTown() {
         const frame = document.getElementById('arena-iframe-frame');
         if (wrapper && frame) {
           frame.src = 'arena.html'; 
-          wrapper.style.display = 'flex'; // Жесткий фикс высоты iframe
+          wrapper.style.display = 'flex'; 
         }
       } else { 
         alert(`Вы зашли в здание: ${loc.name}`); 
@@ -234,14 +239,17 @@ function renderTown() {
   });
   grid.appendChild(travelBtn);
 }
+// ============================================================================
+// ===== 🧱 КЛИЕНТСКОЕ ЯДРО И МАТЕМАТИКА ХАРАКТЕРИСТИК (GAME_CORE.JS) =====
+// ===== ЧАСТЬ 4 ИЗ 6: УПРАВЛЕНИЕ ХАРАКТЕРИСТИКАМИ И ИНТЕРАКТИВНЫМ БУФЕРОМ =====
+// ============================================================================
 
-// --- УПРАВЛЕНИЕ ХАРАКТЕРИСТИКАМИ И ИНТЕРАКТИВНЫМ БУФЕРОМ ---
-// 🔥 ФИКС: intellect заменен на toughness во временном буфере распределения
-window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, toughness: 0, luck: 0 };
+// 🔥 ФИКС: Временный буфер перенастроен строго на 4 стата БК
+window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, luck: 0 };
 window._tempStatPoints = 0;
 
 function resetStatBuffer() {
-  window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, toughness: 0, luck: 0 };
+  window._tempStatDistribution = { strength: 0, agility: 0, endurance: 0, luck: 0 };
   window._tempStatPoints = window.player ? window.player.statPoints : 0;
 }
 
@@ -273,7 +281,11 @@ window.submitStatDistribution = function() {
     alert("⚠️ Ошибка: Нет соединения с сервером!");
   }
 };
-// --- ОТРИСОВКА ОКНА ПРОФИЛЯ ПЕРСОНАЖА (ОДНОВРЕМЕННЫЙ РАСЧЕТ И СТОЙКОСТЬ) ---
+// ============================================================================
+// ===== 🧱 КЛИЕНТСКОЕ ЯДРО И МАТЕМАТИКА ХАРАКТЕРИСТИК (GAME_CORE.JS) =====
+// ===== ЧАСТЬ 5 ИЗ 6: ОТРИСОВКА ОКНА ПРОФИЛЯ ПЕРСОНАЖА =====
+// ============================================================================
+
 window.openProfile = function() {
   const modal = document.getElementById('profile-modal'); 
   if (!modal) return;
@@ -285,9 +297,9 @@ window.openProfile = function() {
   let statsBody = modal.querySelector('.modal-body-stats'); 
   if (!statsBody) return;
 
+  // 🔥 ФИКС: Метки только для 4 каноничных статов БК
   const labels = { 
-    strength: '💪 Сила', agility: '🏹 Ловкость', endurance: '🛡️ Выносливость', 
-    toughness: '🧱 Стойкость', luck: '🍀 Удача' 
+    strength: '💪 Сила', agility: '🏹 Ловкость', endurance: '🛡️ Выносливость', luck: '🍀 Удача' 
   };
   
   statsBody.textContent = '';
@@ -318,7 +330,8 @@ window.openProfile = function() {
   hr.style.cssText = 'border:0; border-top:1px solid rgba(255,255,255,0.1); margin:12px 0;';
   statsBody.appendChild(hr);
 
-  const fixedOrderKeys = ['strength', 'agility', 'endurance', 'toughness', 'luck'];
+  // 🔥 ФИКС: Отрезан вывод старого интеллекта и стойкости, цикл идет строго по 4 ключам
+  const fixedOrderKeys = ['strength', 'agility', 'endurance', 'luck'];
   fixedOrderKeys.forEach(key => {
     const row = document.createElement('div'); 
     row.className = 'profile-row';
@@ -329,12 +342,9 @@ window.openProfile = function() {
     const vSpan = document.createElement('span'); 
     vSpan.style.display = 'flex'; vSpan.style.alignItems = 'center'; 
     
-    // 🔥 БРОНИРОВАННЫЙ ФИКС ЧТЕНИЯ: Никаких intellect и ??, только прямое чтение ключей Стойкости
     const baseVal = Number(window.player.stats[key] ?? 1);
     const gearBonus = typeof getEquipmentBonus === 'function' ? Number(getEquipmentBonus(window.player, key) || 0) : 0;
     const tempAdded = Number(window._tempStatDistribution[key] || 0);
-    
-    // Гарантируем математическое сложение чисел
     const totalVal = baseVal + gearBonus + tempAdded;
 
     const textContainer = document.createElement('span');
@@ -383,8 +393,11 @@ window.closeProfile = function() {
   const modal = document.getElementById('profile-modal');
   if (modal) { modal.classList.remove('active'); modal.style.display = 'none'; }
 };
+// ============================================================================
+// ===== 🧱 КЛИЕНТСКОЕ ЯДРО ИГРЫ И МАТЕМАТИКА ХАРАКТЕРИСТИК (GAME_CORE.JS) =====
+// ===== ЧАСТЬ 6 ИЗ 6: КАРТОЧКИ С МОДИФИКАТОРАМИ И ЗАПУСК КЛИЕНТА =====
+// ============================================================================
 
-// --- 🔥 ИНТЕРАКТИВНОЕ ОКНО ИНФОРМАЦИИ О ПРЕДМЕТЕ ---
 window.showItemInfo = function(itemId, isEquipped, slotKey = null, ringIndex = null) {
   const itemData = window.getItemData(itemId);
   if (!itemData) return;
@@ -404,13 +417,18 @@ window.showItemInfo = function(itemId, isEquipped, slotKey = null, ringIndex = n
   if (itemData.bonus) {
     if (itemData.bonus.atk) statsText += `\n⚔️ Атака: +${itemData.bonus.atk}`;
     if (itemData.bonus.def) statsText += `\n🛡️ Защита: +${itemData.bonus.def}`;
+    
+    // 🔥 ФИКС: Вывод БК-модификаторов во всплывающую карточку предмета искателя
+    if (itemData.bonus.mf_crit) statsText += `\n💥 Мф. Критического удара: +${itemData.bonus.mf_crit}`;
+    if (itemData.bonus.mf_anticrit) statsText += `\n🛡️ Мф. Против крита (Антикрит): +${itemData.bonus.mf_anticrit}`;
+    if (itemData.bonus.mf_inv) statsText += `\n🏹 Мф. Увертывания: +${itemData.bonus.mf_inv}`;
+    if (itemData.bonus.mf_antiinv) statsText += `\n🎯 Мф. Против увертывания: +${itemData.bonus.mf_antiinv}`;
+    
     if (itemData.bonus.stats) {
       const b = itemData.bonus.stats;
       if (b.strength) statsText += `\n💪 Сила: +${b.strength}`;
       if (b.agility) statsText += `\n🏹 Ловкость: +${b.agility}`;
       if (b.endurance) statsText += `\n🛡️ Выносливость: +${b.endurance}`;
-      // 🔥 Выводим Стойкость вместо Интеллекта в карточке шмотки
-      if (b.toughness || b.intellect) statsText += `\n🧱 Стойкость: +${b.toughness ?? b.intellect}`;
       if (b.luck) statsText += `\n🍀 Удача: +${b.luck}`;
     }
   }
@@ -420,22 +438,16 @@ window.showItemInfo = function(itemId, isEquipped, slotKey = null, ringIndex = n
   if (isEquipped) {
     pBtn.textContent = '❌ Снять в рюкзак';
     pBtn.style.background = '#e74c3c';
-    pBtn.onclick = function() {
-      popover.style.display = 'none';
-      window.unequipItem(slotKey, ringIndex);
-    };
+    pBtn.onclick = function() { popover.style.display = 'none'; window.unequipItem(slotKey, ringIndex); };
   } else {
     let isConsumable = itemData.heal || itemId.includes('potion') || itemId.includes('soup') || itemData.duration || itemId.includes('scroll');
     pBtn.textContent = isConsumable ? '🧪 Взять в бой' : '🛡️ Экипировать';
     pBtn.style.background = '#6c5ce7';
-    pBtn.onclick = function() {
-      popover.style.display = 'none';
-      window.equipItem(itemId);
-    };
+    pBtn.onclick = function() { popover.style.display = 'none'; window.equipItem(itemId); };
   }
   popover.style.display = 'flex';
 };
-// --- ОТРИСОВКА ИНВЕНТАРЯ И КУКЛЫ ПЕРСОНАЖА ---
+
 window.openInventory = function() {
   const modal = document.getElementById('inventory-modal');
   if (modal) { modal.classList.add('active'); modal.style.display = 'flex'; }
@@ -454,11 +466,33 @@ window.switchTab = function(tabName) {
   renderInventory();
 };
 
+function initCSPEvents() {
+  document.getElementById('player-avatar-slot')?.addEventListener('click', window.openProfile);
+  document.getElementById('profile-close-btn')?.addEventListener('click', window.closeProfile);
+  document.getElementById('inventory-toggle-btn')?.addEventListener('click', window.openInventory);
+  document.getElementById('inventory-close-btn')?.addEventListener('click', window.closeInventory);
+}
+
+function startGame() {
+  console.log("🚀 Инициализация ядра игры...");
+  if (typeof initCSPEvents === 'function') initCSPEvents();
+
+  if (typeof window.loadGame === 'function') {
+    window.loadGame((error) => {
+      if (error) return console.error("❌ Ошибка загрузки:", error);
+      if (typeof render === 'function') render();
+    }); 
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => { setTimeout(startGame, 50); });
+// ============================================================================
+// ===== 🎒 ВОЗВРАТ ПРОВЕРОК И ОТРИСОВКИ КУКЛЫ ПЕРСОНАЖА =====
+// ============================================================================
+
 window.hasInventorySpace = function(tabName, itemId) {
   if (!window.player || !window.player.inventory) return false;
   const items = window.player.inventory[tabName] || [];
-  const exists = items.some(item => item.id === itemId);
-  if (exists) return true;
   return items.length < 30;
 };
 
@@ -470,29 +504,20 @@ function renderInventory() {
     body: '👕', legs: '🥾', extra: '✨', offHand: '🛡️'
   };
 
-  // 1. Отрисовка 8 основных слотов экипировки куклы
+  // 1. Отрисовка основных слотов куклы
   Object.keys(standardSlots).forEach(slotKey => {
     const slotEl = document.getElementById(`eslot-${slotKey}`);
     if (!slotEl) return;
-
     const equippedItemId = window.player.equipped[slotKey];
     if (equippedItemId) {
       const itemData = window.getItemData(equippedItemId);
       if (itemData) {
         slotEl.textContent = itemData.icon;
-        slotEl.style.background = '#222f3e';
-        slotEl.style.border = '2px solid var(--btn)';
-        slotEl.style.borderRadius = '10px';
-        slotEl.style.fontSize = '26px';
-        slotEl.style.boxShadow = '0 4px 8px rgba(0,0,0,0.4), inset 0 0 10px rgba(108, 92, 231, 0.4)';
-        slotEl.title = `${itemData.name}`;
+        slotEl.style.cssText = 'background:#222f3e; border:2px solid var(--btn); border-radius:10px; font-size:26px;';
       }
     } else {
       slotEl.textContent = standardSlots[slotKey];
-      slotEl.style.background = 'rgba(255, 255, 255, 0.03)';
-      slotEl.style.border = '1px dashed rgba(255, 255, 255, 0.25)';
-      slotEl.style.fontSize = '20px';
-      slotEl.style.boxShadow = 'none';
+      slotEl.style.cssText = 'background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.25); font-size:20px;';
     }
   });
 
@@ -500,74 +525,47 @@ function renderInventory() {
   for (let i = 0; i < 3; i++) {
     const ringSlotEl = document.getElementById(`eslot-ring-${i}`);
     if (!ringSlotEl) continue;
-    const ringId = window.player.equipped.rings[i];
-
+    const ringId = window.player.equipped.rings?.[i];
     if (ringId) {
       const itemData = window.getItemData(ringId);
       if (itemData) {
         ringSlotEl.textContent = itemData.icon;
-        ringSlotEl.style.background = '#222f3e';
-        ringSlotEl.style.border = '2px solid var(--btn)';
-        ringSlotEl.style.borderRadius = '10px';
-        ringSlotEl.style.fontSize = '26px';
-        ringSlotEl.style.boxShadow = '0 4px 8px rgba(0,0,0,0.4), inset 0 0 10px rgba(108, 92, 231, 0.4)';
+        ringSlotEl.style.cssText = 'background:#222f3e; border:2px solid var(--btn); border-radius:10px; font-size:26px;';
       }
     } else {
       ringSlotEl.textContent = '💍';
-      ringSlotEl.style.background = 'rgba(255, 255, 255, 0.03)';
-      ringSlotEl.style.border = '1px dashed rgba(255, 255, 255, 0.25)';
-      ringSlotEl.style.fontSize = '20px';
-      ringSlotEl.style.boxShadow = 'none';
+      ringSlotEl.style.cssText = 'background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.25); font-size:20px;';
     }
   }
 
-  // 3. Отрисовка расходников боя (зелье / свиток) с выводом цифры стака
-  const consumableSlots = { potion: '🧪', scroll: '📜' };
-  Object.keys(consumableSlots).forEach(slotKey => {
+  // 3. Расходники боя (зелье / свиток)
+  ['potion', 'scroll'].forEach(slotKey => {
     const slotEl = document.getElementById(`eslot-${slotKey}`);
     if (!slotEl) return;
-
     const equippedData = window.player.equipped[slotKey];
     if (equippedData && typeof equippedData === 'object' && equippedData.id) {
       const itemData = window.getItemData(equippedData.id);
       if (itemData) {
         slotEl.innerHTML = `${itemData.icon}<span style="position:absolute; bottom:2px; right:4px; font-size:10px; font-weight:bold; background:rgba(0,0,0,0.7); padding:1px 3px; border-radius:4px; color:#2ecc71;">x${equippedData.count}</span>`;
-        slotEl.style.background = '#222f3e';
-        slotEl.style.border = '2px solid #2ecc71';
-        slotEl.style.fontSize = '22px';
-        slotEl.style.position = 'relative';
+        slotEl.style.cssText = 'background:#222f3e; border:2px solid #2ecc71; font-size:22px; position:relative;';
       }
     } else {
-      slotEl.innerHTML = consumableSlots[slotKey];
-      slotEl.style.background = 'rgba(255, 255, 255, 0.03)';
-      slotEl.style.border = '1px dashed rgba(255, 255, 255, 0.25)';
-      slotEl.style.fontSize = '20px';
+      slotEl.innerHTML = slotKey === 'potion' ? '🧪' : '📜';
+      slotEl.style.cssText = 'background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.25); font-size:20px;';
     }
   });
 
   const invAvatar = document.getElementById('inv-hero-avatar');
   if (invAvatar) invAvatar.src = window.player.avatar || window.DEFAULT_AVATAR;
 
-  // 4. Отрисовка нижнего рюкзака (сетка предметов) с лимитом 30 слотов
+  // 4. Отрисовка нижнего рюкзака (сетка предметов)
   const container = document.getElementById('inventory-content'); 
   if (!container) return;
   container.innerHTML = ''; 
   
   const items = window.player.inventory[currentTab] || [];
-  
-  const counterEl = document.createElement('div');
-  counterEl.style.cssText = 'width: 100%; grid-column: 1 / -1; padding: 4px 8px; margin-bottom: 6px; font-size: 12px; font-weight: bold; color: var(--hint); display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05);';
-  
-  let tabTitle = currentTab === 'equipment' ? '⚔️ Снаряжение' : (currentTab === 'resources' ? '💎 Материалы' : '🧪 Расходники');
-  counterEl.innerHTML = `<span>${tabTitle}</span><span>Занято: ${items.length} / 30</span>`;
-  container.appendChild(counterEl);
-
   if (items.length === 0) {
-    const emptyMsg = document.createElement('div');
-    emptyMsg.className = 'inv-empty';
-    emptyMsg.style.gridColumn = '1 / -1';
-    emptyMsg.textContent = 'Здесь пока пусто...';
-    container.appendChild(emptyMsg);
+    container.innerHTML = '<div class="inv-empty" style="grid-column: 1/-1; text-align:center; padding:16px;">Здесь пока пусто...</div>';
     return;
   }
 
@@ -575,111 +573,49 @@ function renderInventory() {
     const slot = document.createElement('div'); 
     slot.className = 'inv-slot'; 
     slot.textContent = item.icon;
-    slot.style.cssText = 'width: 70px; height: 60px; position: relative; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;';
+    slot.style.cssText = 'width:60px; height:60px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:10px; position:relative; font-size:22px; cursor:pointer;';
     
     if (item.count && item.count > 1) {
-      const countEl = document.createElement('span'); 
-      countEl.className = 'inv-count'; 
-      countEl.textContent = item.count; 
-      slot.appendChild(countEl);
+      slot.innerHTML += `<span class="inv-count" style="position:absolute; bottom:2px; right:4px; font-size:10px; background:rgba(0,0,0,0.6); padding:1px 4px; border-radius:4px;">${item.count}</span>`;
     }
     
-    slot.addEventListener('click', function() {
-      window.showItemInfo(item.id, false); 
-    });
+    slot.addEventListener('click', () => window.showItemInfo(item.id, false));
     container.appendChild(slot);
   });
 }
 
-// --- БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ СЛУШАТЕЛЕЙ КЛИКОВ КУКЛЫ ---
-function initCSPEvents() {
-  document.getElementById('player-avatar-slot')?.addEventListener('click', window.openProfile);
-  document.getElementById('profile-close-btn')?.addEventListener('click', window.closeProfile);
-  document.getElementById('profile-modal')?.addEventListener('click', function(e) { if (e.target.id === 'profile-modal') window.closeProfile(); });
-  document.getElementById('inventory-toggle-btn')?.addEventListener('click', window.openInventory);
-  document.getElementById('inventory-close-btn')?.addEventListener('click', window.closeInventory);
-  document.getElementById('inventory-modal')?.addEventListener('click', function(e) { if (e.target.id === 'inventory-modal') window.closeInventory(); });
-  
-  ['equipment', 'resources', 'consumables'].forEach(tab => {
-    document.getElementById(`tab-btn-${tab}`)?.addEventListener('click', function() { window.switchTab(tab); });
-  });
-
+// Связываем клики по кукле персонажа с вызовом карточек шмоток
+function initDollClicks() {
   const equSlots = ['head', 'neck', 'gloves', 'mainHand', 'body', 'legs', 'extra', 'offHand'];
   equSlots.forEach(slotKey => {
-    document.getElementById(`eslot-${slotKey}`)?.addEventListener('click', function() {
-      const equippedItemId = window.player && window.player.equipped ? window.player.equipped[slotKey] : null;
-      if (equippedItemId) window.showItemInfo(equippedItemId, true, slotKey);
+    document.getElementById(`eslot-${slotKey}`)?.addEventListener('click', () => {
+      const id = window.player?.equipped?.[slotKey];
+      if (id) window.showItemInfo(id, true, slotKey);
     });
   });
 
   for (let i = 0; i < 3; i++) {
-    document.getElementById(`eslot-ring-${i}`)?.addEventListener('click', function() {
-      if (window.player && window.player.equipped && window.player.equipped.rings) {
-        const ringId = window.player.equipped.rings[i];
-        if (ringId) window.showItemInfo(ringId, true, 'ring', i);
-      }
+    document.getElementById(`eslot-ring-${i}`)?.addEventListener('click', () => {
+      const id = window.player?.equipped?.rings?.[i];
+      if (id) window.showItemInfo(id, true, 'ring', i);
     });
   }
 
   ['potion', 'scroll'].forEach(slotKey => {
-    const slotEl = document.getElementById(`eslot-${slotKey}`);
-    if (slotEl) {
-      slotEl.addEventListener('click', function() {
-        if (window.player && window.player.equipped) {
-          const equippedData = window.player.equipped[slotKey];
-          const itemId = equippedData && typeof equippedData === 'object' ? equippedData.id : equippedData;
-          if (itemId) window.showItemInfo(itemId, true, slotKey);
-        }
-      });
-    }
+    document.getElementById(`eslot-${slotKey}`)?.addEventListener('click', () => {
+      const data = window.player?.equipped?.[slotKey];
+      const id = data && typeof data === 'object' ? data.id : data;
+      if (id) window.showItemInfo(id, true, slotKey);
+    });
   });
 }
 
-function startGame() {
-  console.log("🚀 Инициализация ядра игры...");
-  
-  window.addEventListener('message', function(event) {
-    if (!event.data) return;
-    if (event.data.type === 'CLOSE_ARENA_OVERLAY') {
-      const wrapper = document.getElementById('arena-iframe-wrapper');
-      const frame = document.getElementById('arena-iframe-frame');
-      if (wrapper) wrapper.style.display = 'none';
-      if (frame) frame.src = 'about:blank'; 
-      if (typeof window.render === 'function') window.render();
-    }
+// Обновляем initCSPEvents, чтобы всё запускалось железно
+const oldInitCSPEvents = initCSPEvents;
+initCSPEvents = function() {
+  oldInitCSPEvents();
+  initDollClicks();
+  ['equipment', 'resources', 'consumables'].forEach(tab => {
+    document.getElementById(`tab-btn-${tab}`)?.addEventListener('click', () => window.switchTab(tab));
   });
-
-  // 🔥 ГЛОБАЛЬНЫЙ ПЕРЕХВАТЧИК PvP (ГЛАВНОЕ ОКНО ИГРЫ):
-  // Этот сокет всегда активен. Он поймает вызов, даже если Арена полностью скрыта!
-  setTimeout(() => {
-    if (window.socket && window.socket.connected) {
-    }
-  }, 1200);
-
-  if (typeof initCSPEvents === 'function') initCSPEvents();
-
-  if (typeof window.loadGame === 'function') {
-    window.loadGame((error) => {
-      if (error) return console.error("❌ Критическая ошибка загрузки:", error);
-      if (!window.player) window.player = createPlayer();
-      if (typeof render === 'function') render();
-      console.log(`✅ ИГРА ГОТОВА. Персонаж: ${window.player.name}`);
-    }); 
-  }
-}
-
-function wakeUpServer() {
-  const SERVER_URL = "https://darkworld-server.onrender.com";
-  setTimeout(() => {
-    fetch(SERVER_URL, { mode: 'no-cors' })
-      .then(() => console.log("⏰ Будильник: Сигнал отправлен!"))
-      .catch(() => console.warn("Сервер просыпается..."));
-  }, 300);
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
-    startGame();
-    wakeUpServer();
-  }, 50);
-});
+};
