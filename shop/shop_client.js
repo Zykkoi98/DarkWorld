@@ -128,26 +128,50 @@ window.updateShopUi = function() {
       const row = document.createElement('div');
       row.className = 'item-row';
 
+      // 1. Извлекаем чистые статы игрока из локального сейва для проверки цвета
+      const myAgility = localPlayer && localPlayer.stats ? Number(localPlayer.stats.agility || 1) : 1;
+      const myLuck = localPlayer && localPlayer.stats ? Number(localPlayer.stats.luck || 1) : 1;
+      const myEndurance = localPlayer && localPlayer.stats ? Number(localPlayer.stats.endurance || 1) : 1;
+
       let reqText = '';
-      if (item.req) {
-        if (item.req.agility) reqText = ` 🏹Ловк:${item.req.agility}`;
-        if (item.req.luck) reqText = ` 🍀Уд:${item.req.luck}`;
-        if (item.req.endurance) reqText = ` 🛡️Вын:${item.req.endurance}`;
+      let hasEnoughStats = true; // Флаг для отслеживания пригодности шмотки
+
+      // Динамически проверяем Ловкость
+      if (item.req && item.req.agility) {
+        reqText = ` 🏹Ловк:${item.req.agility}`;
+        if (myAgility < item.req.agility) hasEnoughStats = false;
+      }
+      // Динамически проверяем Удачу
+      if (item.req && item.req.luck) {
+        reqText = ` 🍀Уд:${item.req.luck}`;
+        if (myLuck < item.req.luck) hasEnoughStats = false;
+      }
+      // Динамически проверяем Выносливость
+      if (item.req && item.req.endurance) {
+        reqText = ` 🛡️Вын:${item.req.endurance}`;
+        if (myEndurance < item.req.endurance) hasEnoughStats = false;
       }
 
-      // Сверяем баланс для визуального стиля кнопки
+      // Сверяем баланс и уровень для кнопки покупки
       const isLevelOk = localPlayer && localPlayer.level >= item.level;
       const isGoldOk = localPlayer && localPlayer.gold >= item.price;
-      const canRenderBuy = isLevelOk && isGoldOk;
+      const canRenderBuy = isLevelOk && isGoldOk && hasEnoughStats; // Игрок может купить только если и статы в норме!
+
+      // 2. 🔥 КРАСИМ ЦВЕТ СТАТОВ: зелёный (#2ecc71) или красный (#e74c3c)
+      const statColor = hasEnoughStats ? '#2ecc71' : '#e74c3c';
+      const lvlColor = isLevelOk ? '#2ecc71' : '#e74c3c';
 
       row.innerHTML = `
         <div class="item-icon">${item.icon}</div>
         <div class="item-info">
           <div class="item-name">${item.name}</div>
           <div class="item-desc">${item.desc}</div>
-          <div class="item-reqs">Требует: ${reqText} (Lv. ${item.level})</div>
+          <div style="font-size: 11px; font-weight: bold; margin-top: 2px;">
+            <span style="color: ${statColor}">Требует: ${reqText}</span> 
+            <span style="color: ${lvlColor}">(Lv. ${item.level})</span>
+          </div>
         </div>
-        <button onclick="window.triggerServerBuy('${item.id}')" class="btn-buy" style="background: ${canRenderBuy ? '#2ecc71' : 'rgba(255,255,255,0.04)'}; color: ${canRenderBuy ? '#fff' : '#656d78'};">
+        <button onclick="window.triggerServerBuy('${item.id}')" class="btn-buy" style="background: ${canRenderBuy ? '#2ecc71' : 'rgba(255,255,255,0.04)'}; color: ${canRenderBuy ? '#fff' : '#656d78'}; pointer-events: ${canRenderBuy ? 'auto' : 'none'};">
           💰 ${item.price}
         </button>
       `;
