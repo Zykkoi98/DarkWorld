@@ -77,32 +77,21 @@ window.JEWELRY_DATABASE = {
 window.getItemData = function(itemId) {
   if (!itemId) return null;
 
-  // 🔥 ИСПРАВЛЕНО: Сначала проверяем нашу новую объединенную базу вещей магазина!
+  // 🔥 Проверяем новую базу магазина в первую очередь!
   if (window.GAME_ITEMS_DATABASE && window.GAME_ITEMS_DATABASE[itemId]) {
     return window.GAME_ITEMS_DATABASE[itemId];
   }
 
   // Если не нашли, проверяем старые дефолтные массивы
-  if (window.WEAPON_DATABASE && window.WEAPON_DATABASE[itemId]) {
-    return window.WEAPON_DATABASE[itemId];
-  }
-  if (window.ARMOR_DATABASE && window.ARMOR_DATABASE[itemId]) {
-    return window.ARMOR_DATABASE[itemId];
-  }
-  if (window.JEWELRY_DATABASE && window.JEWELRY_DATABASE[itemId]) {
-    return window.JEWELRY_DATABASE[itemId];
-  }
-  if (window.CONSUMABLE_DATABASE && window.CONSUMABLE_DATABASE[itemId]) {
-    return window.CONSUMABLE_DATABASE[itemId];
-  }
-  if (window.RESOURCE_DATABASE && window.RESOURCE_DATABASE[itemId]) {
-    return window.RESOURCE_DATABASE[itemId];
-  }
+  if (window.WEAPON_DATABASE && window.WEAPON_DATABASE[itemId]) { return window.WEAPON_DATABASE[itemId]; }
+  if (window.ARMOR_DATABASE && window.ARMOR_DATABASE[itemId]) { return window.ARMOR_DATABASE[itemId]; }
+  if (window.JEWELRY_DATABASE && window.JEWELRY_DATABASE[itemId]) { return window.JEWELRY_DATABASE[itemId]; }
+  if (window.CONSUMABLE_DATABASE && window.CONSUMABLE_DATABASE[itemId]) { return window.CONSUMABLE_DATABASE[itemId]; }
+  if (window.RESOURCE_DATABASE && window.RESOURCE_DATABASE[itemId]) { return window.RESOURCE_DATABASE[itemId]; }
 
   console.warn(`⚠️ Предмет с ID "${itemId}" не найден ни в одной базе данных.`);
   return null;
 };
-
 // ============================================================================
 // ===== 🧪 БАЗА ДАННЫХ РАСХОДНИКОВ И РЕСУРСОВ (ITEMS_DATABASE) =====
 // ============================================================================
