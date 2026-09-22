@@ -24,14 +24,11 @@ function initShopPage() {
     transports: ['websocket', 'polling']
   });
 
-  // === НАЙДИ И ЗАМЕНИ СОБЫТИЕ connect В shop_client.js ===
+  // === НАЙДИ И ЗАМЕНИ В SHOP_CLIENT.JS ===
   shopSocket.on('connect', () => {
     console.log("🔌 Сокет Магазина успешно подключен к серверу Render.");
     
-    // 🔥 ЖЕСТКАЯ ПРИВЯЗКА СЕССИИ: Заходим в персональную комнату по Telegram ID
-    shopSocket.emit('join_shop_room', { userId: String(localPlayer.id) });
-    
-    // Запрашиваем свежие данные профиля
+    // Просим сервер прислать чистые данные игрока
     shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   });
 
