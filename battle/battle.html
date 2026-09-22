@@ -5,8 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Битва Чести — Dark World</title>
    <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-  <script src="../config.js" defer></script>
-  <script src="../shop/shop_items_config.js"></script>
+<script>
+  // Страховочный буфер: создаем пустой объект БАЗЫ шмоток ДО загрузки конфигов, 
+  // чтобы страница боя гарантированно видела его в ОЗУ!
+  window.GAME_ITEMS_DATABASE = window.GAME_ITEMS_DATABASE || {};
+</script>
+
+<script src="../config.js?v=5"></script>
+<script src="../shop/shop_items_config.js?v=5"></script>
   <script src="client_battle.js?v=3" defer></script>
   
   
