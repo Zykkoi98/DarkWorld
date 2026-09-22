@@ -41,9 +41,18 @@ function initShopPage() {
   });
 
   // СЛУШАТЕЛЬ: Сервер подтвердил успешное списание денег и выдачу шмотки
-  shopSocket.on('shop_buy_success', (data) => {
-    alert(data.message);
-  });
+    shopSocket.on('shop_buy_success', (data) => {
+        alert(data.message);
+        
+        // Если сервер прислал обновленный профиль, вшиваем его в память смартфона
+        if (data && data.player) {
+        localPlayer = data.player;
+        localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+        
+        // Мгновенно обновляем монетки и кнопки на экране лавки
+        window.updateShopUi();
+        }
+    });
 
   // СЛУШАТЕЛЬ: Сервер поймал античитом нестыковку денег или статов
   shopSocket.on('shop_buy_error', (data) => {
