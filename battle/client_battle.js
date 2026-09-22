@@ -332,7 +332,7 @@ function renderFighters() {
   checkStrikeButtonState();
   initTacticalClickListeners();
 }
-
+/*
 // Слушатели кнопок атак и блоков
 function initTacticalClickListeners() {
   const strikeBtn = document.getElementById('strike-action-btn');
@@ -398,7 +398,6 @@ function initTacticalClickListeners() {
     };
   }
 }
-
 function checkStrikeButtonState() {
   const strikeBtn = document.getElementById('strike-action-btn');
   if (!strikeBtn) return;
@@ -407,6 +406,144 @@ function checkStrikeButtonState() {
     return;
   }
   strikeBtn.disabled = !(selectedAttackZone && selectedDefendZones.length === 2 && selectedTargetUuid);
+}*/
+// === КЛИЕНТСКИЙ ФИКС ДИНАМИЧЕСКИХ ЗОН БК (CLIENT_BATTLE.JS) ===
+
+function getMyTacticalLimits() {
+  const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+  let maxAttacks = 1;
+  let maxDefends = 1; // По канону БК со 2 уровня у всех 1 блок, если нет щита
+
+  if (myFighter && myFighter.equipped) {
+    const mainHand = myFighter.equipped.mainHand;
+    const offHand = myFighter.equipped.offHand;
+
+    // Проверяем двуручное оружие (алебарда) -> дает 2 атаки
+    const itemData = window.getItemData ? window.getItemData(mainHand) : null;
+    if (itemData && itemData.slotType === 'twoHanded') {
+      maxAttacks = 2;
+    }
+
+    // Проверяем наличие щита в левой руке -> дает 3 зоны блока
+    if (offHand && offHand.includes('shield')) {
+      maxDefends = 3;
+    } else if (myFighter.level <= 1) {
+      maxDefends = 2; // Новичкам 1 уровня даем поблажку — 2 зоны блока
+    }
+  } else {
+    maxDefends = 2; // Дефолт, если профиль еще не прогрузился
+  }
+
+  return { maxAttacks, maxDefends };
+}
+
+function checkStrikeButtonState() {
+  const strikeBtn = document.getElementById('strike-action-btn');
+  if (!strikeBtn) return;
+  if (strikeBtn.textContent.includes('ГОРОД')) {
+    strikeBtn.disabled = false;
+    return;
+  }
+
+  const { maxAttacks, maxDefends } = getMyTacticalLimits();
+  
+  // Кнопка станет активной, только если игрок выбрал СТРОГО нужное количество зон под свое оружие!
+  const hasValidAttack = (maxAttacks === 2) ? (selectedAttackZone && Array.isArray(selectedAttackZone) && selectedAttackZone.length === 2) : !!selectedAttackZone;
+  const hasValidDefend = (selectedDefendZones.length === maxDefends);
+
+  strikeBtn.disabled = !(hasValidAttack && hasValidDefend && selectedTargetUuid);
+}
+
+function initTacticalClickListeners() {
+  const strikeBtn = document.getElementById('strike-action-btn');
+  if (strikeBtn && strikeBtn.textContent.includes('ГОРОД')) return;
+
+  const { maxAttacks, maxDefends } = getMyTacticalLimits();
+
+  // 1. СЛУШАТЕЛИ АТАК (Поддержка одноручного и двуручного оружия)
+  document.querySelectorAll('.btn-atk').forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    const zone = newBtn.getAttribute('data-zone');
+    
+    // Подсветка выбранных зон
+    if (maxAttacks === 2) {
+      if (Array.isArray(selectedAttackZone) && selectedAttackZone.includes(zone)) newBtn.classList.add('attack-selected');
+    } else {
+      if (selectedAttackZone === zone) newBtn.classList.add('attack-selected');
+    }
+
+    newBtn.onclick = function() {
+      if (maxAttacks === 2) {
+        if (!Array.isArray(selectedAttackZone)) selectedAttackZone = [];
+        if (selectedAttackZone.includes(zone)) {
+          selectedAttackZone = selectedAttackZone.filter(z => z !== zone);
+          newBtn.classList.remove('attack-selected');
+        } else {
+          if (selectedAttackZone.length >= 2) {
+            const removed = selectedAttackZone.shift();
+            document.querySelector(`.btn-atk[data-zone="${removed}"]`)?.classList.remove('attack-selected');
+          }
+          selectedAttackZone.push(zone);
+          newBtn.classList.add('attack-selected');
+        }
+      } else {
+        document.querySelectorAll('.btn-atk').forEach(b => b.classList.remove('attack-selected'));
+        selectedAttackZone = zone;
+        newBtn.classList.add('attack-selected');
+      }
+      checkStrikeButtonState();
+    };
+  });
+
+  // 2. СЛУШАТЕЛИ БЛОКОВ (Поддержка динамического капа: 1, 2 или 3 зоны)
+  document.querySelectorAll('.btn-def').forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    const zone = newBtn.getAttribute('data-zone');
+    
+    if (selectedDefendZones.includes(zone)) newBtn.classList.add('defend-selected');
+
+    newBtn.onclick = function() {
+      if (selectedDefendZones.includes(zone)) {
+        selectedDefendZones = selectedDefendZones.filter(z => z !== zone);
+        newBtn.classList.remove('defend-selected');
+      } else {
+        if (selectedDefendZones.length >= maxDefends) {
+          const removedZone = selectedDefendZones.shift();
+          document.querySelector(`.btn-def[data-zone="${removedZone}"]`)?.classList.remove('defend-selected');
+        }
+        selectedDefendZones.push(zone);
+        newBtn.classList.add('defend-selected');
+      }
+      checkStrikeButtonState();
+    };
+  });
+
+  // 3. ОТПРАВКА ПАКЕТА НА СЕРВЕР
+  const strikeActionBtn = document.getElementById('strike-action-btn');
+  if (strikeActionBtn) {
+    const newStrikeBtn = strikeActionBtn.cloneNode(true);
+    strikeActionBtn.parentNode.replaceChild(newStrikeBtn, strikeActionBtn);
+
+    newStrikeBtn.onclick = function() {
+      if (this.textContent.includes('ГОРОД')) {
+        if (socket) socket.disconnect();
+        window.location.replace('../index.html');
+        return;
+      }
+      
+      this.disabled = true;
+      this.textContent = 'Расчет...';
+
+      socket.emit('submit_turn', {
+        roomId: currentRoomId,
+        targetUuid: String(selectedTargetUuid), 
+        attack: selectedAttackZone, // Может улетать как строка ("head") или как массив ["head", "torso"]
+        defends: selectedDefendZones
+      });
+    };
+  }
 }
 
 function resetTacticalButtons() {
