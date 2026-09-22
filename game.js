@@ -203,7 +203,10 @@ function renderTown() {
         for (let i = 1; i < 100; i++) { window.clearInterval(i); window.clearTimeout(i); }
         window.location.href = `battle/battle.html?monster=${targetMonster}&count=${finalCount}`;
       } else if (loc.name === "Магазин") {
-        if (typeof window.openShop === 'function') window.openShop();
+         console.log("🏪 Игрок заходит в изолированную Торговую Лавку...");
+  
+        // Мгновенно перенаправляем браузер на отдельную HTML-страницу магазина
+        window.location.href = 'shop/shop.html';
       } else if (loc.name === "Арена PvP") {
         const wrapper = document.getElementById('arena-iframe-wrapper');
         const frame = document.getElementById('arena-iframe-frame');

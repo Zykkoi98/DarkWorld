@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🏪 Торговая Лавка БК</title>
+  <link rel="stylesheet" href="../css/style.css"> <!-- Подключаем твои глобальные стили города -->
+  <style>
+    body { background: #0c0d12; color: #fff; font-family: sans-serif; padding: 10px; margin: 0; }
+    .shop-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+    .btn-exit { background: #e74c3c; color: #fff; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    .tabs-container { display: flex; gap: 6px; margin-bottom: 15px; }
+    .tab-btn { flex: 1; padding: 10px; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; transition: 0.2s; background: rgba(255,255,255,0.05); color: #8a94a6; }
+    .goods-scroll { max-height: 75vh; overflow-y: auto; padding-right: 2px; }
+    .lvl-group { margin-bottom: 15px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; }
+    .lvl-header { background: rgba(255,255,255,0.05); padding: 8px 12px; font-weight: bold; color: #f1c40f; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .item-row { display: flex; gap: 12px; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.03); align-items: center; }
+    .item-icon { font-size: 26px; background: rgba(255,255,255,0.04); border-radius: 8px; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.05); }
+    .item-info { flex: 1; min-width: 0; }
+    .item-name { font-weight: bold; font-size: 14px; color: #fff; }
+    .item-desc { font-size: 11px; color: #8a94a6; margin: 2px 0; }
+    .item-reqs { font-size: 11px; color: #e74c3c; font-weight: bold; }
+    .btn-buy { padding: 8px 14px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; white-space: nowrap; transition: 0.2s; }
+  </style>
+  <!-- Подключаем сокеты и твой конфигурационный файл предметов -->
+  <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+  <script src="../config.js"></script>
+</head>
+<body>
+
+  <div class="shop-header">
+    <div>
+      <h2 style="margin: 0; font-size: 18px;">🏪 Городской Магазин</h2>
+      <div id="shop-user-gold" style="color: #f1c40f; font-size: 13px; font-weight: bold; margin-top: 2px;">💰 Загрузка кошелька...</div>
+    </div>
+    <button class="btn-exit" onclick="window.exitShop()">Выйти</button>
+  </div>
+
+  <!-- Вкладки выбора класса персонажа -->
+  <div class="tabs-container">
+    <button id="tab-dodger" class="tab-btn" onclick="window.setShopClass('dodger')">🏹 Ловкач</button>
+    <button id="tab-critter" class="tab-btn" onclick="window.setShopClass('critter')">⚡ Критовик</button>
+    <button id="tab-tank" class="tab-btn" onclick="window.setShopClass('tank')">🪵 Танк</button>
+  </div>
+
+  <!-- Свитки товаров -->
+  <div id="shop-scroll-area" class="goods-scroll">
+    <!-- Списки шмоток по уровням будут создаваться здесь -->
+  </div>
+
+  <!-- Подключаем наш изолированный клиентский скрипт магазина -->
+  <script src="shop_client.js"></script>
+</body>
+</html>
