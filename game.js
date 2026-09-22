@@ -428,8 +428,21 @@ window.closeProfile = function() {
 };
 
 // --- 🔥 ИНТЕРАКТИВНОЕ ОКНО ИНФОРМАЦИИ О ПРЕДМЕТЕ ---
-window.showItemInfo = function(itemId, isEquipped, slotKey = null, ringIndex = null) {
-  const itemData = window.getItemData(itemId);
+window.showItemInfo = function(itemUidOrId, isEquipped, slotKey = null, ringIndex = null) {
+  if (!itemUidOrId) return;
+
+  // 🔥 ИСПРАВЛЕНО: Извлекаем чистый ID предмета, если к нам прилетел длинный UUID с дефисами/подчеркиваниями
+  let cleanId = itemUidOrId;
+  if (itemUidOrId.includes('_') && !window.WEAPON_DATABASE[itemUidOrId] && !window.GAME_ITEMS_DATABASE[itemUidOrId]) {
+    // Отсекаем временную метку Date.now(), оставляя только имя (например rogue_buckler_1)
+    const parts = itemUidOrId.split('_');
+    // Собираем обратно все части, кроме двух последних (Date.now() и случайного числа)
+    if (parts.length > 2) {
+      cleanId = parts.slice(0, -2).join('_');
+    }
+  }
+
+  const itemData = window.getItemData(cleanId);
   if (!itemData) return;
 
   const popover = document.getElementById('item-info-popover');
@@ -447,13 +460,6 @@ window.showItemInfo = function(itemId, isEquipped, slotKey = null, ringIndex = n
   if (itemData.bonus) {
     if (itemData.bonus.atk) statsText += `\n⚔️ Атака: +${itemData.bonus.atk}`;
     if (itemData.bonus.def) statsText += `\n🛡️ Защита: +${itemData.bonus.def}`;
-    
-    // Выводим БК-модификаторы на экран Mini App
-    if (itemData.bonus.mf_crit) statsText += `\n💥 Мф. Критического удара: +${itemData.bonus.mf_crit}`;
-    if (itemData.bonus.mf_anticrit) statsText += `\n🛡️ Мф. Против крита (Антикрит): +${itemData.bonus.mf_anticrit}`;
-    if (itemData.bonus.mf_inv) statsText += `\n🏹 Мф. Увертывания: +${itemData.bonus.mf_inv}`;
-    if (itemData.bonus.mf_antiinv) statsText += `\n🎯 Мф. Против увертывания: +${itemData.bonus.mf_antiinv}`;
-    
     if (itemData.bonus.stats) {
       const b = itemData.bonus.stats;
       if (b.strength) statsText += `\n💪 Сила: +${b.strength}`;
@@ -473,12 +479,13 @@ window.showItemInfo = function(itemId, isEquipped, slotKey = null, ringIndex = n
       window.unequipItem(slotKey, ringIndex);
     };
   } else {
-    let isConsumable = itemData.heal || itemId.includes('potion') || itemId.includes('soup') || itemData.duration || itemId.includes('scroll');
+    let isConsumable = itemData.heal || cleanId.includes('potion') || cleanId.includes('soup') || itemData.duration || cleanId.includes('scroll');
     pBtn.textContent = isConsumable ? '🧪 Взять в бой' : '🛡️ Экипировать';
     pBtn.style.background = '#6c5ce7';
     pBtn.onclick = function() {
       popover.style.display = 'none';
-      window.equipItem(itemId);
+      // 🔥 ШЛЕМ НА СЕРВЕР ПОЛНОЦЕННЫЙ UUID ВЕЩИ!
+      window.equipItem(itemUidOrId); 
     };
   }
   popover.style.display = 'flex';
@@ -647,7 +654,7 @@ function renderInventory() {
     
     // При клике на шмотку в рюкзаке открываем поп-ап информации
     slot.addEventListener('click', function() {
-      window.showItemInfo(item.id, false); 
+    window.showItemInfo(item.uuid || item.id || item, false); 
     });
     container.appendChild(slot);
   });
