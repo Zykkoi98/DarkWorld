@@ -4,6 +4,7 @@
 // ============================================================================
 
 window.player = null; // Глобальный объект игрока для сквозного доступа из всех файлов
+let currentProfileTab = 'main'
 let currentTab = 'equipment'; // Текущая активная вкладка в инвентаре
 
 // Утилита генерации случайных чисел для кубиков
@@ -279,14 +280,11 @@ window.openProfile = function() {
   let statsBody = modal.querySelector('.modal-body-stats'); 
   if (!statsBody) return;
 
-  const labels = { 
-    strength: '💪 Сила', agility: '🏹 Ловкость', endurance: '🛡️ Выносливость', luck: '🍀 Удача' 
-  };
-  
   statsBody.textContent = '';
   const nextXp = xpToNext(window.player.level);
   const currentXp = (window.player.xp !== undefined) ? window.player.xp : 0;
 
+  // 1. Верхний блок общих параметров персонажа
   const rowsData = [
     { label: '💰 Золото', value: window.player.gold + ' монет' },
     { label: '❤️ Здоровье', value: window.player.hp + ' / ' + window.getMaxHp(window.player) }, 
@@ -302,73 +300,122 @@ window.openProfile = function() {
     statsBody.appendChild(row);
   });
 
-  const pointsDiv = document.createElement('div');
-  pointsDiv.style.cssText = 'margin:15px 0 5px 0; font-weight:bold; font-size:16px; color:#f1c40f; text-align:center;';
-  pointsDiv.textContent = 'Доступно очков: ' + window._tempStatPoints;
-  statsBody.appendChild(pointsDiv);
+  const hr1 = document.createElement('hr');
+  hr1.style.cssText = 'border:0; border-top:1px solid rgba(255,255,255,0.1); margin:12px 0;';
+  statsBody.appendChild(hr1);
 
-  const hr = document.createElement('hr');
-  hr.style.cssText = 'border:0; border-top:1px solid rgba(255,255,255,0.1); margin:12px 0;';
-  statsBody.appendChild(hr);
+  // 2. 🔥 ДОБАВЛЕНИЕ КНОПОК-ВКЛАДОК ПРОФИЛЯ (Основные / Модификаторы)
+  const tabsContainer = document.createElement('div');
+  tabsContainer.style.cssText = 'display: flex; gap: 8px; margin-bottom: 15px; justify-content: center;';
 
-  const fixedOrderKeys = ['strength', 'agility', 'endurance', 'luck'];
-  fixedOrderKeys.forEach(key => {
-    const row = document.createElement('div'); 
-    row.className = 'profile-row';
-    
-    const lSpan = document.createElement('span'); 
-    lSpan.textContent = labels[key];
-    
-    const vSpan = document.createElement('span'); 
-    vSpan.style.display = 'flex'; vSpan.style.alignItems = 'center'; 
-    
-    // 🔥 БРОНИРОВАННЫЙ ФИКС ЧТЕНИЯ: Никаких intellect и ??, только прямое чтение ключей Стойкости
-    const baseVal = Number(window.player.stats[key] ?? 1);
-    const gearBonus = typeof getEquipmentBonus === 'function' ? Number(getEquipmentBonus(window.player, key) || 0) : 0;
-    const tempAdded = Number(window._tempStatDistribution[key] || 0);
-    
-    // Гарантируем математическое сложение чисел
-    const totalVal = baseVal + gearBonus + tempAdded;
+  const btnMain = document.createElement('button');
+  btnMain.textContent = '📊 Основные';
+  btnMain.style.cssText = `flex: 1; padding: 8px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; ${currentProfileTab === 'main' ? 'background: var(--btn); color: #fff;' : 'background: rgba(255,255,255,0.05); color: var(--hint);'}`;
+  btnMain.onclick = () => { currentProfileTab = 'main'; window.openProfile(); };
 
-    const textContainer = document.createElement('span');
-    textContainer.style.marginRight = '8px';
-    
-    let htmlContent = `<strong style="color: #ffffff; font-size: 15px;">${totalVal}</strong> `;
-    if (tempAdded > 0) htmlContent += `<span style="color: #a29bfe; font-size: 12px; font-weight: bold;">(+${tempAdded} предв.)</span> `;
-    htmlContent += `<span style="color: var(--hint); font-size: 12px;">(</span><span style="color: #f1c40f; font-size: 12px; font-weight: bold;">${baseVal}</span><span style="color: var(--hint); font-size: 12px;">)</span>`;
-    if (gearBonus > 0) htmlContent += ` <span style="color: #2ecc71; font-size: 12px; font-weight: bold;">(+${gearBonus})</span>`;
-    
-    textContainer.innerHTML = htmlContent;
-    vSpan.appendChild(textContainer);
+  const btnMods = document.createElement('button');
+  btnMods.textContent = '💥 Модификаторы';
+  btnMods.style.cssText = `flex: 1; padding: 8px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; ${currentProfileTab === 'modifiers' ? 'background: var(--btn); color: #fff;' : 'background: rgba(255,255,255,0.05); color: var(--hint);'}`;
+  btnMods.onclick = () => { currentProfileTab = 'modifiers'; window.openProfile(); };
 
-    const btnContainer = document.createElement('div');
-    btnContainer.style.cssText = 'display: flex; gap: 4px;';
+  tabsContainer.appendChild(btnMain);
+  tabsContainer.appendChild(btnMods);
+  statsBody.appendChild(tabsContainer);
 
-    if (tempAdded > 0) {
-      const minusBtn = document.createElement('button'); minusBtn.textContent = '-';
-      minusBtn.style.cssText = 'background:#e74c3c; border:none; color:#fff; border-radius:6px; padding:3px 9px; font-weight:bold; cursor:pointer;';
-      minusBtn.addEventListener('click', () => window.stepTempStat(key, 'minus'));
-      btnContainer.appendChild(minusBtn);
+  // ============================================================================
+  // ВЕТВЬ А: ОТРИСОВКА ОСНОВНЫХ ХАРАКТЕРИСТИК (СИЛА, ЛОВКОСТЬ И Т.Д.)
+  // ============================================================================
+  if (currentProfileTab === 'main') {
+    const pointsDiv = document.createElement('div');
+    pointsDiv.style.cssText = 'margin:5px 0 10px 0; font-weight:bold; font-size:16px; color:#f1c40f; text-align:center;';
+    pointsDiv.textContent = 'Доступно очков: ' + window._tempStatPoints;
+    statsBody.appendChild(pointsDiv);
+
+    const labels = { strength: '💪 Сила', agility: '🏹 Ловкость', endurance: '🛡️ Выносливость', luck: '🍀 Удача' };
+    const fixedOrderKeys = ['strength', 'agility', 'endurance', 'luck'];
+
+    fixedOrderKeys.forEach(key => {
+      const row = document.createElement('div'); 
+      row.className = 'profile-row';
+      const lSpan = document.createElement('span'); lSpan.textContent = labels[key];
+      const vSpan = document.createElement('span'); vSpan.style.display = 'flex'; vSpan.style.alignItems = 'center'; 
+      
+      const baseVal = Number(window.player.stats[key] ?? 1);
+      const gearBonus = typeof getEquipmentBonus === 'function' ? Number(getEquipmentBonus(window.player, key) || 0) : 0;
+      const tempAdded = Number(window._tempStatDistribution[key] || 0);
+      const totalVal = baseVal + gearBonus + tempAdded;
+
+      const textContainer = document.createElement('span');
+      textContainer.style.marginRight = '8px';
+      
+      let htmlContent = `<strong style="color: #ffffff; font-size: 15px;">${totalVal}</strong> `;
+      if (tempAdded > 0) htmlContent += `<span style="color: #a29bfe; font-size: 12px; font-weight: bold;">(+${tempAdded})</span> `;
+      htmlContent += `<span style="color: var(--hint); font-size: 12px;">(${baseVal})</span>`;
+      if (gearBonus > 0) htmlContent += ` <span style="color: #2ecc71; font-size: 12px; font-weight: bold;">(+${gearBonus})</span>`;
+      
+      textContainer.innerHTML = htmlContent; vSpan.appendChild(textContainer);
+      const btnContainer = document.createElement('div'); btnContainer.style.cssText = 'display: flex; gap: 4px;';
+
+      if (tempAdded > 0) {
+        const minusBtn = document.createElement('button'); minusBtn.textContent = '-';
+        minusBtn.style.cssText = 'background:#e74c3c; border:none; color:#fff; border-radius:6px; padding:3px 9px; font-weight:bold; cursor:pointer;';
+        minusBtn.addEventListener('click', () => window.stepTempStat(key, 'minus'));
+        btnContainer.appendChild(minusBtn);
+      }
+      if (window._tempStatPoints > 0) {
+        const plusBtn = document.createElement('button'); plusBtn.textContent = '+';
+        plusBtn.style.cssText = 'background:var(--btn); border:none; color:#fff; border-radius:6px; padding:3px 9px; font-weight:bold; cursor:pointer;';
+        plusBtn.addEventListener('click', () => window.stepTempStat(key, 'plus'));
+        btnContainer.appendChild(plusBtn);
+      }
+
+      vSpan.appendChild(btnContainer); row.appendChild(lSpan); row.appendChild(vSpan); statsBody.appendChild(row);
+    });
+
+    const anyChanges = Object.values(window._tempStatDistribution).some(v => v > 0);
+    if (anyChanges) {
+      const confirmBtn = document.createElement('button');
+      confirmBtn.id = 'stat-save-btn'; confirmBtn.className = 'battle-btn-finish';
+      confirmBtn.style.cssText = 'margin-top: 15px; width: 100%; background: #2ecc71; border: none; color: #fff; padding: 10px; font-weight: bold; border-radius: 10px; cursor: pointer;';
+      confirmBtn.textContent = '💾 Сохранить характеристики';
+      confirmBtn.addEventListener('click', window.submitStatDistribution);
+      statsBody.appendChild(confirmBtn);
     }
-    if (window._tempStatPoints > 0) {
-      const plusBtn = document.createElement('button'); plusBtn.textContent = '+';
-      plusBtn.style.cssText = 'background:var(--btn); border:none; color:#fff; border-radius:6px; padding:3px 9px; font-weight:bold; cursor:pointer;';
-      plusBtn.addEventListener('click', () => window.stepTempStat(key, 'plus'));
-      btnContainer.appendChild(plusBtn);
-    }
+  } 
+  // ============================================================================
+  // ВЕТВЬ Б: 🔥 ОТРИСОВКА ВТОРОСТЕПЕННЫХ МОДИФИКАТОРОВ БК (МФ. КРИТА, УВОР ОТА...)
+  // ============================================================================
+  else if (currentProfileTab === 'modifiers') {
+    // Подсчитываем чистые статы с куклы
+    const totalAgi = window.player.stats.agility + getEquipmentBonus(window.player, 'agility');
+    const totalLuck = window.player.stats.luck + getEquipmentBonus(window.player, 'luck');
 
-    vSpan.appendChild(btnContainer); row.appendChild(lSpan); row.appendChild(vSpan); statsBody.appendChild(row);
-  });
+    // Каноничные формулы БК: Статы переводятся в Мф. + бонусы шмоток
+    const mfInv = (totalAgi * 10) + getEquipmentBonus(window.player, 'mf_inv');
+    const mfAntiInv = (totalAgi * 4) + getEquipmentBonus(window.player, 'mf_antiinv');
+    const mfCrit = (totalLuck * 10) + getEquipmentBonus(window.player, 'mf_crit');
+    const mfAntiCrit = (totalLuck * 4) + getEquipmentBonus(window.player, 'mf_anticrit');
 
-  const anyChanges = Object.values(window._tempStatDistribution).some(v => v > 0);
-  if (anyChanges) {
-    const confirmBtn = document.createElement('button');
-    confirmBtn.id = 'stat-save-btn';
-    confirmBtn.className = 'battle-btn-finish';
-    confirmBtn.style.cssText = 'margin-top: 15px; width: 100%; background: #2ecc71; border: none; color: #fff; padding: 10px; font-weight: bold; border-radius: 10px; cursor: pointer;';
-    confirmBtn.textContent = '💾 Сохранить характеристики';
-    confirmBtn.addEventListener('click', window.submitStatDistribution);
-    statsBody.appendChild(confirmBtn);
+    const modifiersData = [
+      { label: '🏹 Мф. Увертывания', value: `${mfInv}%`, desc: 'Шанс уклониться от физических атак' },
+      { label: '🎯 Мф. Против увертывания', value: `${mfAntiInv}%`, desc: 'Снижает уворот соперника' },
+      { label: '💥 Мф. Критического удара', value: `${mfCrit}%`, desc: 'Шанс нанести двойной урон (2.0x)' },
+      { label: '🛡️ Мф. Против крита (Антикрит)', value: `${mfAntiCrit}%`, desc: 'Снижает шанс критического удара по вам' }
+    ];
+
+    modifiersData.forEach(mod => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display: flex; flex-direction: column; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);';
+      
+      row.innerHTML = `
+        <div style="display: flex; justify-content: space-between; font-weight: bold;">
+          <span>${mod.label}</span>
+          <span style="color: #6c5ce7; font-size: 16px;">+${mod.value}</span>
+        </div>
+        <div style="color: var(--hint); font-size: 11px; margin-top: 2px;">${mod.desc}</div>
+      `;
+      statsBody.appendChild(row);
+    });
   }
 };
 
