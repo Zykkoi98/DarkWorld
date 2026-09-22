@@ -189,6 +189,15 @@ window.updateShopUi = function() {
 
 window.triggerServerBuy = function(itemId) {
   if (!shopSocket || !localPlayer) return;
+  
+  // Ищем конкретную кнопку, на которую нажал игрок
+  const btn = event.currentTarget || document.activeElement;
+  if (btn && btn.tagName === 'BUTTON') {
+    if (btn.disabled) return; // Защита от дублирующих вызовов
+    btn.disabled = true;      // Блокируем кнопку на клиенте
+    btn.textContent = '⏳...'; // Меняем текст, чтобы игрок видел загрузку
+  }
+
   console.log(`📡 [ПОКУПКА] Отправляем ID товара на сервер: ${itemId}`);
   shopSocket.emit('buy_item_secure', {
     userId: localPlayer.id,

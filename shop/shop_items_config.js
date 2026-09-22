@@ -1,4 +1,4 @@
-window.GAME_ITEMS_DATABASE = {
+window.GAME_ITEMS_DATABASE = Object.assign(window.GAME_ITEMS_DATABASE || {},  {
    // === УРОВЕНЬ 1: СЕТ ПЛУТА ===
   'rogue_knife_1': { name: 'Нож Плута', icon: '🗡️', slotType: 'mainHand', price: 10, level: 1, req: { agility: 3 }, desc: 'Легкий нож для финтов.', bonus: { atk: 2, mf_antiinv: 10 } },
   'rogue_offknife_1': { name: 'Левый Нож Плута', icon: '🗡️', slotType: 'offHand', price: 10, level: 1, req: { agility: 3 }, desc: 'Нож в левую руку. Повышает Ловкость.', bonus: { atk: 1, stats: { agility: 1 } } },
