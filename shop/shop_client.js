@@ -57,8 +57,13 @@ function initShopPage() {
     });
 
   // СЛУШАТЕЛЬ: Сервер поймал античитом нестыковку денег или статов
-  shopSocket.on('shop_buy_error', (data) => {
+   shopSocket.on('shop_buy_error', (data) => {
     alert(data.message);
+    
+    // 🔥 ИСПРАВЛЕНО: Снимаем песочные часы с кнопок, возвращая прилавку рабочий вид!
+    if (typeof window.updateShopUi === 'function') {
+      window.updateShopUi();
+    }
   });
 
   shopSocket.on('error', (msg) => { alert(`❌ Ошибка сети магазина: ${msg}`); });
