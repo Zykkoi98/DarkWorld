@@ -100,40 +100,8 @@ socket.on('load_game_success', (data) => {
     console.log("☁️ [СИНХРОНИЗАЦИЯ] Свежий профиль получен от сервера...");
     window.player = data.player;
 
-    // Безопасно сохраняем в кэш
-    try {
-      localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
-    } catch (e) { console.error("Ошибка записи localStorage:", e); }
-
-    // Инициализируем буфер характеристик
-    if (typeof resetStatBuffer === 'function') {
-      try { resetStatBuffer(); } catch(e) { console.error(e); }
-    }
-
-    // Проверяем уровень и апдейты
-    if (typeof window.checkLevelUp === 'function') {
-      try { window.checkLevelUp(true); } catch(e) { console.error(e); }
-    }
-
-    // Отрисовываем интерфейс города
-    if (typeof render === 'function') {
-      try { render(); } catch(e) { console.error(e); }
-    }
-
-    // Отрисовываем инвентарь и куклу
-    if (typeof window.renderInventory === 'function') {
-      try { window.renderInventory(); } catch(e) { console.error(e); }
-    }
-
-    // Обновляем открытый профиль, если он активен
-    try {
-      const modal = document.getElementById('profile-modal');
-      if (modal && (modal.classList.contains('active') || modal.style.display === 'flex')) {
-        if (typeof window.openProfile === 'function') window.openProfile();
-      }
-    } catch(e) { console.error(e); }
-
-    // 🔥 ФИКС ВЕЧНОЙ ЗАГРУЗКИ: Заворачиваем проверку боя в безопасный блок
+    // 🔥 ВОЗВРАЩАЕМ СТАРУЮ ЛОГИКУ: Запускаем экспресс-проверку боевого статуса СРАЗУ.
+    // Мы гасим лоадер мгновенно, до того, как тяжелый рендеринг картинок и куклы успеет что-то заблокировать в браузере!
     console.log(`📡 Отправляем экспресс-проверку боевого статуса для ID: ${window.player.id}`);
     
     socket.emit('check_active_battle_directly', { userId: String(window.player.id) }, (response) => {
@@ -145,24 +113,38 @@ socket.on('load_game_success', (data) => {
             try { window.Telegram.WebApp.ready(); } catch(e) {}
           }
           window.location.replace(`battle/battle.html?roomId=${response.activeRoomId}`);
+          return; // Выходим, отрисовка города не нужна
         } else {
-          console.log("🟢 Игрок свободен от сражений. Скрываем лоадер.");
+          console.log("🟢 Игрок свободен от сражений. МГНОВЕННО скрываем лоадер, как в старом коде!");
+          
+          // Сначала убираем штору с часами, чтобы экран ожил
           if (typeof hideMainGameLoader === 'function') {
             hideMainGameLoader();
           }
         }
-      } catch (clickErr) {
-        console.error("🚨 Ошибка внутри колбэка check_active_battle_directly:", clickErr);
+      } catch (err) {
+        console.error("Ошибка в колбэке проверки боя:", err);
         if (typeof hideMainGameLoader === 'function') hideMainGameLoader();
       }
+
+      // 🔥 ТЯЖЕЛЫЙ РЕНДЕРИНГ ЗАПУСКАЕМ ПОСЛЕ ТОГО, КАК ШТОРА ОТКРЫЛАСЬ!
+      // Теперь, даже если инвентарь или аватарка выдадут ошибку, город уже будет виден на экране!
+      setTimeout(() => {
+        try {
+          localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
+          if (typeof resetStatBuffer === 'function') resetStatBuffer();
+          if (typeof window.checkLevelUp === 'function') window.checkLevelUp(true);
+          if (typeof render === 'function') render();
+          if (typeof window.renderInventory === 'function') window.renderInventory();
+        } catch (heavyRenderErr) {
+          console.error("⚠️ Ошибка фонового рендеринга интерфейса города:", heavyRenderErr.message);
+        }
+      }, 50); // Небольшая задержка в 50мс, чтобы браузер успел обработать анимацию скрытия лоадера
     });
 
   } catch (globalFrontErr) {
-    // В случае ЛЮБОЙ непредвиденной ошибки на фронтенде — не даем лоадеру зависнуть!
     console.error("❌ Фатальная ошибка обработки load_game_success на клиенте:", globalFrontErr.message);
-    if (typeof hideMainGameLoader === 'function') {
-      hideMainGameLoader();
-    }
+    if (typeof hideMainGameLoader === 'function') hideMainGameLoader();
   }
 });
 
