@@ -89,25 +89,34 @@
 
     // Функция плавного тушения стартового экрана загрузки
     function hideMainGameLoader() {
-      console.log("🧼 Запуск принудительного скрытия песочных часов...");
+      console.log("🧼 Выполняем ультимативный запуск отображения города...");
       const loader = document.getElementById('game-loader-screen');
       
       if (loader) {
-        // 1. Плавно уводим прозрачность
-        loader.style.setProperty('transition', 'opacity 0.25s ease', 'important');
+        // 1. Плавно растворяем песочные часы
+        loader.style.setProperty('transition', 'opacity 0.3s ease', 'important');
         loader.style.setProperty('opacity', '0', 'important');
-        
-        // 2. Блокируем клики сквозь растворяющийся экран, чтобы город уже работал
         loader.style.setProperty('pointer-events', 'none', 'important');
         
-        // 3. Через 250мс жестко гасим отображение, перебивая инлайновый flex
+        // 2. 🔥 ГЛАВНЫЙ ФИКС: Проверяем, во что завернут ваш город.
+        // Если основной контент игры лежит в блоке с id="app" или id="main-content"
+        const appContainer = document.getElementById('app') || document.getElementById('main-content');
+        if (appContainer) {
+          // Насильно включаем видимость города, если CSS по умолчанию прятал его при старте
+          appContainer.style.setProperty('display', 'block', 'important');
+          appContainer.style.setProperty('opacity', '1', 'important');
+          appContainer.style.setProperty('visibility', 'visible', 'important');
+          console.log("🏙️ Интерфейс города Ашенваль успешно переведен в активный режим.");
+        }
+
+        // 3. Жестко убираем лоадер из DOM-дерева через 300мс
         setTimeout(() => {
           loader.style.setProperty('display', 'none', 'important');
           loader.style.setProperty('z-index', '-1', 'important');
-          console.log("✅ [УСПЕХ] Экран загрузки полностью отключен браузером.");
-        }, 250);
+          console.log("✅ Экран загрузки полностью деактивирован.");
+        }, 300);
       } else {
-        console.error("🚨 Ошибка: Элемент с ID 'game-loader-screen' не найден в DOM!");
+        console.error("🚨 Ошибка: Элемент game-loader-screen не найден в HTML!");
       }
     }
   })();
