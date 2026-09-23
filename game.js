@@ -122,12 +122,13 @@ window.checkLevelUp = function(isInitialLoad = false) {
 
     if (!isLeveledDown) {
       const levelsGained = correctLevel - oldLevel;
-      window.player.statPoints = (window.player.statPoints || 0) + (levelsGained * 5);
+      // 🔥 НАЧИСЛЯЕМ ПО 8 СВОБОДНЫХ ОЧКОВ ЗА КАЖДЫЙ НОВЫЙ УРОВЕНЬ!
+      window.player.statPoints = (window.player.statPoints || 0) + (levelsGained * 8);
       window.player.hp = window.getMaxHp(window.player);
     } else {
-      // Экстренный античит-сброс
+      // Экстренный античит-сброс под прогрессию по 8 очков
       window.player.stats = { strength: 1, agility: 1, endurance: 1, luck: 1 };
-      window.player.statPoints = 5 + ((correctLevel - 1) * 5);
+      window.player.statPoints = 5 + ((correctLevel - 1) * 8);
     }
 
     const maxHp = window.getMaxHp(window.player);
