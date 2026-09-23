@@ -162,6 +162,13 @@ function render() {
     mainHpText.textContent = `❤️ ${window.player.hp} / ${window.getMaxHp(window.player)}`;
   }
 
+  // 🔥 ДОПОЛНИТЕЛЬНО: Если на главном экране города у вас есть плашки Атаки и Защиты,
+  // этот код мгновенно запишет туда новые измененные шмотками параметры!
+  const townAtkEl = document.getElementById('town-player-atk');
+  const townDefEl = document.getElementById('town-player-def');
+  if (townAtkEl) townAtkEl.textContent = `⚔️ Атака: ${window.getAtk(window.player)}`;
+  if (townDefEl) townDefEl.textContent = `🛡️ Защита: ${window.getDef(window.player)} ед.`;
+
   renderTown(); 
 }
 
