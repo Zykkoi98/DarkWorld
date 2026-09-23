@@ -103,21 +103,48 @@ socket.on('load_game_success', (data) => {
     window.checkLevelUp(true); 
   }
 
-  // Мгновенно пересчитываем урон, защиту и полосу HP на главном экране города
   if (typeof render === 'function') {
     render();
   }
 
-  // Обновляем слоты куклы и рюкзака
   if (typeof window.renderInventory === 'function') {
     window.renderInventory();
   }
 
-  // 🔥 МГНОВЕННЫЙ ПЕРЕРАСЧЕТ ОКНА ПРОФИЛЯ: если открыто окно статов персонажа,
-  // цифры Атаки и Защиты перепишутся прямо на глазах под новую вещь!
   const modal = document.getElementById('profile-modal');
   if (modal && (modal.classList.contains('active') || modal.style.display === 'flex')) {
     if (typeof window.openProfile === 'function') window.openProfile();
+  }
+
+  // 🔥 ФИКС ВЕЧНОЙ ЗАГРУЗКИ: Проверяем боевой статус через ОДИН легальный сокет города
+  console.log(`📡 Проверяем ОЗУ сервера на наличие активного боя для ID: ${window.player.id}`);
+  
+  socket.emit('check_active_battle_directly', { userId: String(window.player.id) }, (response) => {
+    if (response && response.activeRoomId) {
+      console.log(`⚔️ [ПЕРЕХВАТ] Обнаружен активный бой ${response.activeRoomId}. Уходим на арену!`);
+      
+      if (window.Telegram && window.Telegram.WebApp) {
+        try { window.Telegram.WebApp.ready(); } catch(e) {}
+      }
+      
+      // Перенаправляем на боевой экран
+      window.location.replace(`battle/battle.html?roomId=${response.activeRoomId}`);
+    } else {
+      console.log("🟢 Игрок свободен от сражений. Разрешаем отображение города.");
+      
+      // 🔥 СКРЫВАЕМ ПЕСОЧНЫЕ ЧАСЫ: Вызываем функцию, которая уберет экран загрузки
+      if (typeof hideMainGameLoader === 'function') {
+        hideMainGameLoader();
+      }
+    }
+  });
+});
+
+// Если соединение оборвалось или выдало ошибку, город все равно должен открыться
+socket.on('connect_error', () => {
+  console.warn("⚠️ Сервер Render недоступен. Открываем город по умолчанию.");
+  if (typeof hideMainGameLoader === 'function') {
+    hideMainGameLoader();
   }
 });
    // СЦЕНАРИЙ ДЛЯ НОВИЧКА: Игрока еще нет в базе, генерируем стартовый профиль
