@@ -12,7 +12,7 @@ function initArenaPage() {
   console.log("🚀 Запуск лобби Арены через защищенный сокет-мост...");
   const parentWindow = window.parent;
 
-  // Безопасно забираем уже подключенный сокет города из родительского WebApp окна
+  // 1. Безопасно забираем уже подключенный сокет города из родительского WebApp окна
   if (parentWindow && parentWindow.socket) {
     socket = parentWindow.socket;
     setupSocketListeners();
@@ -24,15 +24,25 @@ function initArenaPage() {
     }
   }
   
-  // Достаем профиль персонажа из локального кэша телефона
-  const localSave = localStorage.getItem('rpg_save');
-  if (localSave) {
-    try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
+  // 🔥 ИСПРАВЛЕНО: Забираем профиль НАПРЯМУЮ из RAM родительского окна (Города).
+  // Больше никакого лагающего localStorage при обновлении статов или экипировки!
+  if (parentWindow && parentWindow.player) {
+    localPlayer = parentWindow.player;
+    console.log("✨ Профиль игрока успешно подтянут напрямую из RAM города:", localPlayer.name);
+  } else {
+    // Запасной вариант на случай автономной отладки страницы в браузере
+    console.warn("⚠️ Родительский объект player не найден, откатываемся на кэш...");
+    const localSave = localStorage.getItem('rpg_save');
+    if (localSave) {
+      try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
+    }
   }
   
   if (!localPlayer) {
     alert("❌ Профиль персонажа не найден! Вернитесь в город.");
-    window.parent.postMessage({ type: 'CLOSE_ARENA_OVERLAY' }, '*');
+    if (parentWindow && typeof parentWindow.postMessage === 'function') {
+      parentWindow.postMessage({ type: 'CLOSE_ARENA_OVERLAY' }, '*');
+    }
     return;
   }
   
