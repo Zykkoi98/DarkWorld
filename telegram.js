@@ -116,7 +116,7 @@ socket.on('load_game_success', (data) => {
     } else {
       window.player = { 
         id: Number(userId), name: username, level: 1, xp: 0, gold: 50, hp: 10, statPoints: 5, currentTownIndex: 0, 
-        stats: { strength: 1, agility: 1, endurance: 1, intellect: 1, luck: 1 }, 
+        stats: { strength: 1, agility: 1, endurance: 1, luck: 1 }, 
         inventory: { equipment: [], consumables: [], resources: [] }, 
         equipped: { rings: [null, null, null] } 
       };

@@ -45,45 +45,48 @@ function initArenaPage() {
   globalLobbyInterval = setInterval(refreshArenaLobby, 4000);
 }
 
+// ============================================================================
+// ===== 🏆 КЛИЕНТСКОЕ ЛОББИ PvP АРЕНЫ — ИСПРАВЛЕННЫЙ БЕЗОПАСНЫЙ ВАРИАНТ =====
+// ============================================================================
+
+// Создаем постоянные ссылки на функции-обработчики для безопасного удаления из памяти
+const onArenaLobbyUpdated = () => { 
+  refreshArenaLobby(); 
+};
+
+const onArenaLobbyData = (lobbyData) => {
+  renderLobbyInterface(lobbyData);
+};
+
 function setupSocketListeners() {
   if (!socket) return;
   
-  socket.off('arena_lobby_updated');
-  socket.off('arena_lobby_data');
+  // Сначала точечно удаляем старые привязки именно этих функций, если они были
+  socket.off('arena_lobby_updated', onArenaLobbyUpdated);
+  socket.off('arena_lobby_data', onArenaLobbyData);
   
-  // Сервер сообщает, что список заявок изменился -> обновляем доску
-  socket.on('arena_lobby_updated', () => { 
-    refreshArenaLobby(); 
-  });
-
-  // Получаем свежий срез комнат от сервера и отправляем на отрисовку в UI
-  socket.on('arena_lobby_data', (lobbyData) => {
-    renderLobbyInterface(lobbyData);
-  });
+  // Подписываем именованные функции
+  socket.on('arena_lobby_updated', onArenaLobbyUpdated);
+  socket.on('arena_lobby_data', onArenaLobbyData);
 }
-// ============================================================================
-// ===== 🏆 КЛИЕНТСКОЕ ЛОББИ PvP АРЕНЫ И СОКЕТ-СИНХРОНИЗАЦИЯ (ARENA.JS) =====
-// ===== ЧАСТЬ 2 ИЗ 2: ОПЕРАЦИОННЫЙ БЛОК, ТАКТИКА И ИНТЕРФЕЙС ТАБЛИЦЫ =====
-// ============================================================================
 
 function setupClickListeners() {
   document.getElementById('create-request-btn')?.addEventListener('click', createMyRequest);
   document.getElementById('cancel-request-btn')?.addEventListener('click', cancelMyRequest);
   
-  // Безопасный выход с Арены обратно на площадь города Ашенваль
   const backBtn = document.getElementById('back-to-town-btn') || document.querySelector('.back-btn') || document.querySelector('button');
   if (backBtn) {
     backBtn.addEventListener('click', function(e) {
       e.preventDefault();
-      console.log("🏃‍♂️ Скрываем Арену. Сокет продолжает фоновое ожидание вызова...");
+      console.log("🏃‍♂️ Скрываем Арену. Безопасно отключаем только локальные слушатели...");
       
       if (myTimerInterval) clearInterval(myTimerInterval);
       if (globalLobbyInterval) clearInterval(globalLobbyInterval);
       
-      // Снимаем тяжелый рендер таблиц, но НЕ ТРОГАЕМ сокет 'arena_redirect_to_battle'!
+      // 🔥 ИСПРАВЛЕНО: Отключаем ТОЛЬКО обработчики Арены, не ломая сокеты города!
       if (socket) {
-        socket.off('arena_lobby_updated');
-        socket.off('arena_lobby_data');
+        socket.off('arena_lobby_updated', onArenaLobbyUpdated);
+        socket.off('arena_lobby_data', onArenaLobbyData);
       }
       
       window.parent.postMessage({ type: 'CLOSE_ARENA_OVERLAY' }, '*');
