@@ -1,89 +1,73 @@
+// ============================================================================
+// ===== 🛒 ИЗОЛИРОВАННЫЙ АВТОНОМНЫЙ СКРИПТ ТОРГОВЛИ (SHOP_CLIENT.JS) =====
+// ============================================================================
+
 let shopSocket = null;
 let localPlayer = null;
 let currentTabClass = 'dodger';
 
 function initShopPage() {
-  // 1. Читаем кэш профиля
+  // 1. Читаем кэш профиля персонажа
   const localSave = localStorage.getItem('rpg_save');
   if (localSave) {
     try { localPlayer = JSON.parse(localSave).player; } catch(e) {}
   }
 
   if (!localPlayer) {
-    alert("❌ Ошибка: Профиль персонажа не найден! Вернитесь на главную.");
+    alert("❌ Ошибка: Профиль персонажа не найден! Вернитесь на главную площадь.");
     window.exitShop();
     return;
   }
 
-  const parentWindow = window.parent || window.opener;
-
-  // 🔥 ОБЪЯВЛЯЕМ bindToParentSocket СТРОГО ВНУТРИ ФУНКЦИИ ИНИЦИАЛИЗАЦИИ
-  const bindToParentSocket = () => {
-    // Ищем сокет в window.parent или напрямую в глобальном поле родительского окна
-    const activeParentSocket = (parentWindow && parentWindow.socket) || (window.parent && window.parent.socket);
-    
-    if (activeParentSocket) {
-      shopSocket = activeParentSocket;
-      console.log("🔌 [МАГАЗИН] Сетевой мост успешно активирован на сокете:", shopSocket.id);
-
-      // Сбрасываем старые дубликаты перед подпиской
-      shopSocket.off('load_game_success');
-      shopSocket.off('shop_buy_success');
-      shopSocket.off('shop_buy_error');
-      shopSocket.off('error');
-
-      shopSocket.on('load_game_success', (data) => {
-        if (data && data.player) {
-          localPlayer = data.player;
-          localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-          window.updateShopUi();
-        }
-      });
-
-      shopSocket.on('shop_buy_success', (data) => {
-        alert(data.message);
-        if (data && data.player) {
-          localPlayer = data.player;
-          localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-          window.updateShopUi();
-        }
-      });
-
-      shopSocket.on('shop_buy_error', (data) => {
-        alert(data.message);
-        if (typeof window.updateShopUi === 'function') window.updateShopUi();
-      });
-
-      shopSocket.on('error', (msg) => { alert(`❌ Ошибка сети магазина: ${msg}`); });
-
-      // Запрашиваем авторизацию в лавке
-      shopSocket.emit('buy_item_secure', { userId: localPlayer.id });
-      window.updateShopUi();
-      return true;
-    }
-    return false;
-  };
-
-  // 🔥 КОНТРОЛЬ ОЖИДАНИЯ СОКЕТА БЕЗ БЛОКИРУЮЩЕГО ФЛАГА CONNECTED
-  if (!bindToParentSocket()) {
-    console.log("⏳ Магазин ожидает готовности сокета города...");
-    
-    const waitForMasterSocket = setInterval(() => {
-      const liveParent = window.parent || window.opener;
-      const liveSocket = liveParent?.socket || window.socket || (window.parent && window.parent.socket);
-
-      if (liveSocket) {
-        clearInterval(waitForMasterSocket);
-        console.log("✅ [УСПЕХ] Магазин бесшовно перехватил сокет города!");
-        
-        // Принудительно связываем сокет и запускаем авторизацию
-        shopSocket = liveSocket;
-        bindToParentSocket();
-      }
-    }, 200); // Опрашиваем RAM каждые 200 миллисекунд
+  console.log("📡 [АВТОНОМНЫЙ МАГАЗИН] Поднимаем собственный сокет лавки...");
+  
+  // 🔥 ПОДНИМАЕМ НОВЫЙ СОБСТВЕННЫЙ СОКЕТ СПЕЦИАЛЬНО ДЛЯ МАГАЗИНА
+  if (typeof io !== 'undefined') {
+    shopSocket = io('https://onrender.com', {
+      transports: ['websocket'],
+      forceNew: true, // Принудительно выделяем новую чистую сессию
+      upgrade: false
+    });
+  } else {
+    console.error("❌ Библиотека Socket.io не подгружена в shop.html!");
+    alert("Ошибка сети магазина.");
+    return;
   }
 
-  // Сразу рисуем интерфейс из кэша, чтобы экран не был пустым во время ожидания сети
+  // Навешиваем слушатели на наш персональный сокет магазина
+  shopSocket.on('connect', () => {
+    console.log("✅ [УСПЕХ] Магазин успешно подключился к серверу на своем сокете:", shopSocket.id);
+    // Авторизуем персонажа на сервере по его ID
+    shopSocket.emit('buy_item_secure', { userId: localPlayer.id });
+  });
+
+  shopSocket.on('load_game_success', (data) => {
+    if (data && data.player) {
+      console.log("☁️ [МАГАЗИН] Данные кошелька обновлены сервером.");
+      localPlayer = data.player;
+      localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+      window.updateShopUi();
+    }
+  });
+
+  shopSocket.on('shop_buy_success', (data) => {
+    alert(data.message);
+    if (data && data.player) {
+      localPlayer = data.player;
+      localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+      window.updateShopUi();
+    }
+  });
+
+  shopSocket.on('shop_buy_error', (data) => {
+    alert(data.message);
+    if (typeof window.updateShopUi === 'function') window.updateShopUi();
+  });
+
+  shopSocket.on('error', (msg) => { alert(`❌ Ошибка сети магазина: ${msg}`); });
+  shopSocket.on('connect_error', () => { console.warn("🚨 Магазин не смог достучаться до Render."); });
+
+  // Сразу рисуем интерфейс из кэша, чтобы игрок мгновенно видел золото и шмотки
   window.updateShopUi();
 }
 
@@ -93,6 +77,10 @@ window.setShopClass = function(className) {
 };
 
 window.exitShop = function() {
+  // 🔥 При выходе обязательно глушим сокет магазина, чтобы не спамить сервер
+  if (shopSocket) {
+    try { shopSocket.disconnect(); } catch(e) {}
+  }
   window.location.replace('../index.html'); // Возврат на главную площадь города
 };
 
@@ -214,5 +202,4 @@ window.triggerServerBuy = function(itemId, event) {
     itemId: itemId
   });
 };
-
 document.addEventListener('DOMContentLoaded', initShopPage);
