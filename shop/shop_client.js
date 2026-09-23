@@ -23,7 +23,7 @@ function initShopPage() {
   
   // 🔥 ПОДНИМАЕМ НОВЫЙ СОБСТВЕННЫЙ СОКЕТ СПЕЦИАЛЬНО ДЛЯ МАГАЗИНА
   if (typeof io !== 'undefined') {
-    shopSocket = io('https://onrender.com', {
+    shopSocket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket'],
       forceNew: true, // Принудительно выделяем новую чистую сессию
       upgrade: false
