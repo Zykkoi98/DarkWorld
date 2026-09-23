@@ -92,16 +92,20 @@ socket.on('load_game_success', (data) => {
 
   if (typeof window.checkLevelUp === 'function') {
     window.checkLevelUp(true); 
-  } else if (typeof render === 'function') {
+  }
+
+  // Мгновенно пересчитываем урон, защиту и полосу HP на главном экране города
+  if (typeof render === 'function') {
     render();
   }
 
-  // 🔥 ЖЕСТКИЙ ФИКС ОТОБРАЖЕНИЯ ЭКИПИРОВКИ: 
-  // Если открыто окно инвентаря, мгновенно перерисовываем куклу персонажа БЕЗ F5!
+  // Обновляем слоты куклы и рюкзака
   if (typeof window.renderInventory === 'function') {
     window.renderInventory();
   }
 
+  // 🔥 МГНОВЕННЫЙ ПЕРЕРАСЧЕТ ОКНА ПРОФИЛЯ: если открыто окно статов персонажа,
+  // цифры Атаки и Защиты перепишутся прямо на глазах под новую вещь!
   const modal = document.getElementById('profile-modal');
   if (modal && (modal.classList.contains('active') || modal.style.display === 'flex')) {
     if (typeof window.openProfile === 'function') window.openProfile();
