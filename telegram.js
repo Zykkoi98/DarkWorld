@@ -24,16 +24,19 @@ window.loadGame = function(callback) {
     return;
   }
 
-  console.log("📡 Подключаем сокет города к боевому серверу Render...");
+ console.log("📡 Подключаем сокет города к боевому серверу Render...");
   if (typeof io !== 'undefined') {
-    // Создаем ОДНО единственное соединение
+    
+    // 🔥 ФИКС: Явно создаем и СРАЗУ записываем сокет в глобальный объект window.socket
     window.socket = io('https://darkworld-server.onrender.com', {
-       transports: ['websocket'], // Отключаем polling, работаем ТОЛЬКО через чистые, быстрые веб-сокеты
+      transports: ['websocket'],
       forceNew: false,
-      rememberUpgrade: true
+      upgrade: false
     });
-    window.socket = masterSocket;
+
+    // Инициализируем слушатели данных
     setupSecureDataListeners(callback);
+    
   } else {
     console.error("❌ Критическая ошибка: Библиотека Socket.io не подключена в index.html!");
     if (typeof callback === 'function') callback("Socket.io missing");
