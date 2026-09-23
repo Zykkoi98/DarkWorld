@@ -67,19 +67,24 @@ function initShopPage() {
     // Сценарий А: Город загрузился быстрее, сокет уже готов — сразу включаем сеть
     startShopNetworkInterface(directSocket);
   } else {
-    // Сценарий Б: Магазин обогнал город. Запускаем безопасный таймер ожидания без вылетов кода
+    if (!bindToParentSocket()) {
     console.log("⏳ Магазин ожидает готовности сокета города...");
     
     const waitForMasterSocket = setInterval(() => {
       const liveParent = window.parent || window.opener;
-      const liveSocket = liveParent?.socket;
+      
+      // Ищем сокет во всех возможных глобальных ветках родительского окна
+      const liveSocket = liveParent?.socket || window.socket || (window.parent && window.parent.socket);
 
-      if (liveSocket && liveSocket.connected) {
+      // 🔥 ИСПРАВЛЕНО: Убираем проверку liveSocket.connected! 
+      // Если объект сокета физически появился в оперативной памяти — забираем его и включаем сеть лавки!
+      if (liveSocket) {
         clearInterval(waitForMasterSocket);
-        console.log("✅ [УСПЕХ] Магазин бесшовно перехватил сокет города!");
+        console.log("✅ [УСПЕХ] Магазин бесшовно перехватил сокет города и активировал прилавки!");
         startShopNetworkInterface(liveSocket);
       }
-    }, 200); // Опрашиваем RAM каждые 200 миллисекун
+    }, 200); // Опрашиваем оперативную память каждые 200мс
+  }
   }
 
   // Сразу рисуем интерфейс из кэша, чтобы экран не был пустым во время ожидания сети
