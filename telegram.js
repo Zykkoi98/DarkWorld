@@ -28,8 +28,9 @@ window.loadGame = function(callback) {
   if (typeof io !== 'undefined') {
     // Создаем ОДНО единственное соединение
     window.socket = io('https://darkworld-server.onrender.com', {
-      transports: ['websocket', 'polling'],
-      forceNew: false // Запрещаем плодить новые соединения при повторных вызовах
+       transports: ['websocket'], // Отключаем polling, работаем ТОЛЬКО через чистые, быстрые веб-сокеты
+      forceNew: false,
+      rememberUpgrade: true
     });
     setupSecureDataListeners(callback);
   } else {
