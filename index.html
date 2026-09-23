@@ -89,14 +89,25 @@
 
     // Функция плавного тушения стартового экрана загрузки
     function hideMainGameLoader() {
+      console.log("🧼 Запуск принудительного скрытия песочных часов...");
       const loader = document.getElementById('game-loader-screen');
+      
       if (loader) {
-        // Задаем красивый эффект плавного растворения
-        loader.style.transition = "opacity 0.3s ease";
-        loader.style.opacity = "0";
+        // 1. Плавно уводим прозрачность
+        loader.style.setProperty('transition', 'opacity 0.25s ease', 'important');
+        loader.style.setProperty('opacity', '0', 'important');
+        
+        // 2. Блокируем клики сквозь растворяющийся экран, чтобы город уже работал
+        loader.style.setProperty('pointer-events', 'none', 'important');
+        
+        // 3. Через 250мс жестко гасим отображение, перебивая инлайновый flex
         setTimeout(() => {
-          loader.style.display = "none";
-        }, 300);
+          loader.style.setProperty('display', 'none', 'important');
+          loader.style.setProperty('z-index', '-1', 'important');
+          console.log("✅ [УСПЕХ] Экран загрузки полностью отключен браузером.");
+        }, 250);
+      } else {
+        console.error("🚨 Ошибка: Элемент с ID 'game-loader-screen' не найден в DOM!");
       }
     }
   })();
