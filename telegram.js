@@ -13,22 +13,31 @@ window.loadGame = function(callback) {
   const TG = window.Telegram?.WebApp;
   const tgUser = TG?.initDataUnsafe?.user;
   
-  // Инициализируем базовое сокет-соединение с сервером Render, если его еще нет
-  if (!window.socket) {
-    console.log("📡 Подключаем сокет города к боевому серверу Render...");
-    if (typeof io !== 'undefined') {
-      window.socket = io('https://darkworld-server.onrender.com');
-      setupSecureDataListeners(callback);
+  // 🔥 ЗАЩИТА ОТ ДВОЙНОГО СТАРТА: Если сокет уже существует, не создаем его заново!
+  if (window.socket) {
+    console.log("⚠️ Сокет города уже инициализирован, пропускаем повторный вызов.");
+    if (window.socket.connected && typeof callback === 'function') {
+      callback(null);
     } else {
-      console.error("❌ Критическая ошибка: Библиотека Socket.io не подключена в index.html!");
-      if (typeof callback === 'function') callback("Socket.io missing");
-      return;
+      setupSecureDataListeners(callback);
     }
-  } else {
-    setupSecureDataListeners(callback);
+    return;
   }
 
-  // Извлекаем реальный ID из Телеграма (или даем тестовый для отладки на ПК)
+  console.log("📡 Подключаем сокет города к боевому серверу Render...");
+  if (typeof io !== 'undefined') {
+    // Создаем ОДНО единственное соединение
+    window.socket = io('https://darkworld-server.onrender.com', {
+      transports: ['websocket', 'polling'],
+      forceNew: false // Запрещаем плодить новые соединения при повторных вызовах
+    });
+    setupSecureDataListeners(callback);
+  } else {
+    console.error("❌ Критическая ошибка: Библиотека Socket.io не подключена в index.html!");
+    if (typeof callback === 'function') callback("Socket.io missing");
+    return;
+  }
+
   let userId = 777777;
   let username = "Браузерный_Тестер";
 
@@ -37,7 +46,6 @@ window.loadGame = function(callback) {
     username = tgUser.first_name || "Рыцарь";
   }
 
-  // Отправляем защищенный сокет-запрос на авторизацию бэкенду
   window.socket.emit('load_game_secure', { userId, username });
 };
 
