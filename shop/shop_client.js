@@ -4,10 +4,10 @@
 
 let shopSocket = null;
 let localPlayer = null;
-let currentTabClass = 'dodger'; // По умолчанию открыт прилавок уворотчиков
+let currentTabClass = 'dodger';
 
 function initShopPage() {
-  // 1. Извлекаем локальный профиль игрока для проверки золота/уровня на экране
+  // 1. Читаем кэш профиля
   const localSave = localStorage.getItem('rpg_save');
   if (localSave) {
     try { localPlayer = JSON.parse(localSave).player; } catch(e) {}
@@ -19,78 +19,72 @@ function initShopPage() {
     return;
   }
 
-  const parentWindow = window.parent;
+  // Функция, которая вешает сетевые слушатели строго ПОСЛЕ того, как сокет найден
+  const startShopNetworkInterface = (activeSocket) => {
+    shopSocket = activeSocket;
+    console.log("🔌 [МАГАЗИН] Сетевой мост активирован на сокете:", shopSocket.id);
 
-  // Функция привязки к готовому сокету города
-  const bindToParentSocket = () => {
-    if (parentWindow && parentWindow.socket) {
-      // Забираем ссылку на сокет родителя в любом состоянии
-      shopSocket = parentWindow.socket;
-      
-      // Навешиваем слушатели магазина БЕЗОПАСНО
-      shopSocket.off('load_game_success');
-      shopSocket.on('load_game_success', (data) => {
-        if (data && data.player) {
-          localPlayer = data.player;
-          localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-          window.updateShopUi();
-        }
-      });
+    // Сбрасываем старые дубликаты перед подпиской
+    shopSocket.off('load_game_success');
+    shopSocket.off('shop_buy_success');
+    shopSocket.off('shop_buy_error');
+    shopSocket.off('error');
 
-      shopSocket.off('shop_buy_success');
-      shopSocket.on('shop_buy_success', (data) => {
-        alert(data.message);
-        if (data && data.player) {
-          localPlayer = data.player;
-          localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-          window.updateShopUi();
-        }
-      });
-
-      shopSocket.off('shop_buy_error');
-      shopSocket.on('shop_buy_error', (data) => {
-        alert(data.message);
-        if (typeof window.updateShopUi === 'function') {
-          window.updateShopUi();
-        }
-      });
-
-      // 🔥 ФИКС ОШИБКИ NULL: Переносим слушатель ошибок СЮДА! Больше он никогда не упадет.
-      shopSocket.off('error');
-      shopSocket.on('error', (msg) => { alert(`❌ Ошибка сети магазина: ${msg}`); });
-
-      // Если сокет уже полностью подключен — сразу запрашиваем данные
-      if (shopSocket.connected) {
-        shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
-        return true;
+    shopSocket.on('load_game_success', (data) => {
+      if (data && data.player) {
+        localPlayer = data.player;
+        localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+        window.updateShopUi();
       }
-    }
-    return false;
+    });
+
+    shopSocket.on('shop_buy_success', (data) => {
+      alert(data.message);
+      if (data && data.player) {
+        localPlayer = data.player;
+        localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+        window.updateShopUi();
+      }
+    });
+
+    shopSocket.on('shop_buy_error', (data) => {
+      alert(data.message);
+      if (typeof window.updateShopUi === 'function') window.updateShopUi();
+    });
+
+    shopSocket.on('error', (msg) => { alert(`❌ Ошибка сети магазина: ${msg}`); });
+
+    // Запрашиваем авторизацию в лавке
+    shopSocket.emit('buy_item_secure', { userId: localPlayer.id });
+    window.updateShopUi();
   };
 
-  // 🔥 КОНТРОЛЬ ОЖИДАНИЯ СОКЕТА
-if (!bindToParentSocket()) {
-    console.log("⏳ Магазин ожидает инициализацию сокета города...");
+  // 🔥 ПОИСК И ПЕРЕХВАТ СОКЕТА РОДИТЕЛЯ
+  const parentWindow = window.parent || window.opener;
+  const directSocket = parentWindow?.socket;
+
+  if (directSocket && directSocket.connected) {
+    // Сценарий А: Город загрузился быстрее, сокет уже готов — сразу включаем сеть
+    startShopNetworkInterface(directSocket);
+  } else {
+    // Сценарий Б: Магазин обогнал город. Запускаем безопасный таймер ожидания без вылетов кода
+    console.log("⏳ Магазин ожидает готовности сокета города...");
     
     const waitForMasterSocket = setInterval(() => {
-      // Ищем сокет в window.parent или напрямую в глобальном поле родительского окна
-      const activeParentSocket = (parentWindow && parentWindow.socket) || (window.parent && window.parent.socket);
-      
-      if (activeParentSocket && activeParentSocket.connected) {
+      const liveParent = window.parent || window.opener;
+      const liveSocket = liveParent?.socket;
+
+      if (liveSocket && liveSocket.connected) {
         clearInterval(waitForMasterSocket);
-        console.log("✅ Магазин успешно подключился к единому каналу города!");
-        
-        // Принудительно связываем сокет и запускаем авторизацию
-        shopSocket = activeParentSocket;
-        bindToParentSocket();
+        console.log("✅ [УСПЕХ] Магазин бесшовно перехватил сокет города!");
+        startShopNetworkInterface(liveSocket);
       }
-    }, 300);
+    }, 200); // Опрашиваем RAM каждые 200 миллисекунд
   }
 
-  // Обновляем визуальный интерфейс лавки (монетки, кнопки)
+  // Сразу рисуем интерфейс из кэша, чтобы экран не был пустым во время ожидания сети
   window.updateShopUi();
 }
-
 window.setShopClass = function(className) {
   currentTabClass = className;
   window.updateShopUi();
