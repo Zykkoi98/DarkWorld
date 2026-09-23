@@ -35,10 +35,11 @@ function initShopPage() {
   }
 
   // Навешиваем слушатели на наш персональный сокет магазина
-  shopSocket.on('connect', () => {
+   shopSocket.on('connect', () => {
     console.log("✅ [УСПЕХ] Магазин успешно подключился к серверу на своем сокете:", shopSocket.id);
-    // Авторизуем персонажа на сервере по его ID
-    shopSocket.emit('buy_item_secure', { userId: localPlayer.id });
+    
+    // 🔥 ИСПРАВЛЕНО: Вместо покупки отправляем безопасный запрос синхронизации кошелька!
+    shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   });
 
   shopSocket.on('load_game_success', (data) => {
