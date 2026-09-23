@@ -19,52 +19,58 @@ function initShopPage() {
     return;
   }
 
-  // 2. Подключаем выделенный сокет к серверу Render
-  shopSocket = io('https://darkworld-server.onrender.com', {
-    transports: ['websocket', 'polling']
-  });
+  const parentWindow = window.parent;
 
-  // === НАЙДИ И ЗАМЕНИ В SHOP_CLIENT.JS ===
-  shopSocket.on('connect', () => {
-    console.log("🔌 Сокет Магазина успешно подключен к серверу Render.");
-    
-    // Просим сервер прислать чистые данные игрока
-    shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
-  });
-
-  // СЛУШАТЕЛЬ: Сервер успешно синхронизировал профиль из Supabase
-  shopSocket.on('load_game_success', (data) => {
-    if (data && data.player) {
-      localPlayer = data.player;
-      // Перезаписываем локальный сейв, чтобы новые вещи появились в инвентаре города
-      localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-      window.updateShopUi();
-    }
-  });
-
-  // СЛУШАТЕЛЬ: Сервер подтвердил успешное списание денег и выдачу шмотки
-    shopSocket.on('shop_buy_success', (data) => {
-        alert(data.message);
-        
-        // Если сервер прислал обновленный профиль, вшиваем его в память смартфона
+  // Функция привязки к готовому сокету города
+  const bindToParentSocket = () => {
+    if (parentWindow && parentWindow.socket && parentWindow.socket.connected) {
+      shopSocket = parentWindow.socket;
+      
+      // Навешиваем слушатели магазина на единый сокет
+      shopSocket.on('load_game_success', (data) => {
         if (data && data.player) {
-        localPlayer = data.player;
-        localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-        
-        // Мгновенно обновляем монетки и кнопки на экране лавки
-        window.updateShopUi();
+          localPlayer = data.player;
+          localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+          window.updateShopUi();
         }
-    });
+      });
 
-  // СЛУШАТЕЛЬ: Сервер поймал античитом нестыковку денег или статов
-   shopSocket.on('shop_buy_error', (data) => {
-    alert(data.message);
-    
-    // 🔥 ИСПРАВЛЕНО: Снимаем песочные часы с кнопок, возвращая прилавку рабочий вид!
-    if (typeof window.updateShopUi === 'function') {
-      window.updateShopUi();
+      shopSocket.on('shop_buy_success', (data) => {
+        alert(data.message);
+        if (data && data.player) {
+          localPlayer = data.player;
+          localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+          window.updateShopUi();
+        }
+      });
+
+      shopSocket.on('shop_buy_error', (data) => {
+        alert(data.message);
+        if (typeof window.updateShopUi === 'function') {
+          window.updateShopUi();
+        }
+      });
+
+      return true;
     }
-  });
+    return false;
+  };
+
+  // 🔥 ФИКС ТРЕТЬЕГО СОКЕТА: Не плодим параллельные соединения при автозагрузке Telegram!
+  if (!bindToParentSocket()) {
+    console.log("⏳ Магазин ожидает инициализацию сокета города...");
+    const waitForMasterSocket = setInterval(() => {
+      if (bindToParentSocket()) {
+        clearInterval(waitForMasterSocket);
+        console.log("✅ Магазин успешно подключился к единому каналу города!");
+        // Запрашиваем синхронизацию
+        shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
+      }
+    }, 300);
+  } else {
+    // Если сокет уже был готов сразу
+    shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
+  }
 
   shopSocket.on('error', (msg) => { alert(`❌ Ошибка сети магазина: ${msg}`); });
 
