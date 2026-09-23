@@ -53,13 +53,12 @@
     }
 
     const sUserId = String(userId);
-
+/* 
     // 2. Поднимаем быстрый временный сокет для опроса ОЗУ бэкенда Render
     const expressSocket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket', 'polling'],
       timeout: 1800 // Если сервер спит или тормозит, не вешаем загрузку игры намертво
-    });
-
+    });   
     expressSocket.on('connect', () => {
       console.log(`📡 Экспресс-сокет на связи. Проверяем ОЗУ сервера для ID: ${sUserId}`);
       
@@ -86,7 +85,7 @@
       console.warn("⚠️ Сервер Render не ответил вовремя. Открываем город по умолчанию.");
       expressSocket.disconnect();
       hideMainGameLoader();
-    });
+    });*/
 
     // Функция плавного тушения стартового экрана загрузки
     function hideMainGameLoader() {
