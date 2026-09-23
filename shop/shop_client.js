@@ -69,16 +69,19 @@ function initShopPage() {
   };
 
   // 🔥 КОНТРОЛЬ ОЖИДАНИЯ СОКЕТА
-  if (!bindToParentSocket()) {
+if (!bindToParentSocket()) {
     console.log("⏳ Магазин ожидает инициализацию сокета города...");
     
     const waitForMasterSocket = setInterval(() => {
-      // Проверяем, появился ли сокет родителя и подключился ли он
-      if (parentWindow && parentWindow.socket && parentWindow.socket.connected) {
+      // Ищем сокет в window.parent или напрямую в глобальном поле родительского окна
+      const activeParentSocket = (parentWindow && parentWindow.socket) || (window.parent && window.parent.socket);
+      
+      if (activeParentSocket && activeParentSocket.connected) {
         clearInterval(waitForMasterSocket);
         console.log("✅ Магазин успешно подключился к единому каналу города!");
         
-        // Повторно вызываем бинд, чтобы активировать слушатели и сделать load_game_secure
+        // Принудительно связываем сокет и запускаем авторизацию
+        shopSocket = activeParentSocket;
         bindToParentSocket();
       }
     }, 300);

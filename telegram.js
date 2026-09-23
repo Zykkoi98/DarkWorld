@@ -32,6 +32,7 @@ window.loadGame = function(callback) {
       forceNew: false,
       rememberUpgrade: true
     });
+    window.socket = masterSocket;
     setupSecureDataListeners(callback);
   } else {
     console.error("❌ Критическая ошибка: Библиотека Socket.io не подключена в index.html!");
