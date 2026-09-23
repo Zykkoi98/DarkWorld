@@ -9,50 +9,48 @@ let myTimerInterval = null;
 let globalLobbyInterval = null;
 
 function initArenaPage() {
-  console.log("🚀 Запуск лобби Арены через защищенный сокет-мост...");
+  console.log("🚀 Запуск лобби Арены...");
   const parentWindow = window.parent;
 
-  // 1. Безопасно забираем уже подключенный сокет города из родительского WebApp окна
-  if (parentWindow && parentWindow.socket) {
-    socket = parentWindow.socket;
-    setupSocketListeners();
-  } else {
-    console.warn("⚠️ Прямой сокет родителя отсутствует, пробуем локально...");
-    if (typeof io === 'function') {
-      socket = io('https://darkworld-server.onrender.com');
+  // Функция привязки к готовому сокету города
+  const bindToParentSocket = () => {
+    if (parentWindow && parentWindow.socket && parentWindow.socket.connected) {
+      socket = parentWindow.socket;
       setupSocketListeners();
+      refreshArenaLobby();
+      return true;
     }
+    return false;
+  };
+
+  // 🔥 ФИКС ДВОЙНОГО СОКЕТА: Сначала проверяем, есть ли сокет у родителя. 
+  // Если город еще соединяется, мы НЕ создаем свой сокет, а ждем через интервал!
+  if (!bindToParentSocket()) {
+    console.log("⏳ Сокет города еще не готов, ожидаем родительское соединение...");
+    const waitForSocket = setInterval(() => {
+      if (bindToParentSocket()) {
+        clearInterval(waitForSocket);
+        console.log("✅ Успешно подключились к единому сокету города из iframe!");
+      }
+    }, 300); // Проверяем каждые 300мс
   }
-  
-  // 🔥 ИСПРАВЛЕНО: Забираем профиль НАПРЯМУЮ из RAM родительского окна (Города).
-  // Больше никакого лагающего localStorage при обновлении статов или экипировки!
+
+  // Достаем профиль персонажа напрямую из RAM родителя
   if (parentWindow && parentWindow.player) {
     localPlayer = parentWindow.player;
-    console.log("✨ Профиль игрока успешно подтянут напрямую из RAM города:", localPlayer.name);
   } else {
-    // Запасной вариант на случай автономной отладки страницы в браузере
-    console.warn("⚠️ Родительский объект player не найден, откатываемся на кэш...");
     const localSave = localStorage.getItem('rpg_save');
     if (localSave) {
-      try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
+      try { localPlayer = JSON.parse(localSave).player; } catch(e) {}
     }
   }
   
-  if (!localPlayer) {
-    alert("❌ Профиль персонажа не найден! Вернитесь в город.");
-    if (parentWindow && typeof parentWindow.postMessage === 'function') {
-      parentWindow.postMessage({ type: 'CLOSE_ARENA_OVERLAY' }, '*');
-    }
-    return;
-  }
+  if (!localPlayer) return;
   
   setupClickListeners();
   
-  // Делаем первый запрос актуального списка дуэлей у сервера при входе
-  refreshArenaLobby();
-  
-  // Автоматически обновляем доску объявлений Арены каждые 4 секунды
-  globalLobbyInterval = setInterval(refreshArenaLobby, 4000);
+  // Автоматически обновляем доску объявлений Арены каждые 5 секунд
+  globalLobbyInterval = setInterval(refreshArenaLobby, 5000);
 }
 
 // ============================================================================
