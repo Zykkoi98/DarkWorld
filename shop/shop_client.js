@@ -23,10 +23,12 @@ function initShopPage() {
 
   // Функция привязки к готовому сокету города
   const bindToParentSocket = () => {
-    if (parentWindow && parentWindow.socket && parentWindow.socket.connected) {
+    if (parentWindow && parentWindow.socket) {
+      // Забираем ссылку на сокет родителя в любом состоянии
       shopSocket = parentWindow.socket;
       
-      // Навешиваем слушатели магазина на единый сокет
+      // Навешиваем слушатели магазина БЕЗОПАСНО
+      shopSocket.off('load_game_success');
       shopSocket.on('load_game_success', (data) => {
         if (data && data.player) {
           localPlayer = data.player;
@@ -35,6 +37,7 @@ function initShopPage() {
         }
       });
 
+      shopSocket.off('shop_buy_success');
       shopSocket.on('shop_buy_success', (data) => {
         alert(data.message);
         if (data && data.player) {
@@ -44,6 +47,7 @@ function initShopPage() {
         }
       });
 
+      shopSocket.off('shop_buy_error');
       shopSocket.on('shop_buy_error', (data) => {
         alert(data.message);
         if (typeof window.updateShopUi === 'function') {
@@ -51,29 +55,36 @@ function initShopPage() {
         }
       });
 
-      return true;
+      // 🔥 ФИКС ОШИБКИ NULL: Переносим слушатель ошибок СЮДА! Больше он никогда не упадет.
+      shopSocket.off('error');
+      shopSocket.on('error', (msg) => { alert(`❌ Ошибка сети магазина: ${msg}`); });
+
+      // Если сокет уже полностью подключен — сразу запрашиваем данные
+      if (shopSocket.connected) {
+        shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
+        return true;
+      }
     }
     return false;
   };
 
-  // 🔥 ФИКС ТРЕТЬЕГО СОКЕТА: Не плодим параллельные соединения при автозагрузке Telegram!
+  // 🔥 КОНТРОЛЬ ОЖИДАНИЯ СОКЕТА
   if (!bindToParentSocket()) {
     console.log("⏳ Магазин ожидает инициализацию сокета города...");
+    
     const waitForMasterSocket = setInterval(() => {
-      if (bindToParentSocket()) {
+      // Проверяем, появился ли сокет родителя и подключился ли он
+      if (parentWindow && parentWindow.socket && parentWindow.socket.connected) {
         clearInterval(waitForMasterSocket);
         console.log("✅ Магазин успешно подключился к единому каналу города!");
-        // Запрашиваем синхронизацию
-        shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
+        
+        // Повторно вызываем бинд, чтобы активировать слушатели и сделать load_game_secure
+        bindToParentSocket();
       }
     }, 300);
-  } else {
-    // Если сокет уже был готов сразу
-    shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   }
 
-  shopSocket.on('error', (msg) => { alert(`❌ Ошибка сети магазина: ${msg}`); });
-
+  // Обновляем визуальный интерфейс лавки (монетки, кнопки)
   window.updateShopUi();
 }
 
