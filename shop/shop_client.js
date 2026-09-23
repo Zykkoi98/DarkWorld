@@ -1,7 +1,3 @@
-// ============================================================================
-// ===== 🛒 ИЗОЛИРОВАННЫЙ КЛИЕНТСКИЙ СКРИПТ ТОРГОВЛИ (SHOP_CLIENT.JS) =====
-// ============================================================================
-
 let shopSocket = null;
 let localPlayer = null;
 let currentTabClass = 'dodger';
@@ -19,84 +15,84 @@ function initShopPage() {
     return;
   }
 
-  // Функция, которая вешает сетевые слушатели строго ПОСЛЕ того, как сокет найден
-  const startShopNetworkInterface = (activeSocket) => {
-    shopSocket = activeSocket;
-    console.log("🔌 [МАГАЗИН] Сетевой мост активирован на сокете:", shopSocket.id);
+  const parentWindow = window.parent || window.opener;
 
-    // Сбрасываем старые дубликаты перед подпиской
-    shopSocket.off('load_game_success');
-    shopSocket.off('shop_buy_success');
-    shopSocket.off('shop_buy_error');
-    shopSocket.off('error');
+  // 🔥 ОБЪЯВЛЯЕМ bindToParentSocket СТРОГО ВНУТРИ ФУНКЦИИ ИНИЦИАЛИЗАЦИИ
+  const bindToParentSocket = () => {
+    // Ищем сокет в window.parent или напрямую в глобальном поле родительского окна
+    const activeParentSocket = (parentWindow && parentWindow.socket) || (window.parent && window.parent.socket);
+    
+    if (activeParentSocket) {
+      shopSocket = activeParentSocket;
+      console.log("🔌 [МАГАЗИН] Сетевой мост успешно активирован на сокете:", shopSocket.id);
 
-    shopSocket.on('load_game_success', (data) => {
-      if (data && data.player) {
-        localPlayer = data.player;
-        localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-        window.updateShopUi();
-      }
-    });
+      // Сбрасываем старые дубликаты перед подпиской
+      shopSocket.off('load_game_success');
+      shopSocket.off('shop_buy_success');
+      shopSocket.off('shop_buy_error');
+      shopSocket.off('error');
 
-    shopSocket.on('shop_buy_success', (data) => {
-      alert(data.message);
-      if (data && data.player) {
-        localPlayer = data.player;
-        localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-        window.updateShopUi();
-      }
-    });
+      shopSocket.on('load_game_success', (data) => {
+        if (data && data.player) {
+          localPlayer = data.player;
+          localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+          window.updateShopUi();
+        }
+      });
 
-    shopSocket.on('shop_buy_error', (data) => {
-      alert(data.message);
-      if (typeof window.updateShopUi === 'function') window.updateShopUi();
-    });
+      shopSocket.on('shop_buy_success', (data) => {
+        alert(data.message);
+        if (data && data.player) {
+          localPlayer = data.player;
+          localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+          window.updateShopUi();
+        }
+      });
 
-    shopSocket.on('error', (msg) => { alert(`❌ Ошибка сети магазина: ${msg}`); });
+      shopSocket.on('shop_buy_error', (data) => {
+        alert(data.message);
+        if (typeof window.updateShopUi === 'function') window.updateShopUi();
+      });
 
-    // Запрашиваем авторизацию в лавке
-    shopSocket.emit('buy_item_secure', { userId: localPlayer.id });
-    window.updateShopUi();
+      shopSocket.on('error', (msg) => { alert(`❌ Ошибка сети магазина: ${msg}`); });
+
+      // Запрашиваем авторизацию в лавке
+      shopSocket.emit('buy_item_secure', { userId: localPlayer.id });
+      window.updateShopUi();
+      return true;
+    }
+    return false;
   };
 
-  // 🔥 ПОИСК И ПЕРЕХВАТ СОКЕТА РОДИТЕЛЯ
-  const parentWindow = window.parent || window.opener;
-  const directSocket = parentWindow?.socket;
-
-  if (directSocket && directSocket.connected) {
-    // Сценарий А: Город загрузился быстрее, сокет уже готов — сразу включаем сеть
-    startShopNetworkInterface(directSocket);
-  } else {
-    if (!bindToParentSocket()) {
+  // 🔥 КОНТРОЛЬ ОЖИДАНИЯ СОКЕТА БЕЗ БЛОКИРУЮЩЕГО ФЛАГА CONNECTED
+  if (!bindToParentSocket()) {
     console.log("⏳ Магазин ожидает готовности сокета города...");
     
     const waitForMasterSocket = setInterval(() => {
       const liveParent = window.parent || window.opener;
-      
-      // Ищем сокет во всех возможных глобальных ветках родительского окна
       const liveSocket = liveParent?.socket || window.socket || (window.parent && window.parent.socket);
 
-      // 🔥 ИСПРАВЛЕНО: Убираем проверку liveSocket.connected! 
-      // Если объект сокета физически появился в оперативной памяти — забираем его и включаем сеть лавки!
       if (liveSocket) {
         clearInterval(waitForMasterSocket);
-        console.log("✅ [УСПЕХ] Магазин бесшовно перехватил сокет города и активировал прилавки!");
-        startShopNetworkInterface(liveSocket);
+        console.log("✅ [УСПЕХ] Магазин бесшовно перехватил сокет города!");
+        
+        // Принудительно связываем сокет и запускаем авторизацию
+        shopSocket = liveSocket;
+        bindToParentSocket();
       }
-    }, 200); // Опрашиваем оперативную память каждые 200мс
-  }
+    }, 200); // Опрашиваем RAM каждые 200 миллисекунд
   }
 
   // Сразу рисуем интерфейс из кэша, чтобы экран не был пустым во время ожидания сети
   window.updateShopUi();
 }
+
 window.setShopClass = function(className) {
   currentTabClass = className;
   window.updateShopUi();
 };
 
 window.exitShop = function() {
-  if (shopSocket) shopSocket.disconnect();
   window.location.replace('../index.html'); // Возврат на главную площадь города
 };
 
@@ -154,36 +150,30 @@ window.updateShopUi = function() {
       const row = document.createElement('div');
       row.className = 'item-row';
 
-      // 1. Извлекаем чистые статы игрока из локального сейва для проверки цвета
       const myAgility = localPlayer && localPlayer.stats ? Number(localPlayer.stats.agility || 1) : 1;
       const myLuck = localPlayer && localPlayer.stats ? Number(localPlayer.stats.luck || 1) : 1;
       const myEndurance = localPlayer && localPlayer.stats ? Number(localPlayer.stats.endurance || 1) : 1;
 
       let reqText = '';
-      let hasEnoughStats = true; // Флаг для отслеживания пригодности шмотки
+      let hasEnoughStats = true;
 
-      // Динамически проверяем Ловкость
       if (item.req && item.req.agility) {
         reqText = ` 🏹Ловк:${item.req.agility}`;
         if (myAgility < item.req.agility) hasEnoughStats = false;
       }
-      // Динамически проверяем Удачу
       if (item.req && item.req.luck) {
         reqText = ` 🍀Уд:${item.req.luck}`;
         if (myLuck < item.req.luck) hasEnoughStats = false;
       }
-      // Динамически проверяем Выносливость
       if (item.req && item.req.endurance) {
         reqText = ` 🛡️Вын:${item.req.endurance}`;
         if (myEndurance < item.req.endurance) hasEnoughStats = false;
       }
 
-      // Сверяем баланс и уровень для кнопки покупки
       const isLevelOk = localPlayer && localPlayer.level >= item.level;
       const isGoldOk = localPlayer && localPlayer.gold >= item.price;
-      const canRenderBuy = isLevelOk && isGoldOk && hasEnoughStats; // Игрок может купить только если и статы в норме!
+      const canRenderBuy = isLevelOk && isGoldOk && hasEnoughStats;
 
-      // 2. 🔥 КРАСИМ ЦВЕТ СТАТОВ: зелёный (#2ecc71) или красный (#e74c3c)
       const statColor = hasEnoughStats ? '#2ecc71' : '#e74c3c';
       const lvlColor = isLevelOk ? '#2ecc71' : '#e74c3c';
 
@@ -197,7 +187,7 @@ window.updateShopUi = function() {
             <span style="color: ${lvlColor}">(Lv. ${item.level})</span>
           </div>
         </div>
-        <button onclick="window.triggerServerBuy('${item.id}')" class="btn-buy" style="background: ${canRenderBuy ? '#2ecc71' : 'rgba(255,255,255,0.04)'}; color: ${canRenderBuy ? '#fff' : '#656d78'}; pointer-events: ${canRenderBuy ? 'auto' : 'none'};">
+        <button onclick="window.triggerServerBuy('${item.id}', event)" class="btn-buy" style="background: ${canRenderBuy ? '#2ecc71' : 'rgba(255,255,255,0.04)'}; color: ${canRenderBuy ? '#fff' : '#656d78'}; pointer-events: ${canRenderBuy ? 'auto' : 'none'};">
           💰 ${item.price}
         </button>
       `;
@@ -208,15 +198,14 @@ window.updateShopUi = function() {
   });
 };
 
-window.triggerServerBuy = function(itemId) {
+window.triggerServerBuy = function(itemId, event) {
   if (!shopSocket || !localPlayer) return;
   
-  // Ищем конкретную кнопку, на которую нажал игрок
   const btn = event.currentTarget || document.activeElement;
   if (btn && btn.tagName === 'BUTTON') {
-    if (btn.disabled) return; // Защита от дублирующих вызовов
-    btn.disabled = true;      // Блокируем кнопку на клиенте
-    btn.textContent = '⏳...'; // Меняем текст, чтобы игрок видел загрузку
+    if (btn.disabled) return;
+    btn.disabled = true;      
+    btn.textContent = '⏳...'; 
   }
 
   console.log(`📡 [ПОКУПКА] Отправляем ID товара на сервер: ${itemId}`);
