@@ -90,54 +90,80 @@ function setupSecureDataListeners(callback) {
 
   // УСПЕШНЫЙ СЦЕНАРИЙ: Сервер прислал чистые и проверенные данные профиля
 socket.on('load_game_success', (data) => {
-  if (!data || !data.player) return;
-
-  console.log("☁️ [СИНХРОНИЗАЦИЯ] Свежий профиль получен от сервера...");
-  window.player = data.player;
-
-  if (typeof resetStatBuffer === 'function') resetStatBuffer();
-
-  localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
-
-  if (typeof window.checkLevelUp === 'function') {
-    window.checkLevelUp(true); 
-  }
-
-  if (typeof render === 'function') {
-    render();
-  }
-
-  if (typeof window.renderInventory === 'function') {
-    window.renderInventory();
-  }
-
-  const modal = document.getElementById('profile-modal');
-  if (modal && (modal.classList.contains('active') || modal.style.display === 'flex')) {
-    if (typeof window.openProfile === 'function') window.openProfile();
-  }
-
-  // 🔥 ФИКС ВЕЧНОЙ ЗАГРУЗКИ: Проверяем боевой статус через ОДИН легальный сокет города
-  console.log(`📡 Проверяем ОЗУ сервера на наличие активного боя для ID: ${window.player.id}`);
-  
-  socket.emit('check_active_battle_directly', { userId: String(window.player.id) }, (response) => {
-    if (response && response.activeRoomId) {
-      console.log(`⚔️ [ПЕРЕХВАТ] Обнаружен активный бой ${response.activeRoomId}. Уходим на арену!`);
-      
-      if (window.Telegram && window.Telegram.WebApp) {
-        try { window.Telegram.WebApp.ready(); } catch(e) {}
-      }
-      
-      // Перенаправляем на боевой экран
-      window.location.replace(`battle/battle.html?roomId=${response.activeRoomId}`);
-    } else {
-      console.log("🟢 Игрок свободен от сражений. Разрешаем отображение города.");
-      
-      // 🔥 СКРЫВАЕМ ПЕСОЧНЫЕ ЧАСЫ: Вызываем функцию, которая уберет экран загрузки
-      if (typeof hideMainGameLoader === 'function') {
-        hideMainGameLoader();
-      }
+  try {
+    if (!data || !data.player) {
+      console.error("🚨 Получены пустые данные игрока от сервера!");
+      if (typeof hideMainGameLoader === 'function') hideMainGameLoader();
+      return;
     }
-  });
+
+    console.log("☁️ [СИНХРОНИЗАЦИЯ] Свежий профиль получен от сервера...");
+    window.player = data.player;
+
+    // Безопасно сохраняем в кэш
+    try {
+      localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
+    } catch (e) { console.error("Ошибка записи localStorage:", e); }
+
+    // Инициализируем буфер характеристик
+    if (typeof resetStatBuffer === 'function') {
+      try { resetStatBuffer(); } catch(e) { console.error(e); }
+    }
+
+    // Проверяем уровень и апдейты
+    if (typeof window.checkLevelUp === 'function') {
+      try { window.checkLevelUp(true); } catch(e) { console.error(e); }
+    }
+
+    // Отрисовываем интерфейс города
+    if (typeof render === 'function') {
+      try { render(); } catch(e) { console.error(e); }
+    }
+
+    // Отрисовываем инвентарь и куклу
+    if (typeof window.renderInventory === 'function') {
+      try { window.renderInventory(); } catch(e) { console.error(e); }
+    }
+
+    // Обновляем открытый профиль, если он активен
+    try {
+      const modal = document.getElementById('profile-modal');
+      if (modal && (modal.classList.contains('active') || modal.style.display === 'flex')) {
+        if (typeof window.openProfile === 'function') window.openProfile();
+      }
+    } catch(e) { console.error(e); }
+
+    // 🔥 ФИКС ВЕЧНОЙ ЗАГРУЗКИ: Заворачиваем проверку боя в безопасный блок
+    console.log(`📡 Отправляем экспресс-проверку боевого статуса для ID: ${window.player.id}`);
+    
+    socket.emit('check_active_battle_directly', { userId: String(window.player.id) }, (response) => {
+      try {
+        if (response && response.activeRoomId) {
+          console.log(`⚔️ [ПЕРЕХВАТ] Обнаружен активный бой ${response.activeRoomId}. Уходим на арену!`);
+          
+          if (window.Telegram && window.Telegram.WebApp) {
+            try { window.Telegram.WebApp.ready(); } catch(e) {}
+          }
+          window.location.replace(`battle/battle.html?roomId=${response.activeRoomId}`);
+        } else {
+          console.log("🟢 Игрок свободен от сражений. Скрываем лоадер.");
+          if (typeof hideMainGameLoader === 'function') {
+            hideMainGameLoader();
+          }
+        }
+      } catch (clickErr) {
+        console.error("🚨 Ошибка внутри колбэка check_active_battle_directly:", clickErr);
+        if (typeof hideMainGameLoader === 'function') hideMainGameLoader();
+      }
+    });
+
+  } catch (globalFrontErr) {
+    // В случае ЛЮБОЙ непредвиденной ошибки на фронтенде — не даем лоадеру зависнуть!
+    console.error("❌ Фатальная ошибка обработки load_game_success на клиенте:", globalFrontErr.message);
+    if (typeof hideMainGameLoader === 'function') {
+      hideMainGameLoader();
+    }
+  }
 });
 
 // Если соединение оборвалось или выдало ошибку, город все равно должен открыться
