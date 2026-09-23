@@ -89,8 +89,6 @@
 
     // Функция плавного тушения стартового экрана загрузки
     window.hideMainGameLoader = function() {
-      console.log("🧼 Выполняем прямое удаление шторы загрузки...");
-      
       // Ищем элемент лоадера
       const loader = document.getElementById('game-loader-screen');
       
@@ -99,7 +97,6 @@
         loader.style.display = 'none';
         loader.style.opacity = '0';
         loader.style.zIndex = '-1';
-        console.log("🏙️ Город успешно открыт!");
       } else {
         // Если по какой-то причине id не совпал, этот код найдёт его по тегу
         const backupLoader = document.querySelector('[id*="loader"]') || document.querySelector('[id*="loading"]');
