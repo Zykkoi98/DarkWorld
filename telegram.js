@@ -117,9 +117,15 @@ socket.on('load_game_success', (data) => {
         } else {
           console.log("🟢 Игрок свободен от сражений. МГНОВЕННО скрываем лоадер, как в старом коде!");
           
-          // Сначала убираем штору с часами, чтобы экран ожил
+           // 🔥 ЖЕСТКИЙ ФИКС: Наконец-то физически вызываем функцию скрытия шторы!
           if (typeof hideMainGameLoader === 'function') {
+            console.log("🟢 ВЫЗЫВАЕМ ФУНЦИЮ");
             hideMainGameLoader();
+          } else {
+            // Подстраховка: если функция не найдена в области видимости, гасим лоадер напрямую
+            const rawLoader = document.getElementById('game-loader-screen');
+            if (rawLoader) rawLoader.style.display = 'none';
+            console.log("🟢 НЕТ ФУНКЦИИИ");
           }
         }
       } catch (err) {
