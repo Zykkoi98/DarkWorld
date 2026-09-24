@@ -64,12 +64,18 @@ function initTowerPage() {
   });
 
   // 2. СОБЫТИЕ УСПЕШНОЙ АВТОР ИЗАЦИИ ОТ ЯДРА БАШНИ
-  towerSocket.on('tower_load_game_success', (data) => {
-    console.log("📥 [СОКЕТ БАШНИ] Получен авторизованный профиль от ядра Башни!", data);
+    towerSocket.on('tower_load_game_success', (data) => {
+    console.log("📥 [СОКЕТ БАШНИ] Легальный свежий профиль получен от сервера Башни!", data);
     if (data && data.player) {
+      // Записываем актуальный профиль из Supabase в оперативную память фронтенда
       localPlayer = data.player;
+      
+      // Насильно затираем старый закешированный localStorage новой записью со 2-м этажом!
       localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-      console.log(`🎨 [ОТРИСОВКА] Профиль Яна обновлен. Золото: ${localPlayer.gold}. Начинаем рендер...`);
+      
+      console.log(`🏰 УСПЕХ: Кэш ТГ сброшен! Локальный этаж теперь равен: ${localPlayer.tower_floor}`);
+      
+      // Перерисовываем монеты и лифт этажей под новые цифры
       renderTowerInterface();
     }
   });
