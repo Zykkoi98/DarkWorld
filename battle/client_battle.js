@@ -248,14 +248,12 @@ function renderFighters() {
       
       // СТИЛИЗАЦИЯ ИМЕНИ ИГРОКА БЕЗ ПОДЧЕРКИВАНИЯ
       elName.style.cursor = 'pointer';
-      elName.style.textDecoration = 'none'; // Полностью убрали подчеркивание
-      elName.style.color = '#ffffff'; // Чистый белый цвет для контраста
-      elName.style.background = 'rgba(108, 92, 231, 0.15)'; // Мягкая фиолетовая подложка под цвет твоего интерфейса
-      elName.style.border = '1px solid rgba(108, 92, 231, 0.4)';
-      elName.style.padding = '4px 12px';
-      elName.style.borderRadius = '8px';
-      elName.style.display = 'inline-block';
-      elName.style.transition = 'all 0.2s ease';
+      elName.style.textDecoration = 'none'; // Убрали подчеркивание
+      elName.style.background = 'transparent'; // Полностью убрали подложку
+      elName.style.border = 'none'; // Убрали рамку
+      elName.style.color = '#ffffff'; // Возвращаем родной белый цвет
+      elName.style.padding = '0';
+      elName.style.transform = 'none';
 
       // Эффекты при наведении/клике на смартфоне
       elName.onmouseenter = () => { elName.style.background = 'rgba(108, 92, 231, 0.3)'; };
@@ -290,16 +288,14 @@ function renderFighters() {
   if (elTName) {
       elTName.textContent = targetFighter.name;
       
-      // СТИЛИЗАЦИЯ ИМЕНИ ВРАГА БЕЗ ПОДЧЕРКИВАНИЯ
+      // ЧИСТЫЙ ВИД БЕЗ ПОДЛОЖКИ И ПОДЧЕРКИВАНИЯ
       elTName.style.cursor = 'pointer';
-      elTName.style.textDecoration = 'none'; // Полностью убрали подчеркивание
-      elTName.style.color = '#ffffff'; 
-      elTName.style.background = 'rgba(231, 76, 60, 0.15)'; // Агрессивная красная подложка (опасность!)
-      elTName.style.border = '1px solid rgba(231, 76, 60, 0.4)';
-      elTName.style.padding = '4px 12px';
-      elTName.style.borderRadius = '8px';
-      elTName.style.display = 'inline-block';
-      elTName.style.transition = 'all 0.2s ease';
+      elTName.style.textDecoration = 'none'; // Убрали подчеркивание
+      elTName.style.background = 'transparent'; // Полностью убрали подложку
+      elTName.style.border = 'none'; // Убрали рамку
+      elTName.style.color = '#ffffff'; // Возвращаем родной белый цвет
+      elTName.style.padding = '0';
+      elTName.style.transform = 'none';
 
       // Эффекты при наведении/клике на смартфоне
       elTName.onmouseenter = () => { elTName.style.background = 'rgba(231, 76, 60, 0.3)'; };

@@ -11,10 +11,10 @@
   window.GAME_ITEMS_DATABASE = window.GAME_ITEMS_DATABASE || {};
 </script>
 
-<script src="../config.js?v=333"></script>
-<script src="../shop/shop_items_config.js?v=31"></script>
-  <script src="client_battle.js?v=32" defer></script>
-  <link rel="stylesheet" href="../style.css?v=131">
+<script src="../config.js?v=9"></script>
+<script src="../shop/shop_items_config.js?v=99"></script>
+  <script src="client_battle.js?v=99" defer></script>
+  <link rel="stylesheet" href="../style.css?v=99">
   
   
   <style>
@@ -244,29 +244,23 @@
        ============================================================================ -->
     <div class="duel-zone">
       
-        <!-- ЛЕВАЯ СТОРОНА: Герой Ян -->
-      <div class="fighter-side-wrapper" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-        <div id="main-hero-card" class="big-fighter-card" style="position: relative; display: flex; flex-direction: column; align-items: center; background: transparent; box-shadow: none; padding: 0;">
+      <!-- ЛЕВАЯ СТОРОНА: Герой Ян -->
+      <div class="fighter-side-wrapper">
+        <div id="main-hero-card" class="big-fighter-card">
+          <img id="hero-card-bg-img" class="card-background-art"onclick="window.openPlayerStatsInBattle()" src="../assets/avatars/hero4.jpg" alt="Hero BG">
+          <div class="card-gradient-overlay"></div>
           
-          <!-- 1. Картинка теперь чистая сверху -->
-          <img id="hero-card-bg-img" class="card-background-art" src="../assets/avatars/hero4.jpg" alt="Hero BG" style="position: static; width: 100%; height: auto; border-radius: 12px; object-fit: cover;">
-          <div class="card-gradient-overlay" style="display: none;"></div>
+          <div class="big-name" id="hero-name-text">Загрузка...</div>
+          <div class="big-lvl" id="hero-lvl-text">Lv. --</div>
           
-          <!-- 2. Имя и уровень перенесены ПОД картинку со сбросом абсолютных стилей -->
-          <div class="big-name" id="hero-name-text" style="position: static; transform: none; font-size: 14px; font-weight: bold; color: #ffffff; background: rgba(108, 92, 231, 0.15); border: 1px solid rgba(108, 92, 231, 0.4); padding: 4px 12px; border-radius: 8px; cursor: pointer; margin-top: 8px; text-align: center; width: fit-content; display: inline-block;">Загрузка...</div>
-          <div class="big-lvl" id="hero-lvl-text" style="position: static; font-size: 11px; color: #f1c40f; font-weight: 600; margin-top: 2px;">Lv. --</div>
-          
-          <!-- 3. Панель здоровья сместилась еще ниже -->
-          <div class="hp-wrapper" style="position: static; width: 100%; margin-top: 6px; padding: 0;">
-            <div class="hp-bar" style="width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden;"><div id="hero-hp-fill" class="hp-fill" style="height: 100%; background: #2ecc71;"></div></div>
-            <div class="hp-text" id="hero-hp-text" style="font-size: 12px; color: #9aa0b5; text-align: center; margin-top: 4px;">0 / 0</div>
+          <div class="hp-wrapper">
+            <div class="hp-bar"><div id="hero-hp-fill" class="hp-fill"></div></div>
+            <div class="hp-text" id="hero-hp-text">0 / 0</div>
           </div>
         </div>
-
-        <!-- 4. Кнопки банок опустились в самый низ -->
-        <div class="quick-slots-row" style="margin-top: 10px; display: flex; justify-content: center; gap: 8px; width: 100%;">
-          <button id="quick-potion-btn" class="quick-action-btn" title="Выпить зелье" disabled style="width: 44px; height: 44px; font-size: 18px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; cursor: pointer;">🧪</button>
-          <button id="quick-scroll-btn" class="quick-action-btn" title="Прочитать свиток" disabled style="width: 44px; height: 44px; font-size: 18px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; cursor: pointer;">📜</button>
+        <div class="quick-slots-row">
+          <button id="quick-potion-btn" class="quick-action-btn" title="Выпить зелье" disabled>🧪</button>
+          <button id="quick-scroll-btn" class="quick-action-btn" title="Прочитать свиток" disabled>📜</button>
         </div>
       </div>
 
@@ -293,30 +287,27 @@
         <button id="strike-action-btn" disabled>АТАКОВАТЬ</button>
       </div>
 
-      <!-- ПРАВАЯ СТОРОНА: Враг -->
-      <div class="fighter-side-wrapper" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-        <div id="main-target-card" class="big-fighter-card" style="position: relative; display: flex; flex-direction: column; align-items: center; background: transparent; box-shadow: none; padding: 0;">
+      <!-- ПРАВАЯ СТОРОНА: Каменный голем -->
+      <div class="fighter-side-wrapper">
+        <div id="main-target-card" class="big-fighter-card">
+          <img id="target-card-bg-img" class="card-background-art" onclick="window.openEnemyStatsInBattle()" src="../assets/monsters/monster1.jpg" alt="Monster BG">
+          <div class="card-gradient-overlay"></div>
           
-          <!-- 1. Картинка врага -->
-          <img id="target-card-bg-img" class="card-background-art" src="../assets/monsters/monster1.jpg" alt="Monster BG" style="position: static; width: 100%; height: auto; border-radius: 12px; object-fit: cover;">
+          <div class="big-name" id="target-name-text">Нет цели</div>
+          <div class="big-lvl" id="target-lvl-text">Lv. --</div>
           
-          <!-- 2. Имя врага и его уровень ПОД картинкой со сбросом абсолютных стилей -->
-          <div class="big-name" id="target-name-text" style="position: static; transform: none; font-size: 14px; font-weight: bold; color: #ffffff; background: rgba(231, 76, 60, 0.15); border: 1px solid rgba(231, 76, 60, 0.4); padding: 4px 12px; border-radius: 8px; cursor: pointer; margin-top: 8px; text-align: center; width: fit-content; display: inline-block;">Нет цели</div>
-          <div class="big-lvl" id="target-lvl-text" style="position: static; font-size: 11px; color: #f1c40f; font-weight: 600; margin-top: 2px;">Lv. --</div>
-          
-          <!-- 3. Панель здоровья врага -->
-          <div class="hp-wrapper" style="position: static; width: 100%; margin-top: 6px; padding: 0;">
-            <div class="hp-bar" style="width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden;"><div id="target-hp-fill" class="hp-fill" style="height: 100%; background: #e74c3c;"></div></div>
-            <div class="hp-text" id="target-hp-text" style="font-size: 12px; color: #9aa0b5; text-align: center; margin-top: 4px;">0 / 0</div>
+          <div class="hp-wrapper enemy-hp">
+            <div class="hp-bar"><div id="target-hp-fill" class="hp-fill"></div></div>
+            <div class="hp-text" id="target-hp-text">0 / 0</div>
           </div>
         </div>
-
-        <!-- 4. Пустой слот под банку врага для сохранения симметрии экрана -->
-        <div class="quick-slots-row" style="margin-top: 10px; display: flex; justify-content: center; gap: 8px; width: 100%; opacity: 0.2;">
-          <div class="quick-action-btn" style="width: 44px; height: 44px; font-size: 18px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; color: #fff;">🔒</div>
-          <div class="quick-action-btn" style="width: 44px; height: 44px; font-size: 18px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; color: #fff;">🔒</div>
+        <div class="quick-slots-row">
+          <button class="quick-action-btn" disabled style="opacity: 0.05;">🛡️</button>
+          <button class="quick-action-btn" disabled style="opacity: 0.05;">⚔️</button>
         </div>
       </div>
+
+    </div> <!-- 🔥 ФИКС: Здесь дуэльный горизонтальный ряд ЖЕСТКО закрывается! -->
 
     <!-- ============================================================================
        ===== 👥 ЧАСТЬ 2: СРЕДНЯЯ ЗОНА МАССОВКИ (ОТРЯД / ВРАГИ) =====
