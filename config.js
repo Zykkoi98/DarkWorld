@@ -24,7 +24,7 @@ window.TOWNS = [
     locations: [
       { name: "Таверна", icon: "🍺" },
       { name: "Магазин", icon: "💰" },
-      { name: "Кузница", icon: "⚒️" },
+      { name: "Тёмная Башня", icon: "🏰" },
       { name: "Арена PvP", icon: "🏆" }, 
       { name: "Выход на природу", icon: "🌲" }
     ]
