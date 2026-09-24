@@ -256,8 +256,15 @@
 <body>
 
   <div class="shop-container">
-    <div id="shop-title">🏪 Торговая Лавка</div>
-    
+        <!-- 🔥 ИСПРАВЛЕННЫЙ ЗАГОЛОВОК: Обернут в flex-блок, чтобы крестик встал ровно справа от названия -->
+    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 4px;">
+      <div id="shop-title" style="margin: 0; padding: 0;">🏪 Торговая Лавка</div>
+      
+      <!-- Элегантный крестик для закрытия лавки на телефоне -->
+      <button onclick="window.exitShopAndReturn()" style="background: rgba(255, 255, 255, 0.08); border: none; color: #ffffff; font-size: 16px; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; margin-top: 8px;" title="Покинуть лавку">
+        ✕
+      </button>
+    </div>
       <!-- Плашка состояния кошелька с динамическим статус-логом справа -->
   <div id="shop-user-gold" class="shop-wallet-card" style="display: flex; justify-content: space-between; align-items: center;">
     <span id="wallet-gold-value">💰 Загрузка...</span>
@@ -280,9 +287,6 @@
 
     <!-- Динамическая скролл-зона вывода товаров -->
     <div id="shop-scroll-area" class="shop-scroll-viewport"></div>
-
-    <!-- Кнопка безопасного возвращения на площадь города -->
-    <button class="shop-exit-btn" onclick="window.exitShop()">🏃 Покинуть лавку</button>
   </div>
 <!-- Локальное модальное окно информации о предмете для Торговой Лавки -->
 <div id="item-info-popover" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 6000; align-items: center; justify-content: center; padding: 20px;">

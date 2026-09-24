@@ -92,7 +92,13 @@ window.setShopClass = function(className) {
   activeAmmoClass = className;
   window.updateShopUi();
 };
-
+window.exitShopAndReturn = function() {
+  console.log("🏃 Покидаем лавку, возвращаемся на главную площадь города...");
+  
+  // Поскольку shop.html лежит в папке /shop/, 
+  // две точки '../' поднимут нас на уровень выше — прямо к главному index.html города!
+  window.location.href = '../index.html'; 
+};
 window.exitShop = function() {
   if (shopSocket) {
     try { shopSocket.disconnect(); } catch(e) { console.error(e); }
