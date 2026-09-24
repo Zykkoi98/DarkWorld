@@ -6,8 +6,13 @@
   <title>Dark World | Бесконечная Башня</title>
   <link rel="stylesheet" href="../style.css?v=777">
   <!-- Подключаем Socket.io и скрипт моста Telegram -->
-  <script src="https://socket.io"></script>
-  <script src="https://telegram.org"></script>
+ <!-- 1. Библиотека Supabase (Загружается первой) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- 2. Официальный SDK Telegram (СТРОГО С ЗАКРЫВАЮЩИМ ТЕГОМ) -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+  <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
 </head>
 <body style="background: #0b0c10; color: #fff; font-family: sans-serif; padding: 16px; margin: 0;">
 
