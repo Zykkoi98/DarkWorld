@@ -243,11 +243,24 @@ function renderFighters() {
     const heroImg = document.getElementById('hero-card-bg-img');
 
     if (elLvl) elLvl.textContent = `Lv. ${myFighter.level || 1}`;
-    if (elName) {
+     if (elName) {
       elName.textContent = myFighter.name;
+      
+      // СТИЛИЗАЦИЯ ИМЕНИ ИГРОКА БЕЗ ПОДЧЕРКИВАНИЯ
       elName.style.cursor = 'pointer';
-      elName.style.textDecoration = 'underline'; // Визуальный anchor для игрока
-      elName.style.color = '#6c5ce7'; // Фиолетовый оттенок вашего интерфейса
+      elName.style.textDecoration = 'none'; // Полностью убрали подчеркивание
+      elName.style.color = '#ffffff'; // Чистый белый цвет для контраста
+      elName.style.background = 'rgba(108, 92, 231, 0.15)'; // Мягкая фиолетовая подложка под цвет твоего интерфейса
+      elName.style.border = '1px solid rgba(108, 92, 231, 0.4)';
+      elName.style.padding = '4px 12px';
+      elName.style.borderRadius = '8px';
+      elName.style.display = 'inline-block';
+      elName.style.transition = 'all 0.2s ease';
+
+      // Эффекты при наведении/клике на смартфоне
+      elName.onmouseenter = () => { elName.style.background = 'rgba(108, 92, 231, 0.3)'; };
+      elName.onmouseleave = () => { elName.style.background = 'rgba(108, 92, 231, 0.15)'; };
+
       elName.onclick = function() {
         if (typeof window.openPlayerStatsInBattle === 'function') {
           window.openPlayerStatsInBattle();
@@ -274,11 +287,24 @@ function renderFighters() {
     const elTHpFill = document.getElementById('target-hp-fill');
     const elTHpText = document.getElementById('target-hp-text');
     const tImg = document.getElementById('target-card-bg-img');
-    if (elTName) {
+  if (elTName) {
       elTName.textContent = targetFighter.name;
+      
+      // СТИЛИЗАЦИЯ ИМЕНИ ВРАГА БЕЗ ПОДЧЕРКИВАНИЯ
       elTName.style.cursor = 'pointer';
-      elTName.style.textDecoration = 'underline'; // Визуальный anchor для игрока
-      elTName.style.color = '#e74c3c'; // Опасный красный цвет для врага
+      elTName.style.textDecoration = 'none'; // Полностью убрали подчеркивание
+      elTName.style.color = '#ffffff'; 
+      elTName.style.background = 'rgba(231, 76, 60, 0.15)'; // Агрессивная красная подложка (опасность!)
+      elTName.style.border = '1px solid rgba(231, 76, 60, 0.4)';
+      elTName.style.padding = '4px 12px';
+      elTName.style.borderRadius = '8px';
+      elTName.style.display = 'inline-block';
+      elTName.style.transition = 'all 0.2s ease';
+
+      // Эффекты при наведении/клике на смартфоне
+      elTName.onmouseenter = () => { elTName.style.background = 'rgba(231, 76, 60, 0.3)'; };
+      elTName.onmouseleave = () => { elTName.style.background = 'rgba(231, 76, 60, 0.15)'; };
+
       elTName.onclick = function() {
         if (typeof window.openEnemyStatsInBattle === 'function') {
           window.openEnemyStatsInBattle();
