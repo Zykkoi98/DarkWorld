@@ -396,34 +396,63 @@ window.openProfile = function() {
   // ============================================================================
   // ВЕТВЬ Б: 🔥 ОТРИСОВКА ВТОРОСТЕПЕННЫХ МОДИФИКАТОРОВ БК (МФ. КРИТА, УВОР ОТА...)
   // ============================================================================
-  else if (currentProfileTab === 'modifiers') {
-    // Подсчитываем чистые статы с куклы
+else if (currentProfileTab === 'modifiers') {
+    // 1. Подсчитываем полные статы (база + бонусы со всей куклы экипировки)
     const totalAgi = window.player.stats.agility + getEquipmentBonus(window.player, 'agility');
     const totalLuck = window.player.stats.luck + getEquipmentBonus(window.player, 'luck');
 
-    // Каноничные формулы БК: Статы переводятся в Мф. + бонусы шмоток
+    // 2. Стандартные каноничные модификаторы Бойцовского Клуба
     const mfInv = (totalAgi * 10) + getEquipmentBonus(window.player, 'mf_inv');
     const mfAntiInv = (totalAgi * 4) + getEquipmentBonus(window.player, 'mf_antiinv');
     const mfCrit = (totalLuck * 10) + getEquipmentBonus(window.player, 'mf_crit');
     const mfAntiCrit = (totalLuck * 4) + getEquipmentBonus(window.player, 'mf_anticrit');
 
+    // 3. 🔥 ВЫЧИСЛЯЕМ ЭФФЕКТИВНЫЕ БОЕВЫЕ КАПЫ (Шансы против равного по силе соперника)
+    // Базовый шанс 5% + по 1% за каждую единицу боевого стата
+    const finalEvadeDisplay = Math.min(70, 5 + (totalAgi * 1)); // Жесткий кап уворота 70%
+    const finalCritDisplay = Math.min(65, 5 + (totalLuck * 1)); // Жесткий кап крита 65%
+
+    // Собираем массив данных для красивого вывода на экран смартфона
     const modifiersData = [
-      { label: '🏹 Мф. Увертывания', value: `${mfInv}%`, desc: 'Шанс уклониться от физических атак' },
-      { label: '🎯 Мф. Против увертывания', value: `${mfAntiInv}%`, desc: 'Снижает уворот соперника' },
-      { label: '💥 Мф. Критического удара', value: `${mfCrit}%`, desc: 'Шанс нанести двойной урон (2.0x)' },
-      { label: '🛡️ Мф. Против крита (Антикрит)', value: `${mfAntiCrit}%`, desc: 'Снижает шанс критического удара по вам' }
+      { 
+        label: '🏹 Мф. Увертывания', 
+        value: `${mfInv}%`, 
+        subValue: `Реальный шанс боя: макс. ${finalEvadeDisplay}%`,
+        desc: 'Шанс полностью уклониться от физических атак врага' 
+      },
+      { 
+        label: '🎯 Мф. Против увертывания', 
+        value: `${mfAntiInv}%`, 
+        subValue: null,
+        desc: 'Снижает показатель уклонения вашего соперника' 
+      },
+      { 
+        label: '💥 Мф. Критического удара', 
+        value: `${mfCrit}%`, 
+        subValue: `Реальный шанс боя: макс. ${finalCritDisplay}%`,
+        desc: 'Шанс нанести сокрушительный двойной урон (2.0x)' 
+      },
+      { 
+        label: '🛡️ Мф. Против крита (Антикрит)', 
+        value: `${mfAntiCrit}%`, 
+        subValue: null,
+        desc: 'Снижает вероятность критического удара по вам' 
+      }
     ];
 
+    // Отрисовываем карточки модификаторов в DOM-дерево поп-апа
     modifiersData.forEach(mod => {
       const row = document.createElement('div');
-      row.style.cssText = 'display: flex; flex-direction: column; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);';
+      row.style.cssText = 'display: flex; flex-direction: column; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);';
       
+      // Формируем внутреннюю верстку с динамическим выводом "Реального шанса"
       row.innerHTML = `
-        <div style="display: flex; justify-content: space-between; font-weight: bold;">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-weight: bold;">
           <span>${mod.label}</span>
           <span style="color: #6c5ce7; font-size: 16px;">+${mod.value}</span>
         </div>
-        <div style="color: var(--hint); font-size: 11px; margin-top: 2px;">${mod.desc}</div>
+        ${mod.subValue ? `<div style="color: #f1c40f; font-size: 11px; font-weight: 600; margin-top: 1px;">⚡ \${mod.subValue}</div>` : ''}
+        <div style="color: var(--hint); font-size: 11px; margin-top: 3px; line-height: 1.2;">${mod.desc}</div>
       `;
       statsBody.appendChild(row);
     });
@@ -540,10 +569,33 @@ function renderInventory() {
     body: '👕', legs: '🥾', extra: '✨', offHand: '🛡️'
   };
 
-  // 1. Отрисовка 8 основных слотов экипировки куклы
+  // 1. Отрисовка 8 основных слотов экипировки куклы (С фиксом двуручного оружия)
+  
+  // Сначала проверяем, надето ли в правой руке двуручное оружие
+  let isTwoHandedEquipped = false;
+  const currentMainHandId = window.player.equipped?.mainHand;
+  if (currentMainHandId) {
+    const mainHandData = window.getItemData(currentMainHandId);
+    // Двуручник определяется либо по слоту twoHanded, либо по ключевым словам в ID
+    if (mainHandData && (mainHandData.slotType === 'twoHanded' || currentMainHandId.includes('halberd') || currentMainHandId.includes('claymore') || currentMainHandId.includes('broadsword') || currentMainHandId.includes('splitter'))) {
+      isTwoHandedEquipped = true;
+    }
+  }
+
   Object.keys(standardSlots).forEach(slotKey => {
     const slotEl = document.getElementById(`eslot-${slotKey}`);
     if (!slotEl) return;
+
+    // 🔥 ОСОБАЯ КЛИЕНТСКАЯ ЛОГИКА ДЛЯ ЛЕВОЙ РУКИ ПРИ ДВУРУЧНИКЕ
+    if (slotKey === 'offHand' && isTwoHandedEquipped) {
+      slotEl.textContent = '❌'; // Показываем замок или крестик
+      slotEl.style.background = 'rgba(231, 76, 60, 0.15)'; // Окрашиваем ячейку в мягкий красный цвет
+      slotEl.style.border = '1px solid var(--danger)';
+      slotEl.style.fontSize = '18px';
+      slotEl.style.boxShadow = 'none';
+      slotEl.title = "Слот заблокирован двуручным оружием";
+      return; // Уходим на следующую итерацию, пропускаем стандартный рендер щита
+    }
 
     const equippedItemId = window.player.equipped[slotKey];
     if (equippedItemId) {
