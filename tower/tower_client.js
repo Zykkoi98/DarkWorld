@@ -21,9 +21,24 @@ function updateTowerLog(text, isError = false) {
 }
 
 function initTowerPage() {
+  console.log("🎬 [СТАРТ ЗАГРУЗКИ] Инициализация страницы Башни...");
+
+  // 🔥 [ЖЕЛЕЗНЫЙ БАРЬЕР] Если библиотека Socket.io еще не прогрузилась в браузер, 
+  // мягко ждем 50мс и пробуем запуститься снова, предотвращая падение в Uncaught ReferenceError
+  if (typeof io === 'undefined') {
+    console.warn("⏳ [Socket.io ОЖИДАНИЕ] Библиотека io еще не готова, перезапуск через 50мс...");
+    setTimeout(initTowerPage, 50);
+    return;
+  }
+
   const localSave = localStorage.getItem('rpg_save');
   if (localSave) {
-    try { localPlayer = JSON.parse(localSave).player; } catch(e) {}
+    try { 
+      localPlayer = JSON.parse(localSave).player; 
+      console.log("💾 [ПРОФИЛЬ КЭШ] Успешно прочитан игрок из localStorage:", localPlayer.name);
+    } catch(e) {
+      console.error("🚨 [КЭШ ОШИБКА] Не удалось распарсить rpg_save:", e.message);
+    }
   }
 
   if (!localPlayer) {
@@ -32,58 +47,75 @@ function initTowerPage() {
     return;
   }
 
+  console.log("📡 [СОКЕТ СВЯЗЬ] Поднимаем выделенный сокет-мост штурма Башни...");
   towerSocket = io('https://darkworld-server.onrender.com', {
     transports: ['websocket'],
     forceNew: true
   });
 
+  // 1. СОБЫТИЕ CONNECT: Авторизация через наш изолированный эвент Башни
   towerSocket.on('connect', () => {
-    // Авторизуемся и одновременно просим сервер проверить КД в таблице player_timers
-    towerSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
+    console.log(`🔌 [СОКЕТ ПОДКЛЮЧЕН] Успешный коннект! Мой сокет-ID: ${towerSocket.id}`);
+    console.log("📤 [ОТПРАВКА] Улетает запрос load_tower_game_secure и проверка КД...");
+    
+    // Передаем данные на наш новый серверный обработчик Башни
+    towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
     towerSocket.emit('check_tower_cooldown_request', { userId: localPlayer.id });
   });
 
-  towerSocket.on('load_game_success', (data) => {
+  // 2. СОБЫТИЕ УСПЕШНОЙ АВТОР ИЗАЦИИ ОТ ЯДРА БАШНИ
+  towerSocket.on('tower_load_game_success', (data) => {
+    console.log("📥 [СОКЕТ БАШНИ] Получен авторизованный профиль от ядра Башни!", data);
     if (data && data.player) {
       localPlayer = data.player;
       localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+      console.log(`🎨 [ОТРИСОВКА] Профиль Яна обновлен. Золото: ${localPlayer.gold}. Начинаем рендер...`);
       renderTowerInterface();
     }
   });
 
-  // 🔥 [НОВОЕ] Получаем ответ от сервера о статусе кулдауна Башни
+  // 3. СОБЫТИЕ СТАТУСА КУЛДАУНА БАШНИ (ОБНОВЛЕНИЕ ТАЙМЕРА)
   towerSocket.on('tower_cooldown_status', (data) => {
+    console.log("📥 [СОКЕТ БАШНИ] Получен статус кулдауна от сервера:", data);
     if (data && data.active && data.ends_at) {
       activeCooldownEnd = data.ends_at;
+      console.log(`⏳ Башня на КД до: ${activeCooldownEnd}`);
     } else {
       activeCooldownEnd = null;
+      console.log("🟢 Кулдаун отсутствует, вход в Башню открыт.");
     }
     renderTowerInterface();
     runCooldownTimer();
   });
 
+  // 4. СОБЫТИЯ ЛАВКИ ИНКВИЗИТОРА
   towerSocket.on('tower_shop_success', (data) => {
+    console.log("🛒 [ЛАВКА УСПЕХ] Товар куплен:", data.message);
     updateTowerLog(data.message || "🎉 Успешная покупка!");
-    towerSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
+    towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   });
 
   towerSocket.on('tower_shop_error', (data) => {
+    console.error("🚨 [ЛАВКА ОШИБКА] Сервер отклонил покупку:", data.message);
     updateTowerLog(data.message || "🚨 Ошибка покупки", true);
   });
 
-    // Находим слушатель редиректа в initTowerPage и переписываем его:
-    towerSocket.on('arena_redirect_to_battle', (data) => {
-    console.log("📥 [ФРОНТЕНД СОКЕТ] Получено событие arena_redirect_to_battle от сервера!", data);
+  // 5. КРИТИЧЕСКИЙ ПЕРЕХВАТ: РЕДИРЕКТ НА ЭКРАН СРАЖЕНИЯ
+  towerSocket.on('arena_redirect_to_battle', (data) => {
+    console.log("📥 [РЕДИРЕКТ СОКЕТ] Получена команда перехода на боевой экран!", data);
     if (data && data.roomId) {
-        console.log(`🏃‍♂️ [РЕДИРЕКТ] Уходим на экран боя! Комната: ${data.roomId}`);
-        towerSocket.disconnect();
-        window.location.replace(`../battle/battle.html?roomId=${data.roomId}`);
+      console.log(`🏃‍♂️ [ПЕРЕХОД] Уходим в комнату боя: ${data.roomId}. Отключаем сокет Башни...`);
+      towerSocket.disconnect();
+      window.location.replace(`../battle/battle.html?roomId=${data.roomId}`);
     } else {
-        console.error("🚨 [ФРОНТЕНД ОШИБКА] Пакет редиректа пришел, но roomId пустой или отсутствует!", data);
+      console.error("🚨 [РЕДИРЕКТ КРИТ] Команда пришла, но roomId пустой!", data);
     }
-});
+  });
 
-  towerSocket.on('error', (msg) => { updateTowerLog(`❌ ${msg}`, true); });
+  towerSocket.on('error', (msg) => { 
+    console.error("🚨 [СЕТЕВАЯ ОШИБКА]:", msg);
+    updateTowerLog(`❌ ${msg}`, true); 
+  });
 }
 
 // ============================================================================
