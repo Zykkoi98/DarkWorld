@@ -700,23 +700,69 @@ function renderInventory() {
   }
 
  items.forEach(item => {
-    // 🔥 ИСПРАВЛЕНО: Достаем полные данные шмотки (иконку, имя, бонусы) из базы по её ID!
+    // 🔥 Достаем полные данные шмотки (иконку, имя, бонусы, требования) из единой базы
     const fullItemData = window.getItemData(item.id || item);
-    if (!fullItemData) return; // Если вещь не найдена, пропускаем ячейку
+    if (!fullItemData) return; // Если вещь не найдена в конфигах, пропускаем ячейку
 
     const slot = document.createElement('div'); 
     slot.className = 'inv-slot'; 
     
-    // Бронированная проверка на тип иконки: эмодзи или ссылка на картинку .png
+    // 1. Отрисовка иконки (эмодзи или картинки)
     if (fullItemData.icon && (fullItemData.icon.includes('.') || fullItemData.icon.includes('/'))) {
-      slot.innerHTML = `<img src="${fullItemData.icon}" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">`;
+      slot.innerHTML = '<img src="' + fullItemData.icon + '" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">';
     } else {
       slot.textContent = fullItemData.icon || '📦';
     }
 
-    slot.style.cssText = 'width: 70px; height: 60px; position: relative; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;';
-    
-    // Вывод стака расходников (если есть количество)
+    // Восстанавливаем твои базовые стили ячеек, но убираем конфликты размеров
+    slot.style.cssText = 'position: relative; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center;';
+
+    // 2. 🔥 ХИРУРГИЧЕСКАЯ ПРОВЕРКА ТРЕБОВАНИЙ И УРОВНЯ ДЛЯ ПОДСВЕТКИ
+    const myAgi = Number(window.player.stats?.agility || 1);
+    const myLuck = Number(window.player.stats?.luck || 1);
+    const myEnd = Number(window.player.stats?.endurance || 1);
+    const myStr = Number(window.player.stats?.strength || 1);
+
+    let hasEnoughStats = true;
+    if (fullItemData.req?.strength && myStr < fullItemData.req.strength) hasEnoughStats = false;
+    if (fullItemData.req?.agility && myAgi < fullItemData.req.agility) hasEnoughStats = false;
+    if (fullItemData.req?.endurance && myEnd < fullItemData.req.endurance) hasEnoughStats = false;
+    if (fullItemData.req?.luck && myLuck < fullItemData.req.luck) hasEnoughStats = false;
+
+    const isLevelOk = fullItemData.level ? (window.player.level >= fullItemData.level) : true;
+
+    // Если гладиатор не соответствует требованиям — ячейка рюкзака аккуратно окрасится в красный цвет
+    if (!hasEnoughStats || !isLevelOk) {
+      slot.style.backgroundColor = 'rgba(231, 76, 60, 0.18)'; 
+      slot.style.border = '1px solid rgba(231, 76, 60, 0.4)';
+    } else {
+      slot.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+      slot.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+    }
+
+    // 3. 🔥 ВЫВОД УРОВНЯ ПРЕДМЕТА В ЛЕВЫЙ ВЕРХНИЙ УГОЛ ЯЧЕЙКИ
+    if (fullItemData.level) {
+      const lvlIndicator = document.createElement('span');
+      lvlIndicator.style.cssText = 'position: absolute; top: 2px; left: 4px; font-size: 9px; font-weight: bold; color: #f1c40f; text-shadow: 1px 1px 2px #000; pointer-events: none;';
+      lvlIndicator.textContent = 'L.' + fullItemData.level;
+      slot.appendChild(lvlIndicator);
+    }
+
+    // 4. 🔥 ВЫВОД ЗНАЧКА ГЛАВНОГО ТРЕБОВАНИЯ В ПРАВЫЙ ВЕРХНИЙ УГОЛ
+    let reqStatBadge = '';
+    if (fullItemData.req?.strength) reqStatBadge = '💪';
+    else if (fullItemData.req?.agility) reqStatBadge = '🏹';
+    else if (fullItemData.req?.endurance) reqStatBadge = '🛡️';
+    else if (fullItemData.req?.luck) reqStatBadge = '🍀';
+
+    if (reqStatBadge) {
+      const statIndicator = document.createElement('span');
+      statIndicator.style.cssText = 'position: absolute; top: 2px; right: 4px; font-size: 10px; pointer-events: none;';
+      statIndicator.textContent = reqStatBadge;
+      slot.appendChild(statIndicator);
+    }
+
+    // 5. Вывод стака расходников (количество банок) в правый нижний угол
     const countValue = item.count || fullItemData.count || 1;
     if (countValue > 1) {
       const countEl = document.createElement('span'); 
@@ -727,8 +773,9 @@ function renderInventory() {
     
     // При клике на шмотку в рюкзаке открываем поп-ап информации
     slot.addEventListener('click', function() {
-    window.showItemInfo(item.uuid || item.id || item, false); 
+      window.showItemInfo(item.uuid || item.id || item, false); 
     });
+    
     container.appendChild(slot);
   });
 }
