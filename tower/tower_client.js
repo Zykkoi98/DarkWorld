@@ -71,12 +71,17 @@ function initTowerPage() {
     updateTowerLog(data.message || "🚨 Ошибка покупки", true);
   });
 
-  towerSocket.on('arena_redirect_to_battle', (data) => {
+    // Находим слушатель редиректа в initTowerPage и переписываем его:
+    towerSocket.on('arena_redirect_to_battle', (data) => {
+    console.log("📥 [ФРОНТЕНД СОКЕТ] Получено событие arena_redirect_to_battle от сервера!", data);
     if (data && data.roomId) {
-      towerSocket.disconnect();
-      window.location.replace(`../battle/battle.html?roomId=${data.roomId}`);
+        console.log(`🏃‍♂️ [РЕДИРЕКТ] Уходим на экран боя! Комната: ${data.roomId}`);
+        towerSocket.disconnect();
+        window.location.replace(`../battle/battle.html?roomId=${data.roomId}`);
+    } else {
+        console.error("🚨 [ФРОНТЕНД ОШИБКА] Пакет редиректа пришел, но roomId пустой или отсутствует!", data);
     }
-  });
+});
 
   towerSocket.on('error', (msg) => { updateTowerLog(`❌ ${msg}`, true); });
 }
@@ -194,9 +199,25 @@ function runCooldownTimer() {
   }
 }
 
+// Находим функцию клика по кнопке штурма и переписываем её:
 window.triggerTowerFight = function(floorNumber) {
+  console.log(`==================================================`);
+  console.log(`🎯 [КЛИК] Игрок инициировал штурм. Этаж: ${floorNumber}`);
+  console.log(`👤 Профиль игрока в localStorage: ID=${localPlayer?.id}, Name=${localPlayer?.name}`);
+  
+  if (!towerSocket || !towerSocket.connected) {
+    console.error("🚨 [КЛИК ОШИБКА] Нет активного сокет-соединения с сервером Башни!");
+    updateTowerLog("❌ Нет соединения с сервером!", true);
+    return;
+  }
+
   updateTowerLog("⏳ Отправка отряда на этаж...");
-  towerSocket.emit('start_tower_battle_secure', { userId: localPlayer.id, currentFloor: floorNumber });
+  
+  console.log("📤 [ОТПРАВКА] Улетает эвент start_tower_battle_secure на бэкенд...");
+  towerSocket.emit('start_tower_battle_secure', { 
+    userId: localPlayer.id, 
+    currentFloor: floorNumber 
+  });
 };
 
 window.triggerTowerBuy = function(itemId) {
