@@ -163,7 +163,7 @@ socket.on('connect_error', () => {
     hideMainGameLoader();
   }
 });
-   // СЦЕНАРИЙ ДЛЯ НОВИЧКА: Игрока еще нет в базе, генерируем стартовый профиль
+ // СЦЕНАРИЙ ДЛЯ НОВИЧКА: Игрока еще нет в базе, генерируем стартовый профиль
   window.socket.on('player_not_found', ({ userId, username }) => {
     console.log("🆕 Приветствуем нового героя! Генерируем стартовый профиль...");
     
@@ -185,6 +185,15 @@ socket.on('connect_error', () => {
     window.saveGame();
     
     if (typeof window.render === 'function') window.render();
+    
+    // 🔥 ЖЕСТКИЙ ФИКС ДЛЯ НОВИЧКОВ: Принудительно гасим песочные часы, чтобы Evil сразу увидел город!
+    if (typeof window.hideMainGameLoader === 'function') {
+      window.hideMainGameLoader();
+    } else {
+      const rawLoader = document.getElementById('game-loader-screen');
+      if (rawLoader) rawLoader.style.display = 'none';
+    }
+
     if (typeof callback === 'function') callback(null);
   });
 
