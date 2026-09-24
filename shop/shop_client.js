@@ -294,7 +294,9 @@ window.triggerServerSell = function(itemUuidOrId, isConsumable, event) {
 };
 
 document.addEventListener('DOMContentLoaded', initShopPage);
-// 🔥 ЛОКАЛЬНЫЙ ОБРАБОТЧИК ОТОБРАЖЕНИЯ ХАРАКТЕРИСТИК ДЛЯ ТОРГОВОЙ ЛАВКИ
+
+
+// 🔥 ЛОКАЛЬНЫЙ ОБРАБОТЧИК ХАРАКТЕРИСТИК С ДИНАМИЧЕСКИМИ ИКОНКАМИ ✅ / 🔒 ДЛЯ ВСЕХ ТРЕБОВАНИЙ
 window.showItemInfo = function(itemId) {
   if (!itemId) return;
 
@@ -311,21 +313,73 @@ window.showItemInfo = function(itemId) {
   pName.textContent = itemData.name;
   pIcon.textContent = itemData.icon || '📦';
 
-  // Собираем точные боевые характеристики шмотки
+  // Собираем текст по структуре: Описание -> Требования -> Бонусы
   let statsText = itemData.desc || '';
-  if (itemData.bonus) {
-    if (itemData.bonus.atk) statsText += '\n⚔️ Атака: +' + itemData.bonus.atk;
-    if (itemData.bonus.def) statsText += '\n🛡️ Защита: +' + itemData.bonus.def;
-    if (itemData.bonus.stats) {
-      const b = itemData.bonus.stats;
-      if (b.strength) statsText += '\n💪 Сила: +' + b.strength;
-      if (b.agility) statsText += '\n🏹 Ловкость: +' + b.agility;
-      if (b.endurance) statsText += '\n🛡️ Выносливость: +' + b.endurance;
-      if (b.luck) statsText += '\n🍀 Удача: +' + b.luck;
+  
+  if (statsText) statsText += '\n';
+
+  // 1. РАЗДЕЛ ТРЕБОВАНИЙ (С проверкой на ✅ или 🔒 для уровня и характеристик)
+  let reqsText = '';
+  
+  // А. Проверка уровня
+  if (itemData.level) {
+    const pLevel = localPlayer && localPlayer.level ? Number(localPlayer.level) : 1;
+    const levelIcon = (pLevel >= Number(itemData.level)) ? '✅' : '🔒';
+    reqsText += '\n' + levelIcon + ' Требуется уровень: ' + itemData.level;
+  }
+  
+  // Б. Проверка базовых характеристик игрока (Сила, Ловкость, Выносливость, Удача)
+  if (itemData.req) {
+    const pAgi = localPlayer && localPlayer.stats && localPlayer.stats.agility ? Number(localPlayer.stats.agility) : 1;
+    const pEnd = localPlayer && localPlayer.stats && localPlayer.stats.endurance ? Number(localPlayer.stats.endurance) : 1;
+    const pLuck = localPlayer && localPlayer.stats && localPlayer.stats.luck ? Number(localPlayer.stats.luck) : 1;
+    const pStr = localPlayer && localPlayer.stats && localPlayer.stats.strength ? Number(localPlayer.stats.strength) : 1;
+
+    if (itemData.req.strength) {
+      const strIcon = (pStr >= Number(itemData.req.strength)) ? '✅' : '🔒';
+      reqsText += '\n' + strIcon + ' Требуется Сила: ' + itemData.req.strength;
+    }
+    if (itemData.req.agility) {
+      const agiIcon = (pAgi >= Number(itemData.req.agility)) ? '✅' : '🔒';
+      reqsText += '\n' + agiIcon + ' Требуется Ловкость: ' + itemData.req.agility;
+    }
+    if (itemData.req.endurance) {
+      const endIcon = (pEnd >= Number(itemData.req.endurance)) ? '✅' : '🔒';
+      reqsText += '\n' + endIcon + ' Требуется Выносливость: ' + itemData.req.endurance;
+    }
+    if (itemData.req.luck) {
+      const luckIcon = (pLuck >= Number(itemData.req.luck)) ? '✅' : '🔒';
+      reqsText += '\n' + luckIcon + ' Требуется Удача: ' + itemData.req.luck;
     }
   }
-  if (itemData.level) statsText += '\n🔒 Требуемый уровень: ' + itemData.level;
+  
+  if (reqsText) {
+    statsText += reqsText + '\n';
+  }
+
+  // 2. ✨ РАЗДЕЛ БОНУСОВ И СТАТОВ ВЕЩИ
+  let bonusesText = '';
+  if (itemData.bonus) {
+    if (itemData.bonus.atk) bonusesText += '\n⚔️ Бонус Атаки: +' + itemData.bonus.atk;
+    if (itemData.bonus.def) bonusesText += '\n🛡️ Бонус Защиты: +' + itemData.bonus.def;
+    if (itemData.bonus.mf_crit) bonusesText += '\n💥 Мф. Критического удара: +' + itemData.bonus.mf_crit + '%';
+    if (itemData.bonus.mf_inv) bonusesText += '\n🏹 Мф. Увертывания: +' + itemData.bonus.mf_inv + '%';
+    if (itemData.bonus.mf_antiinv) bonusesText += '\n🎯 Мф. Против увертывания: +' + itemData.bonus.mf_antiinv + '%';
+    if (itemData.bonus.mf_anticrit) bonusesText += '\n🛡️ Мф. Против крита: +' + itemData.bonus.mf_anticrit + '%';
+    
+    if (itemData.bonus.stats) {
+      const b = itemData.bonus.stats;
+      if (b.strength) bonusesText += '\n💪 Добавляет Силу: +' + b.strength;
+      if (b.agility) bonusesText += '\n🏹 Добавляет Ловкость: +' + b.agility;
+      if (b.endurance) bonusesText += '\n🛡️ Добавляет Выносливость: +' + b.endurance;
+      if (b.luck) bonusesText += '\n🍀 Добавляет Удачу: +' + b.luck;
+    }
+  }
+
+  if (bonusesText) {
+    statsText += '\n⭐ Бонусы предмета:' + bonusesText;
+  }
   
   pDesc.innerText = statsText;
-  popover.style.display = 'flex'; // Плавно открываем поп-ап локально
+  popover.style.display = 'flex';
 };
