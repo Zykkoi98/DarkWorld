@@ -455,7 +455,7 @@ body {
 }
 
 /* ============================================================================
-   ===== 📊 ФОРСИРОВАННЫЕ СТИЛИ ДЛЯ ПОПОВЕРОВ ХАРАКТЕРИСТИК В БОЮ =====
+   ===== 📊 УНИВЕРСАЛЬНЫЕ ФОРСИРОВАННЫЕ СТИЛИ ДЛЯ ПОПОВЕРОВ В БОЮ =====
    ============================================================================ */
 
 #player-stats-popover, 
@@ -463,25 +463,34 @@ body {
   position: fixed !important;
   top: 50% !important;
   left: 50% !important;
-  transform: translate(-50%, -50%) !important; /* Идеальное центрирование по экрану */
-  width: 80% !important;
+  transform: translate(-50%, -50%) !important; /* Идеальное центрирование по центру экрана смартфона */
+  width: 85% !important;
   max-width: 360px !important;
-  right: auto !important;
   background: #111111 !important;
   border-radius: 14px !important;
   padding: 16px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 0 1000px rgba(0, 0, 0, 0.5) !important; /* Затемнение заднего фона */
-  z-index: 3500 !important; /* Поверх самой модалки боя */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9), 0 0 0 1000px rgba(0, 0, 0, 0.6) !important; /* Плотное затемнение всего заднего фона боя */
+  z-index: 5000 !important; /* Выносим на самый верхний слой поверх логов и шапки */
   flex-direction: column !important;
 }
 
-/* Стили отображения строк характеристик внутри поповеров */
+/* Ограничитель высоты скролла для строк статов внутри поповера */
+.modal-body-stats {
+  max-height: 220px !important;
+  overflow-y: auto !important;
+  padding-right: 4px;
+  display: flex !important;
+  flex-direction: column !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Красивое отображение строк внутри поповеров характеристик */
 #player-popover-body .profile-row,
 #monster-popover-body .profile-row {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
-  padding: 6px 0 !important;
+  padding: 8px 0 !important;
   font-size: 14px !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
   color: #ffffff !important;
