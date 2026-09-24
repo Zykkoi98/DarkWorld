@@ -94,6 +94,43 @@ function setupSocketListeners() {
       const opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
       const firstAliveEnemy = opposingTeam.find(e => e.currentHp > 0);
       selectedTargetUuid = firstAliveEnemy ? firstAliveEnemy.uuid : null;
+      // [ДОБАВЛЕНО] Клик на картинку героя для открытия его статов
+    if (heroImg) {
+      heroImg.style.cursor = 'pointer';
+      heroImg.onclick = function() {
+        const pBody = document.getElementById('player-popover-body');
+        if (!pBody) return;
+        pBody.innerHTML = ''; // Чистим старое
+
+        // Считаем модификаторы БК прямо на клиенте для вывода
+        const mfInv = (Number(myFighter.agility || 1) * 10);
+        const mfAntiInv = (Number(myFighter.agility || 1) * 4);
+        const mfCrit = (Number(myFighter.luck || 1) * 10);
+        const mfAntiCrit = (Number(myFighter.luck || 1) * 4);
+
+        const stats = [
+          { label: '💪 Сила', value: myFighter.strength || 1 },
+          { label: '🏹 Ловкость', value: myFighter.agility || 1 },
+          { label: '🛡️ Выносливость', value: myFighter.endurance || 1 },
+          { label: '🍀 Удача', value: myFighter.luck || 1 },
+          { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
+          { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
+          { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
+          { label: '🛡️ Мф. Антикрита', value: `+${mfAntiCrit}%` }
+        ];
+
+        stats.forEach(s => {
+          const row = document.createElement('div');
+          row.className = 'profile-row';
+          row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
+          pBody.appendChild(row);
+        });
+
+        // Прячем вражеский если открыт, и показываем этот
+        document.getElementById('monster-stats-popover').style.display = 'none';
+        document.getElementById('player-stats-popover').style.display = 'flex';
+      };
+    }
     }
 
     resetTacticalButtons();
@@ -124,6 +161,9 @@ function setupSocketListeners() {
 
   // ⚔️ 3. ПАКЕТ РЕЗУЛЬТАТОВ РАУНДА ОТ БЭКЕНДА (ИТОГИ ОБМЕНА УДАРАМИ)
   socket.on('round_result', (data) => {
+    // [ДОБАВЛЕНО] Закрываем окна характеристик при обсчете раунда
+    document.getElementById('player-stats-popover').style.display = 'none';
+    document.getElementById('monster-stats-popover').style.display = 'none';
     console.log("📊 Получены итоги обмена ударами:", data);
     teamA = data.teamA;
     teamB = data.teamB;
@@ -255,7 +295,43 @@ function renderFighters() {
   const targetCard = document.getElementById('main-target-card');
   if (targetFighter && targetFighter.currentHp > 0) {
     if (targetCard) targetCard.classList.remove('dead');
-    
+     // [ДОБАВЛЕНО] Клик на картинку врага для просмотра его характеристик
+    if (tImg) {
+      tImg.style.cursor = 'pointer';
+      tImg.onclick = function() {
+        const mBody = document.getElementById('monster-popover-body');
+        if (!mBody) return;
+        mBody.innerHTML = ''; // Чистим старое
+
+        // Считаем модификаторы БК для монстра/соперника
+        const mfInv = (Number(targetFighter.agility || 1) * 10);
+        const mfAntiInv = (Number(targetFighter.agility || 1) * 4);
+        const mfCrit = (Number(targetFighter.luck || 1) * 10);
+        const mfAntiCrit = (Number(targetFighter.luck || 1) * 4);
+
+        const stats = [
+          { label: '💪 Сила', value: targetFighter.strength || 1 },
+          { label: '🏹 Ловкость', value: targetFighter.agility || 1 },
+          { label: '🛡️ Выносливость', value: targetFighter.endurance || 1 },
+          { label: '🍀 Удача', value: targetFighter.luck || 1 },
+          { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
+          { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
+          { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
+          { label: '🛡️ Мф. Антикрита', value: `+${mfAntiCrit}%` }
+        ];
+
+        stats.forEach(s => {
+          const row = document.createElement('div');
+          row.className = 'profile-row';
+          row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
+          mBody.appendChild(row);
+        });
+
+        // Прячем наш если открыт, и показываем вражеский
+        document.getElementById('player-stats-popover').style.display = 'none';
+        document.getElementById('monster-stats-popover').style.display = 'flex';
+      };
+    }
     const elTName = document.getElementById('target-name-text');
     const elTLvl = document.getElementById('target-lvl-text');
     const elTHpFill = document.getElementById('target-hp-fill');
