@@ -9,125 +9,39 @@
 window.equipItem = function(itemId) {
   if (!window.player) return;
 
-  const itemData = window.getItemData(itemId);
+  // Извлекаем чистый ID предмета для проверки требований уровня
+  let cleanItemId = itemId;
+  if (itemId && itemId.includes('_')) {
+    const parts = itemId.split('_');
+    if (parts.length > 2) cleanItemId = parts.slice(0, -2).join('_');
+  }
+
+  const itemData = window.getItemData(cleanItemId);
   if (!itemData) return;
 
-  let slotType = itemData.slotType;
-  if (!slotType) {
-    if (itemData.heal || itemId.includes('potion') || itemId.includes('soup')) slotType = 'potion';
-    if (itemData.duration || itemId.includes('scroll')) slotType = 'scroll';
-  }
-
-  if (!slotType) {
-    alert("❌ Этот предмет нельзя экипировать на куклу!");
-    return;
-  }
-  
-  // 🔒 ПРОВЕРКА ТРЕБУЕМОГО УРОВНЯ ПРЕДМЕТА (РАБОТАЕТ ИДЕАЛЬНО)
+  // 🔒 Быстрая проверка уровня на клиенте (чтобы разгрузить сеть)
   const requiredLevel = itemData.level || 1;
   if (window.player.level < requiredLevel) {
     alert(`🔒 Этот предмет требует ${requiredLevel}-й уровень! Ваш текущий уровень: ${window.player.level}.`);
     return;
   }
 
-  const invTab = (slotType === 'potion' || slotType === 'scroll') ? 'consumables' : 'equipment';
-  const inv = window.player.inventory[invTab];
-  const itemIdx = inv.findIndex(i => i.id === itemId);
-  
-  if (itemIdx === -1) return;
-
-  // --- ЛОГИКА ДЛЯ РАСХОДНИКОВ (БАНКИ И СВИТКИ) С УМНЫМ ДОБОРОМ ДО 5 ШТ ---
-  if (slotType === 'potion' || slotType === 'scroll') {
-    const currentEquipped = window.player.equipped[slotType];
-    const availableInInv = inv[itemIdx].count || 1;
-    let alreadyEquippedCount = 0;
-
-    if (currentEquipped && typeof currentEquipped === 'object' && currentEquipped.id) {
-      if (currentEquipped.id === itemId) {
-        alreadyEquippedCount = currentEquipped.count;
-        if (alreadyEquippedCount >= 5) {
-          alert("🎒 В этот слот уже взят максимальный стак (5 шт.)!");
-          return;
-        }
-      } else {
-        window.unequipItem(slotType);
-      }
-    }
-
-    const spaceLeft = 5 - alreadyEquippedCount; 
-    const countToEquip = Math.min(spaceLeft, availableInInv);
-
-    window.player.equipped[slotType] = {
-      id: itemId,
-      count: alreadyEquippedCount + countToEquip
-    };
-
-    if (availableInInv > countToEquip) {
-      inv[itemIdx].count -= countToEquip;
-    } else {
-      inv.splice(itemIdx, 1);
-    }
-
-    // 🔥 ФИКС БЕЗ F5: Сначала локально перерисовываем куклу, чтобы игрок видел анимацию надевания
-    if (window.renderInventory) window.renderInventory();
-    if (window.render) window.render();
-
-    // Отправляем синхронизацию в облако через сокеты
-    if (window.socket && window.socket.connected) {
-      window.socket.emit('confirm_inventory_sync_secure', { userId: window.player.id, equipped: window.player.equipped, inventory: window.player.inventory });
-    } else if (window.saveGame) {
-      window.saveGame({ player: window.player });
-    }
-    return;
-  }
-
-  // --- ОБЫЧНАЯ ЛОГИКА ОРУЖИЯ И БРОНИ ---
-  let targetSlot = slotType;
-  if (slotType === 'ring') {
-    let ringIndex = window.player.equipped.rings.findIndex(r => r === null);
-    if (ringIndex === -1) { ringIndex = 0; window.unequipItem('ring', 0); }
-    targetSlot = `ring-${ringIndex}`;
-  }
-
-  if (slotType === 'twoHanded') {
-    if (window.player.equipped.offHand) window.unequipItem('offHand');
-    targetSlot = 'mainHand'; 
-  }
-
-  if (slotType === 'offHand' && window.player.equipped.mainHand) {
-    const mainHandItem = window.getItemData(window.player.equipped.mainHand);
-    if (mainHandItem && mainHandItem.slotType === 'twoHanded') {
-      alert("⚠️ Нельзя взять щит, пока в руках двуручное оружие!");
-      return;
-    }
-  }
-
-  if (slotType !== 'ring' && window.player.equipped[targetSlot]) {
-    window.unequipItem(targetSlot);
-  }
-
-  if (inv[itemIdx].count > 1) { inv[itemIdx].count--; } else { inv.splice(itemIdx, 1); }
-
-  if (slotType === 'ring') {
-    const ringIdx = parseInt(targetSlot.split('-')[1]);
-    window.player.equipped.rings[ringIdx] = itemId;
-  } else {
-    window.player.equipped[targetSlot] = itemId;
-  }
-
-  // 🔥 ФИКС БЕЗ F5: Мгновенно отрисовываем вещь на кукле в интерфейсе
-  if (window.renderInventory) window.renderInventory();
-  if (window.render) window.render();
-
-  // Жестко пушим обновленную куклу на сервер, перезаписывая кэш бэкенда актуальными данными
+  // 🔥 УЛЬТИМАТИВНЫЙ ФИКС БАГА: Больше никакой локальной unequipItem!
+  // Просто делегируем всю математику и генерацию UUID надежному бэкенду.
   if (window.socket && window.socket.connected) {
-    window.socket.emit('confirm_inventory_sync_secure', {
+    console.log(`📡 Отправка запроса на безопасную экипировку: ${itemId}`);
+    window.socket.emit('equip_item_secure', {
       userId: window.player.id,
-      equipped: window.player.equipped,
-      inventory: window.player.inventory
+      itemId: itemId
     });
   } else if (window.saveGame) {
+    // Резервный оффлайн-режим (если используется локально)
+    let slotType = itemData.slotType || 'mainHand';
+    if (slotType === 'twoHanded') slotType = 'mainHand';
+    window.player.equipped[slotType] = cleanItemId;
     window.saveGame({ player: window.player });
+    if (window.renderInventory) window.renderInventory();
+    if (window.render) window.render();
   }
 };
 
