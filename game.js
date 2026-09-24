@@ -470,15 +470,13 @@ window.closeProfile = function() {
   if (modal) { modal.classList.remove('active'); modal.style.display = 'none'; }
 };
 
-// --- 🔥 ИНТЕРАКТИВНОЕ ОКНО ИНФОРМАЦИИ О ПРЕДМЕТЕ (ИСПРАВЛЕННОЕ) ---
+// --- 🔥 ЕДИНЫЙ УЛЬТИМАТИВНЫЙ ПОП-АП ХАРАКТЕРИСТИК ДЛЯ РЮКЗАКА ГОРОДА ---
 window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringIndex = null) {
   if (!itemUuidOrId) return;
 
+  // Шаг 1: Извлекаем чистый ID предмета из UUID шмотки (с защитой от обрезки банок и дефолтных вещей)
   let cleanId = itemUuidOrId;
-  
-  // 🔥 ФИКС ОПЕЧАТКИ: Везде используем itemUuidOrId строго в соответствии с аргументом функции!
   if (itemUuidOrId.includes('_')) {
-    // Если этот ID уже есть в базе товаров — значит его не нужно резать (это базовая шмотка или банка!)
     if (!window.GAME_ITEMS_DATABASE[itemUuidOrId]) {
       const parts = itemUuidOrId.split('_'); 
       if (parts.length > 2) {
@@ -487,9 +485,10 @@ window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringInd
     }
   }
 
+  // Шаг 2: Ищем характеристики строго по чистому базовому ID в базе контента
   const itemData = window.getItemData(cleanId);
   if (!itemData) {
-    console.error(`🚨 Ошибка: Предмет с ID "${cleanId}" отсутствует в базе контента!`);
+    console.error('🚨 [ГОРОД] Предмет с ID "' + cleanId + '" отсутствует в базе контента!');
     return;
   }
 
@@ -502,23 +501,72 @@ window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringInd
   if (!popover || !pName || !pIcon || !pDesc || !pBtn) return;
 
   pName.textContent = itemData.name;
-  pIcon.textContent = itemData.icon;
+  pIcon.textContent = itemData.icon || '📦';
 
+  // Шаг 3: Собираем текст по новой идеальной иерархии: Описание -> Требования -> Бонусы
   let statsText = itemData.desc || '';
-  if (itemData.bonus) {
-    if (itemData.bonus.atk) statsText += `\n⚔️ Атака: +${itemData.bonus.atk}`;
-    if (itemData.bonus.def) statsText += `\n🛡️ Защита: +${itemData.bonus.def}`;
-    if (itemData.bonus.stats) {
-      const b = itemData.bonus.stats;
-      if (b.strength) statsText += `\n💪 Сила: +${b.strength}`;
-      if (b.agility) statsText += `\n🏹 Ловкость: +${b.agility}`;
-      if (b.endurance) statsText += `\n🛡️ Выносливость: +${b.endurance}`;
-      if (b.luck) statsText += `\n🍀 Удача: +${b.luck}`;
+  if (statsText) statsText += '\n';
+
+  // А. РАЗДЕЛ ДИНАМИЧЕСКИХ ТРЕБОВАНИЙ (✅ / 🔒)
+  let reqsText = '';
+  
+  if (itemData.level) {
+    // В городе уровень игрока берется из объекта window.player
+    const pLevel = window.player && window.player.level ? Number(window.player.level) : 1;
+    const levelIcon = (pLevel >= Number(itemData.level)) ? '✅' : '🔒';
+    reqsText += '\n' + levelIcon + ' Требуется уровень: ' + itemData.level;
+  }
+  
+  if (itemData.req) {
+    const pStr = window.player && window.player.stats && window.player.stats.strength ? Number(window.player.stats.strength) : 1;
+    const pAgi = window.player && window.player.stats && window.player.stats.agility ? Number(window.player.stats.agility) : 1;
+    const pEnd = window.player && window.player.stats && window.player.stats.endurance ? Number(window.player.stats.endurance) : 1;
+    const pLuck = window.player && window.player.stats && window.player.stats.luck ? Number(window.player.stats.luck) : 1;
+
+    if (itemData.req.strength) {
+      const strIcon = (pStr >= Number(itemData.req.strength)) ? '✅' : '🔒';
+      reqsText += '\n' + strIcon + ' Требуется Сила: ' + itemData.req.strength;
+    }
+    if (itemData.req.agility) {
+      const agiIcon = (pAgi >= Number(itemData.req.agility)) ? '✅' : '🔒';
+      reqsText += '\n' + agiIcon + ' Требуется Ловкость: ' + itemData.req.agility;
+    }
+    if (itemData.req.endurance) {
+      const endIcon = (pEnd >= Number(itemData.req.endurance)) ? '✅' : '🔒';
+      reqsText += '\n' + endIcon + ' Требуется Выносливость: ' + itemData.req.endurance;
+    }
+    if (itemData.req.luck) {
+      const luckIcon = (pLuck >= Number(itemData.req.luck)) ? '✅' : '🔒';
+      reqsText += '\n' + luckIcon + ' Требуется Удача: ' + itemData.req.luck;
     }
   }
-  if (itemData.level) statsText += `\n🔒 Требуемый уровень: ${itemData.level}`;
+  
+  if (reqsText) statsText += reqsText + '\n';
+
+  // Б. РАЗДЕЛ БОНУСОВ И МОДИФИКАТОРОВ ВЕЩИ
+  let bonusesText = '';
+  if (itemData.bonus) {
+    if (itemData.bonus.atk) bonusesText += '\n⚔️ Бонус Атаки: +' + itemData.bonus.atk;
+    if (itemData.bonus.def) bonusesText += '\n🛡️ Бонус Защиты: +' + itemData.bonus.def;
+    if (itemData.bonus.mf_crit) bonusesText += '\n💥 Мф. Критического удара: +' + itemData.bonus.mf_crit + '%';
+    if (itemData.bonus.mf_inv) bonusesText += '\n🏹 Мф. Увертывания: +' + itemData.bonus.mf_inv + '%';
+    if (itemData.bonus.mf_antiinv) bonusesText += '\n🎯 Мф. Против увертывания: +' + itemData.bonus.mf_antiinv + '%';
+    if (itemData.bonus.mf_anticrit) bonusesText += '\n🛡️ Мф. Против крита: +' + itemData.bonus.mf_anticrit + '%';
+    
+    if (itemData.bonus.stats) {
+      const b = itemData.bonus.stats;
+      if (b.strength) bonusesText += '\n💪 Добавляет Силу: +' + b.strength;
+      if (b.agility) bonusesText += '\n🏹 Добавляет Ловкость: +' + b.agility;
+      if (b.endurance) bonusesText += '\n🛡️ Добавляет Выносливость: +' + b.endurance;
+      if (b.luck) bonusesText += '\n🍀 Добавляет Удачу: +' + b.luck;
+    }
+  }
+
+  if (bonusesText) statsText += '\n⭐ Бонусы предмета:' + bonusesText;
+  
   pDesc.innerText = statsText;
 
+  // Шаг 4: Управление кнопкой действия инвентаря (Надеть / Снять) без изменений логики сокетов
   if (isEquipped) {
     pBtn.textContent = '❌ Снять в рюкзак';
     pBtn.style.background = '#e74c3c';
@@ -530,12 +578,9 @@ window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringInd
     let isConsumable = itemData.heal || cleanId.includes('potion') || cleanId.includes('soup') || itemData.duration || cleanId.includes('scroll');
     pBtn.textContent = isConsumable ? '🧪 Взять в бой' : '🛡️ Экипировать';
     pBtn.style.background = '#6c5ce7';
-    
     pBtn.onclick = function() {
       popover.style.display = 'none';
-      
-      // 🔥 ЖЕСТКИЙ ФИКС ОПЕЧАТКИ: Используем правильное имя переменной itemUuidOrId (в точности как в аргументе функции!)
-      window.equipItem(itemUuidOrId); 
+      window.equipItem(itemUuidOrId); // Шлем на сервер полноценный UUID/ID вещи
     };
   }
   popover.style.display = 'flex';
