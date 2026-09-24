@@ -445,15 +445,21 @@ else if (currentProfileTab === 'modifiers') {
       const row = document.createElement('div');
       row.style.cssText = 'display: flex; flex-direction: column; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);';
       
-      // Формируем внутреннюю верстку с динамическим выводом "Реального шанса"
-      row.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; font-weight: bold;">
-          <span>${mod.label}</span>
-          <span style="color: #6c5ce7; font-size: 16px;">+${mod.value}</span>
-        </div>
-        ${mod.subValue ? `<div style="color: #f1c40f; font-size: 11px; font-weight: 600; margin-top: 1px;">⚡ \${mod.subValue}</div>` : ''}
-        <div style="color: var(--hint); font-size: 11px; margin-top: 3px; line-height: 1.2;">${mod.desc}</div>
-      `;
+      // 🔥 БЕЗОПАСНАЯ СКЛЕЙКА: Убрали косые слэши и знаки $, собираем строку через обычные плюсы
+      let innerHtml = '';
+      innerHtml += '<div style="display: flex; justify-content: space-between; align-items: center; font-weight: bold;">';
+      innerHtml += '  <span>' + mod.label + '</span>';
+      innerHtml += '  <span style="color: #6c5ce7; font-size: 16px;">+' + mod.value + '</span>';
+      innerHtml += '</div>';
+      
+      // Если у модификатора есть расчет капа (уворот или крит) — приклеиваем золотую строчку
+      if (mod.subValue) {
+        innerHtml += '<div style="color: #f1c40f; font-size: 11px; font-weight: 600; margin-top: 2px;">⚡ ' + mod.subValue + '</div>';
+      }
+      
+      innerHtml += '<div style="color: var(--hint); font-size: 11px; margin-top: 3px; line-height: 1.2;">' + mod.desc + '</div>';
+      
+      row.innerHTML = innerHtml;
       statsBody.appendChild(row);
     });
   }
