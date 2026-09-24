@@ -194,6 +194,9 @@ body {
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6);
   transform: translateY(100%);
   transition: transform 0.25s ease;
+  max-height: 85vh !important; /* Окно никогда не займет больше 85% высоты экрана смартфона */
+  display: flex;
+  flex-direction: column;
 }
 .modal-overlay.active .modal-content { transform: translateY(0); }
 
@@ -579,54 +582,52 @@ body {
   border-radius: 6px !important;
 }
 
-/* 2. 🔥 ЖЕСТКИЙ ФИКС СЛОТОВ: Делаем ячейки вещей маленькими и аккуратными */
+/* Настройка контейнера, где рендерятся ячейки рюкзака */
 #inventory-content {
   display: grid !important;
-  /* Добавляем !important прямо на колонки, чтобы перебить инлайновые стили JS во всех вкладках! */
-  grid-template-columns: repeat(5, 1fr) !important; 
-  gap: 6px !important;
-  flex: 1 !important;
-   max-height: 220px !important; 
-  overflow-y: auto !important;
-  max-width: 270px !important; /* Удерживаем рюкзак строго по ширине куклы */
+  /* 🔥 ИСПРАВЛЕНО: Вместо автоматического 1fr задаем жесткий фиксированный размер ячеек 46px.
+     Теперь, даже если в рюкзаке всего 1 вещь, она останется аккуратным маленьким квадратом 46х46px 
+      и не будет раздуваться на пол-экрана! */
+  grid-template-columns: repeat(5, 46px) !important; 
+  gap: 8px !important;
+  justify-content: center !important; /* Центрируем сетку предметов ровно по ширине куклы */
+  
+  /* 🔥 ИСПРАВЛЕНО: Зажимаем максимальную высоту, чтобы окно не улетало вверх */
+  max-height: 200px !important; 
+  overflow-y: auto !important; /* Включаем внутреннюю прокрутку */
+  max-width: 270px !important; 
   width: 100% !important;
   margin: 0 auto !important;
-  padding: 4px 0 16px 0 !important;
+  padding: 8px 0 16px 0 !important;
+  -webkit-overflow-scrolling: touch; /* Плавный скролл для Telegram на iOS */
 }
 
-/* Принудительно уменьшаем размер самих ячеек рюкзака */
+/* Красивый тонкий скроллбар для зоны рюкзака, чтобы не портил визуал */
+#inventory-content::-webkit-scrollbar {
+  width: 4px;
+}
+#inventory-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+/* Принудительно фиксируем размер самих ячеек рюкзака, гася конфликты с JS */
 #inventory-content .inv-slot {
-  width: 100% !important;
-  aspect-ratio: 1 / 1 !important;
-  height: auto !important;
-  font-size: 16px !important;
-  border-radius: 6px !important;
-}
-
-/* 3. Оставляем благородную вертикальную куклу Яна без изменений */
-#inv-avatar-frame {
-  width: 145px !important;
-  height: 185px !important;
-  max-width: 145px !important;
-  max-height: 185px !important;
-  padding: 0 !important;
-  margin: 0 auto !important;
-}
-
-#inv-hero-avatar {
-  width: 145px !important;
-  height: 185px !important;
-  max-width: 145px !important;
-  max-height: 185px !important;
-  object-fit: cover !important;
-  border-radius: 12px !important;
-}
-
-.inv-equipment-doll {
-  grid-template-columns: 44px 145px 44px !important;
-  gap: 14px !important;
+  width: 46px !important;
+  height: 46px !important;
+  box-sizing: border-box !important;
+  font-size: 18px !important;
+  border-radius: 8px !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  display: flex !important;
+  align-items: center !important;
   justify-content: center !important;
-  width: 100% !important;
-  max-width: 270px !important;
-  margin: 0 auto !important;
+}
+
+/* Фикс для картинок внутри маленьких ячеек */
+#inventory-content .inv-slot img {
+  width: 32px !important;
+  height: 32px !important;
+  object-fit: contain !important;
 }
