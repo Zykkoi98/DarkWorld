@@ -437,15 +437,15 @@ window.closeProfile = function() {
 
 // --- 🔥 ИНТЕРАКТИВНОЕ ОКНО ИНФОРМАЦИИ О ПРЕДМЕТЕ (ИСПРАВЛЕННОЕ) ---
 window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringIndex = null) {
-  if (!itemUidOrId) return;
+  if (!itemUuidOrId) return;
 
-  let cleanId = itemUidOrId;
+  let cleanId = itemUuidOrId;
   
-  if (itemUidOrId.includes('_')) {
-    // 🔥 Если этот ID УЖЕ присутствует в нашей новой глобальной базе как чистый товар —
-    // значит его не нужно резать, это базовый ID шмотки или банки!
-    if (!window.GAME_ITEMS_DATABASE[itemUidOrId]) {
-      const parts = itemUuidOrId.split('_'); // Проверяем аргумент функции
+  // 🔥 ФИКС ОПЕЧАТКИ: Везде используем itemUuidOrId строго в соответствии с аргументом функции!
+  if (itemUuidOrId.includes('_')) {
+    // Если этот ID уже есть в базе товаров — значит его не нужно резать (это базовая шмотка или банка!)
+    if (!window.GAME_ITEMS_DATABASE[itemUuidOrId]) {
+      const parts = itemUuidOrId.split('_'); 
       if (parts.length > 2) {
         cleanId = parts.slice(0, -2).join('_');
       }
