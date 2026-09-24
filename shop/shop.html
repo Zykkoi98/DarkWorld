@@ -258,8 +258,11 @@
   <div class="shop-container">
     <div id="shop-title">🏪 Торговая Лавка</div>
     
-    <!-- Плашка состояния кошелька игрока -->
-    <div id="shop-user-gold" class="shop-wallet-card">💰 Загрузка кошелька...</div>
+      <!-- Плашка состояния кошелька с динамическим статус-логом справа -->
+  <div id="shop-user-gold" class="shop-wallet-card" style="display: flex; justify-content: space-between; align-items: center;">
+    <span id="wallet-gold-value">💰 Загрузка...</span>
+    <span id="wallet-status-log" style="color: #2ecc71; font-size: 12px; font-weight: bold; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 6px;">🟢 Готов к торговле</span>
+  </div>
 
     <!-- УРОВЕНЬ 1: ТРИ СТРУКТУРНЫЕ ВЕРХНИЕ ВКЛАДКИ -->
     <div class="shop-main-navigation">

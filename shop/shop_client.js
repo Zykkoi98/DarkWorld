@@ -1,6 +1,6 @@
 // ============================================================================
 // ===== 🛒 ИЗОЛИРОВАННЫЙ АВТОНОМНЫЙ СКРИПТ ТОРГОВЛИ (SHOP_CLIENT.JS) =====
-// ===== ЧАСТЬ 1 ИЗ 2: СЕТЕВОЕ СОЕДИНЕНИЕ И НАВИГАЦИЯ ВКЛАДОК (ФИКС АЛЕРТОВ) =====
+// ===== ЧАСТЬ 1 ИЗ 2: СЕТЕВОЕ СОЕДИНЕНИЕ И ЛОГИРОВАНИЕ В КОШЕЛЕК =====
 // ============================================================================
 
 let shopSocket = null;
@@ -10,8 +10,16 @@ let localPlayer = null;
 let activeMainMode = 'ammo';       // 'ammo' (Амуниция), 'consumables' (Расходники), 'sell' (Продажа)
 let activeAmmoClass = 'dodger';     // 'dodger' (Плут), 'critter' (Варвар), 'tank' (Танк)
 
+// 🔥 Функция вывода лога последней операции прямо в шапку кошелька
+function updateWalletStatusLog(text, isError = false) {
+  const logEl = document.getElementById('wallet-status-log');
+  if (!logEl) return;
+  
+  logEl.textContent = text;
+  logEl.style.color = isError ? '#e74c3c' : '#2ecc71'; // Красный текст при ошибке, зеленый при успехе
+}
+
 function initShopPage() {
-  // 1. Извлекаем локальный кэш персонажа, сохраненный в городе
   const localSave = localStorage.getItem('rpg_save');
   if (localSave) {
     try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
@@ -28,7 +36,7 @@ function initShopPage() {
   if (typeof io !== 'undefined') {
     shopSocket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket'],
-      forceNew: true, // Выделяем чистую изолированную сессию под магазин
+      forceNew: true,
       upgrade: false
     });
   } else {
@@ -36,59 +44,49 @@ function initShopPage() {
     return;
   }
 
-  // Настраиваем слушатели сокет-событий бэкенда
   shopSocket.on('connect', () => {
     console.log("✅ [МАГАЗИН] Подключено к серверу, сокет ID:", shopSocket.id);
     shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   });
 
-  // 🔥 ЖЕСТКИЙ ФИКС: Перед регистрацией каждого события принудительно сбрасываем старые бинды,
-  // чтобы стек Socket.io на смартфоне не переполнялся и не игнорировал 4-ю покупку!
   shopSocket.off('load_game_success');
   shopSocket.on('load_game_success', (data) => {
     if (data && data.player) {
-      console.log("☁️ [МАГАЗИН] Кошелек и инвентарь синхронизированы с облаком.");
       localPlayer = data.player;
       localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
       window.updateShopUi();
     }
   });
 
+  // 🔥 Ловим успешную покупку/продажу и сразу пишем статус в кошелек без алертов
   shopSocket.off('shop_buy_success');
   shopSocket.on('shop_buy_success', (data) => {
-    // Гарантируем, что алерт вызовется в основном потоке браузера
-    setTimeout(() => {
-      alert(data.message || "🎉 Успешно!");
-    }, 10);
+    updateWalletStatusLog(data.message || "🎉 Успешно!");
     window.updateShopUi();
   });
 
+  // Ловим ошибки (недостаточно золота, мало статов) и красим лог в красный
   shopSocket.off('shop_buy_error');
   shopSocket.on('shop_buy_error', (data) => {
-    setTimeout(() => {
-      alert(data.message || "🚨 Ошибка транзакции");
-    }, 10);
-    window.updateShopUi(); // Гарантированно разблокирует зависшие кнопки покупки
+    updateWalletStatusLog(data.message || "🚨 Ошибка", true);
+    window.updateShopUi(); 
   });
 
   shopSocket.off('error');
   shopSocket.on('error', (msg) => { 
-    alert(`❌ Ошибка сети магазина: ${msg}`); 
+    updateWalletStatusLog(`❌ Ошибка сети`, true);
     window.updateShopUi();
   });
 
-  // Первичный запуск отрисовки из локального кэша смартфона
   window.updateShopUi();
 }
 
-// 1. Управление верхними категориями (Уровень 1: Амуниция / Расходники / Продажа)
 window.switchShopMode = function(mode) {
   if (activeMainMode === mode) return;
   activeMainMode = mode;
   window.updateShopUi();
 };
 
-// 2. Управление классовыми комплектами (Уровень 2: Плут / Варвар / Танк)
 window.setShopClass = function(className) {
   if (activeAmmoClass === className) return;
   activeAmmoClass = className;
@@ -99,23 +97,23 @@ window.exitShop = function() {
   if (shopSocket) {
     try { shopSocket.disconnect(); } catch(e) { console.error(e); }
   }
-  window.location.replace('../index.html'); // Возвращаемся на главную площадь города
+  window.location.replace('../index.html');
 };
 // ============================================================================
 // ===== 🛒 ИЗОЛИРОВАННЫЙ АВТОНОМНЫЙ СКРИПТ ТОРГОВЛИ (SHOP_CLIENT.JS) =====
-// ===== ЧАСТЬ 2 ИЗ 2: ОТРЕНДЕР ИНТЕРФЕЙСА И СОКЕТ-ТРАНЗАКЦИИ (ИСПРАВЛЕННАЯ) =====
+// ===== ЧАСТЬ 2 ИЗ 2: ОТРЕНДЕР ИНТЕРФЕЙСА И СОКЕТ-ТРАНЗАКЦИИ =====
 // ============================================================================
 
 window.updateShopUi = function() {
   if (!localPlayer) return;
 
-  // Обновление золота и уровня в шапке
-  const goldText = document.getElementById('shop-user-gold');
-  if (goldText) {
-    goldText.textContent = `💰 Ваше Золото: ${localPlayer.gold} монет | Ваш уровень: ${localPlayer.level}`;
+  // Чистый вывод золота в левую часть кошелька (без упоминания уровня)
+  const goldValEl = document.getElementById('wallet-gold-value');
+  if (goldValEl) {
+    goldValEl.textContent = `💰 Золото: ${localPlayer.gold} монет`;
   }
 
-  // Светим вкладки верхнего уровня (Амуниция / Расходники / Продажа)
+  // Подсвечиваем активные вкладки верхнего уровня (Амуниция / Расходники / Продажа)
   ['ammo', 'consumables', 'sell'].forEach(mode => {
     const btn = document.getElementById(`main-nav-${mode}`);
     if (btn) {
@@ -128,9 +126,9 @@ window.updateShopUi = function() {
   const subMenu = document.getElementById('shop-sub-categories');
   if (subMenu) {
     if (activeMainMode === 'ammo') {
-      subMenu.style.display = 'flex'; // Показываем подменю только на вкладке Амуниции
+      subMenu.style.display = 'flex';
       
-      // Подсвечиваем active класс внутри подменю
+      // Подсвечиваем активный класс внутри подменю
       ['dodger', 'critter', 'tank'].forEach(cls => {
         const subBtn = document.getElementById(`sub-tab-${cls}`);
         if (subBtn) {
@@ -139,7 +137,7 @@ window.updateShopUi = function() {
         }
       });
     } else {
-      subMenu.style.display = 'none'; // Скрываем подменю для Расходников и Продажи
+      subMenu.style.display = 'none';
     }
   }
 
@@ -185,10 +183,8 @@ window.updateShopUi = function() {
   // ВКЛАДКИ ПОКУПКИ: ФИЛЬТРАЦИЯ И ВЫВОД КАТАЛОГА АМУНИЦИИ ИЛИ ЭЛИКСИРОВ
   // ============================================================================
   const filteredIds = Object.keys(window.GAME_ITEMS_DATABASE).filter(id => {
-    // Если открыты Расходники — отбираем только зелья и тавернский суп
     if (activeMainMode === 'consumables') return id.includes('potion') || id === 'fish_soup';
     
-    // Если открыта Амуниция — смотрим, какой класс выбран на втором уровне
     if (activeMainMode === 'ammo') {
       if (activeAmmoClass === 'dodger') return id.startsWith('rogue_') || id.startsWith('bandit_') || id.startsWith('thief_') || id.startsWith('mercenary_') || id.startsWith('assassin_') || id.startsWith('stalker_') || id.startsWith('shadow_') || id.startsWith('phantom_') || id.startsWith('gale_') || id.startsWith('grandmaster_');
       if (activeAmmoClass === 'critter') return id.startsWith('scratched_') || id.startsWith('savage_') || id.startsWith('barbarian_') || id.startsWith('fury_') || id.startsWith('seeker_') || id.startsWith('heavy_halberd') || id.startsWith('highland_') || id.startsWith('slasher_') || id.startsWith('ravager_') || id.startsWith('berserk_') || id.startsWith('blood_') || id.startsWith('bloodlust_') || id.startsWith('reaper_') || id.startsWith('hellfire_') || id.startsWith('inferno_') || id.startsWith('executioner_') || id.startsWith('warlord_');
@@ -197,7 +193,6 @@ window.updateShopUi = function() {
     return false;
   });
 
-  // Сортировка и группировка каталога по уровням вещей
   const itemsByLvl = {};
   filteredIds.forEach(id => {
     const item = window.GAME_ITEMS_DATABASE[id];
@@ -205,7 +200,6 @@ window.updateShopUi = function() {
     itemsByLvl[item.level].push({ id, ...item });
   });
 
-  // Отрисовка блоков каталога магазина
   Object.keys(itemsByLvl).sort((a,b) => a - b).forEach(lvl => {
     const block = document.createElement('div');
     block.className = 'lvl-group';
@@ -233,7 +227,6 @@ window.updateShopUi = function() {
       const statColor = hasEnoughStats ? '#2ecc71' : '#e74c3c';
       const lvlColor = isLevelOk ? '#2ecc71' : '#e74c3c';
 
-      // 🔥 Фикс подстановки: убрали косые слэши внутри шаблонной строки, чтобы JS правильно прочитал переменные
       row.innerHTML = `
         <div class="item-icon">${item.icon || '📦'}</div>
         <div class="item-info">
@@ -254,7 +247,6 @@ window.updateShopUi = function() {
   });
 };
 
-// Функция сборки строки для вкладки продажи торговцу
 function renderSellRow(block, itemUuidOrId, dbData, isConsumable, count = 1) {
   const halfPrice = Math.floor(dbData.price * 0.5) || 1;
   const row = document.createElement('div');
@@ -275,19 +267,13 @@ function renderSellRow(block, itemUuidOrId, dbData, isConsumable, count = 1) {
 
 window.triggerServerBuy = function(itemId, event) {
   const btn = event.currentTarget;
-  if (btn) {
-    btn.disabled = true; 
-    btn.textContent = '⏳';
-  }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
   shopSocket.emit('buy_item_secure', { userId: localPlayer.id, itemId: itemId });
 };
 
 window.triggerServerSell = function(itemUuidOrId, isConsumable, event) {
   const btn = event.currentTarget;
-  if (btn) {
-    btn.disabled = true; 
-    btn.textContent = '⏳';
-  }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
   shopSocket.emit('sell_item_secure', { 
     userId: localPlayer.id, 
     itemUuidOrId: itemUuidOrId, 
