@@ -435,7 +435,7 @@ window.closeProfile = function() {
   if (modal) { modal.classList.remove('active'); modal.style.display = 'none'; }
 };
 
-// --- 🔥 ИНТЕРАКТИВНОЕ ОКНО ИНФОРМАЦИИ О ПРЕДМЕТЕ ---
+// --- 🔥 ИНТЕРАКТИВНОЕ ОКНО ИНФОРМАЦИИ О ПРЕДМЕТЕ (ИСПРАВЛЕННОЕ) ---
 window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringIndex = null) {
   if (!itemUuidOrId) return;
 
@@ -444,8 +444,8 @@ window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringInd
   if (itemUuidOrId.includes('_')) {
     const parts = itemUuidOrId.split('_');
     
-    // 🔥 УЛЬТИМАТИВНЫЙ ФИКС: Уникальный UUID шмотки всегда заканчивается штампом времени (Date.now() - это длинное число)
-    // Мы проверяем последнюю или предпоследнюю часть UUID: если это число (timestamp), значит перед нами РЕАЛЬНЫЙ UUID шмотки.
+    // 🔥 УЛЬТИМАТИВНЫЙ ФИКС: Уникальный UUID шмотки всегда заканчивается числовым штампом времени (Date.now())
+    // Мы проверяем предпоследнюю часть UUID: если это число (timestamp), значит перед нами РЕАЛЬНЫЙ UUID снаряжения.
     // Если там буквы (как в hp_potion_small), то это обычный ID расходника, и мы его НЕ ТРОГАЕМ!
     const isTimestamp = parts.length > 2 && !isNaN(parts[parts.length - 2]);
     
@@ -494,10 +494,12 @@ window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringInd
     let isConsumable = itemData.heal || cleanId.includes('potion') || cleanId.includes('soup') || itemData.duration || cleanId.includes('scroll');
     pBtn.textContent = isConsumable ? '🧪 Взять в бой' : '🛡️ Экипировать';
     pBtn.style.background = '#6c5ce7';
+    
     pBtn.onclick = function() {
       popover.style.display = 'none';
-      // 🔥 ШЛЕМ НА СЕРВЕР ПОЛНОЦЕННЫЙ UUID ВЕЩИ!
-      window.equipItem(itemUidOrId); 
+      
+      // 🔥 ЖЕСТКИЙ ФИКС ОПЕЧАТКИ: Используем правильное имя переменной itemUuidOrId (в точности как в аргументе функции!)
+      window.equipItem(itemUuidOrId); 
     };
   }
   popover.style.display = 'flex';
