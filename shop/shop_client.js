@@ -294,3 +294,38 @@ window.triggerServerSell = function(itemUuidOrId, isConsumable, event) {
 };
 
 document.addEventListener('DOMContentLoaded', initShopPage);
+// 🔥 ЛОКАЛЬНЫЙ ОБРАБОТЧИК ОТОБРАЖЕНИЯ ХАРАКТЕРИСТИК ДЛЯ ТОРГОВОЙ ЛАВКИ
+window.showItemInfo = function(itemId) {
+  if (!itemId) return;
+
+  const itemData = window.GAME_ITEMS_DATABASE[itemId];
+  if (!itemData) return;
+
+  const popover = document.getElementById('item-info-popover');
+  const pName = document.getElementById('popover-item-name');
+  const pIcon = document.getElementById('popover-item-icon');
+  const pDesc = document.getElementById('popover-item-desc');
+
+  if (!popover || !pName || !pIcon || !pDesc) return;
+
+  pName.textContent = itemData.name;
+  pIcon.textContent = itemData.icon || '📦';
+
+  // Собираем точные боевые характеристики шмотки
+  let statsText = itemData.desc || '';
+  if (itemData.bonus) {
+    if (itemData.bonus.atk) statsText += '\n⚔️ Атака: +' + itemData.bonus.atk;
+    if (itemData.bonus.def) statsText += '\n🛡️ Защита: +' + itemData.bonus.def;
+    if (itemData.bonus.stats) {
+      const b = itemData.bonus.stats;
+      if (b.strength) statsText += '\n💪 Сила: +' + b.strength;
+      if (b.agility) statsText += '\n🏹 Ловкость: +' + b.agility;
+      if (b.endurance) statsText += '\n🛡️ Выносливость: +' + b.endurance;
+      if (b.luck) statsText += '\n🍀 Удача: +' + b.luck;
+    }
+  }
+  if (itemData.level) statsText += '\n🔒 Требуемый уровень: ' + itemData.level;
+  
+  pDesc.innerText = statsText;
+  popover.style.display = 'flex'; // Плавно открываем поп-ап локально
+};
