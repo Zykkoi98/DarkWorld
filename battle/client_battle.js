@@ -546,25 +546,37 @@ function checkPotionAvailability() {
 window.addEventListener('browse_battle', () => { console.log('Смена контекста...'); });
 window.addEventListener('DOMContentLoaded', () => { initBattleSocket(); });
 
-// 🔥 ГЛОБАЛЬНЫЙ ТРИГГЕР: ПОКАЗ СТАТОВ ИГРОКА В БОЮ
+// 🔥 ИСПРАВЛЕННЫЙ ТРИГГЕР: ХАРАКТЕРИСТИКИ ИГРОКА В БОЮ
 window.openPlayerStatsInBattle = function() {
-  // Находим вашего бойца в актуальных массивах раунда
   const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
   const pBody = document.getElementById('player-popover-body');
-  
   if (!myFighter || !pBody) return;
-  pBody.innerHTML = ''; // Чистим старое
+  pBody.innerHTML = ''; 
 
-  const mfInv = (Number(myFighter.agility || 1) * 10);
-  const mfAntiInv = (Number(myFighter.agility || 1) * 4);
-  const mfCrit = (Number(myFighter.luck || 1) * 10);
-  const mfAntiCrit = (Number(myFighter.luck || 1) * 4);
+  // Защита от разной вложенности статов на сервере
+  const str = Number(myFighter.stats?.strength ?? myFighter.strength ?? 1);
+  const agi = Number(myFighter.stats?.agility ?? myFighter.agility ?? 1);
+  const end = Number(myFighter.stats?.endurance ?? myFighter.endurance ?? 1);
+  const lck = Number(myFighter.stats?.luck ?? myFighter.luck ?? 1);
+
+  // Бонусы от шмоток куклы (если есть)
+  const gearAgiBonus = window.getEquipmentBonus ? window.getEquipmentBonus(myFighter, 'agility') : 0;
+  const gearLuckBonus = window.getEquipmentBonus ? window.getEquipmentBonus(myFighter, 'luck') : 0;
+
+  const totalAgi = agi + gearAgiBonus;
+  const totalLuck = lck + gearLuckBonus;
+
+  // Каноничные модификаторы БК
+  const mfInv = (totalAgi * 10);
+  const mfAntiInv = (totalAgi * 4);
+  const mfCrit = (totalLuck * 10);
+  const mfAntiCrit = (totalLuck * 4);
 
   const stats = [
-    { label: '💪 Сила', value: myFighter.strength || 1 },
-    { label: '🏹 Ловкость', value: myFighter.agility || 1 },
-    { label: '🛡️ Выносливость', value: myFighter.endurance || 1 },
-    { label: '🍀 Удача', value: myFighter.luck || 1 },
+    { label: '💪 Сила', value: str },
+    { label: '🏹 Ловкость', value: totalAgi },
+    { label: '🛡️ Выносливость', value: end },
+    { label: '🍀 Удача', value: totalLuck },
     { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
     { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
     { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
@@ -582,25 +594,33 @@ window.openPlayerStatsInBattle = function() {
   document.getElementById('player-stats-popover').style.display = 'flex';
 };
 
-// 🔥 ГЛОБАЛЬНЫЙ ТРИГГЕР: ПОКАЗ СТАТОВ ВРАГА В БОЮ
+// 🔥 ИСПРАВЛЕННЫЙ ТРИГГЕР: ХАРАКТЕРИСТИКИ ВРАГА В БОЮ
 window.openEnemyStatsInBattle = function() {
-  const opposingTeam = teamA.includes([...teamA, ...teamB].find(f => f.uuid === myUuid)) ? teamB : teamA;
+  const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+  if (!myFighter) return;
+  const opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
   const targetFighter = opposingTeam.find(e => e.uuid === selectedTargetUuid);
   const mBody = document.getElementById('monster-popover-body');
 
   if (!targetFighter || targetFighter.currentHp <= 0 || !mBody) return;
-  mBody.innerHTML = ''; // Чистим старое
+  mBody.innerHTML = ''; 
 
-  const mfInv = (Number(targetFighter.agility || 1) * 10);
-  const mfAntiInv = (Number(targetFighter.agility || 1) * 4);
-  const mfCrit = (Number(targetFighter.luck || 1) * 10);
-  const mfAntiCrit = (Number(targetFighter.luck || 1) * 4);
+  // Защита от разной вложенности статов на сервере
+  const str = Number(targetFighter.stats?.strength ?? targetFighter.strength ?? 1);
+  const agi = Number(targetFighter.stats?.agility ?? targetFighter.agility ?? 1);
+  const end = Number(targetFighter.stats?.endurance ?? targetFighter.endurance ?? 1);
+  const lck = Number(targetFighter.stats?.luck ?? targetFighter.luck ?? 1);
+
+  const mfInv = (agi * 10);
+  const mfAntiInv = (agi * 4);
+  const mfCrit = (lck * 10);
+  const mfAntiCrit = (lck * 4);
 
   const stats = [
-    { label: '💪 Сила', value: targetFighter.strength || 1 },
-    { label: '🏹 Ловкость', value: targetFighter.agility || 1 },
-    { label: '🛡️ Выносливость', value: targetFighter.endurance || 1 },
-    { label: '🍀 Удача', value: targetFighter.luck || 1 },
+    { label: '💪 Сила', value: str },
+    { label: '🏹 Ловкость', value: agi },
+    { label: '🛡️ Выносливость', value: end },
+    { label: '🍀 Удача', value: lck },
     { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
     { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
     { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
