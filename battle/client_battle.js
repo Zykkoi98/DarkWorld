@@ -546,6 +546,28 @@ function checkPotionAvailability() {
 window.addEventListener('browse_battle', () => { console.log('Смена контекста...'); });
 window.addEventListener('DOMContentLoaded', () => { initBattleSocket(); });
 
+
+// 🔥 КЛИЕНТСКИЙ СБОРЩИК БОНУСОВ ШМОТОК ДЛЯ ХАРАКТЕРИСТИК В БОЮ
+window.getEquipmentBonusInBattle = function(fighterObj, bonusKey) {
+  if (!fighterObj || !fighterObj.equipped) return 0;
+  let totalBonus = 0;
+  const slots = ['head', 'body', 'legs', 'gloves', 'neck', 'mainHand', 'offHand', 'extra'];
+  
+  slots.forEach(slot => {
+    const itemId = fighterObj.equipped[slot];
+    if (itemId) {
+      const itemData = window.getItemData ? window.getItemData(itemId) : null;
+      if (itemData && itemData.bonus) {
+        if (itemData.bonus[bonusKey] !== undefined) totalBonus += itemData.bonus[bonusKey];
+        if (itemData.bonus.stats && itemData.bonus.stats[bonusKey] !== undefined) {
+          totalBonus += itemData.bonus.stats[bonusKey];
+        }
+      }
+    }
+  });
+  return totalBonus;
+};
+
 // 🔥 ИСПРАВЛЕННЫЙ ТРИГГЕР: ХАРАКТЕРИСТИКИ ИГРОКА В БОЮ
 window.openPlayerStatsInBattle = function() {
   const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
@@ -553,20 +575,19 @@ window.openPlayerStatsInBattle = function() {
   if (!myFighter || !pBody) return;
   pBody.innerHTML = ''; 
 
-  // Защита от разной вложенности статов на сервере
+  // Читаем статы из объекта stats, который присылает бэкенд
   const str = Number(myFighter.stats?.strength ?? myFighter.strength ?? 1);
   const agi = Number(myFighter.stats?.agility ?? myFighter.agility ?? 1);
   const end = Number(myFighter.stats?.endurance ?? myFighter.endurance ?? 1);
   const lck = Number(myFighter.stats?.luck ?? myFighter.luck ?? 1);
 
-  // Бонусы от шмоток куклы (если есть)
-  const gearAgiBonus = window.getEquipmentBonus ? window.getEquipmentBonus(myFighter, 'agility') : 0;
-  const gearLuckBonus = window.getEquipmentBonus ? window.getEquipmentBonus(myFighter, 'luck') : 0;
+  // Считаем бонусы через наш боевой метод, чтобы JS не падал
+  const gearAgiBonus = window.getEquipmentBonusInBattle(myFighter, 'agility');
+  const gearLuckBonus = window.getEquipmentBonusInBattle(myFighter, 'luck');
 
   const totalAgi = agi + gearAgiBonus;
   const totalLuck = lck + gearLuckBonus;
 
-  // Каноничные модификаторы БК
   const mfInv = (totalAgi * 10);
   const mfAntiInv = (totalAgi * 4);
   const mfCrit = (totalLuck * 10);
@@ -605,7 +626,6 @@ window.openEnemyStatsInBattle = function() {
   if (!targetFighter || targetFighter.currentHp <= 0 || !mBody) return;
   mBody.innerHTML = ''; 
 
-  // Защита от разной вложенности статов на сервере
   const str = Number(targetFighter.stats?.strength ?? targetFighter.strength ?? 1);
   const agi = Number(targetFighter.stats?.agility ?? targetFighter.agility ?? 1);
   const end = Number(targetFighter.stats?.endurance ?? targetFighter.endurance ?? 1);
