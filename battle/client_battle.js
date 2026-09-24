@@ -334,6 +334,9 @@ function renderFighters() {
 
   checkStrikeButtonState();
   initTacticalClickListeners();
+  // Принудительно разрешаем картинкам принимать клики/тапы в бою
+  document.getElementById('hero-card-bg-img').style.pointerEvents = 'auto';
+  document.getElementById('target-card-bg-img').style.pointerEvents = 'auto';
 }
 // === КЛИЕНТСКИЙ ФИКС ДИНАМИЧЕСКИХ ЗОН БК (CLIENT_BATTLE.JS) ===
 
