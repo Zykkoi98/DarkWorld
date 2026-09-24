@@ -243,7 +243,17 @@ function renderFighters() {
     const heroImg = document.getElementById('hero-card-bg-img');
 
     if (elLvl) elLvl.textContent = `Lv. ${myFighter.level || 1}`;
-    if (elName) elName.textContent = myFighter.name;
+    if (elName) {
+      elName.textContent = myFighter.name;
+      elName.style.cursor = 'pointer';
+      elName.style.textDecoration = 'underline'; // Визуальный anchor для игрока
+      elName.style.color = '#6c5ce7'; // Фиолетовый оттенок вашего интерфейса
+      elName.onclick = function() {
+        if (typeof window.openPlayerStatsInBattle === 'function') {
+          window.openPlayerStatsInBattle();
+        }
+      };
+    }
     if (heroImg) heroImg.src = (myFighter.avatar && myFighter.avatar.includes('.')) ? myFighter.avatar : DEFAULT_HERO_IMG;
     
     const dHp = Math.max(0, myFighter.currentHp);
@@ -264,7 +274,17 @@ function renderFighters() {
     const elTHpFill = document.getElementById('target-hp-fill');
     const elTHpText = document.getElementById('target-hp-text');
     const tImg = document.getElementById('target-card-bg-img');
-    if (elTName) elTName.textContent = targetFighter.name;
+    if (elTName) {
+      elTName.textContent = targetFighter.name;
+      elTName.style.cursor = 'pointer';
+      elTName.style.textDecoration = 'underline'; // Визуальный anchor для игрока
+      elTName.style.color = '#e74c3c'; // Опасный красный цвет для врага
+      elTName.onclick = function() {
+        if (typeof window.openEnemyStatsInBattle === 'function') {
+          window.openEnemyStatsInBattle();
+        }
+      };
+    }
     if (elTLvl) elTLvl.textContent = `Lv. ${targetFighter.level || 1}`;
     if (elTHpFill) elTHpFill.style.width = `${(targetFighter.currentHp / targetFighter.maxHp) * 100}%`;
     if (elTHpText) elTHpText.textContent = `${targetFighter.currentHp} / ${targetFighter.maxHp}`;
@@ -334,9 +354,6 @@ function renderFighters() {
 
   checkStrikeButtonState();
   initTacticalClickListeners();
-  // Принудительно разрешаем картинкам принимать клики/тапы в бою
-  document.getElementById('hero-card-bg-img').style.pointerEvents = 'auto';
-  document.getElementById('target-card-bg-img').style.pointerEvents = 'auto';
 }
 // === КЛИЕНТСКИЙ ФИКС ДИНАМИЧЕСКИХ ЗОН БК (CLIENT_BATTLE.JS) ===
 
