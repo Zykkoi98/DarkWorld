@@ -95,42 +95,6 @@ function setupSocketListeners() {
       const firstAliveEnemy = opposingTeam.find(e => e.currentHp > 0);
       selectedTargetUuid = firstAliveEnemy ? firstAliveEnemy.uuid : null;
       // [ДОБАВЛЕНО] Клик на картинку героя для открытия его статов
-    if (heroImg) {
-      heroImg.style.cursor = 'pointer';
-      heroImg.onclick = function() {
-        const pBody = document.getElementById('player-popover-body');
-        if (!pBody) return;
-        pBody.innerHTML = ''; // Чистим старое
-
-        // Считаем модификаторы БК прямо на клиенте для вывода
-        const mfInv = (Number(myFighter.agility || 1) * 10);
-        const mfAntiInv = (Number(myFighter.agility || 1) * 4);
-        const mfCrit = (Number(myFighter.luck || 1) * 10);
-        const mfAntiCrit = (Number(myFighter.luck || 1) * 4);
-
-        const stats = [
-          { label: '💪 Сила', value: myFighter.strength || 1 },
-          { label: '🏹 Ловкость', value: myFighter.agility || 1 },
-          { label: '🛡️ Выносливость', value: myFighter.endurance || 1 },
-          { label: '🍀 Удача', value: myFighter.luck || 1 },
-          { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
-          { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
-          { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
-          { label: '🛡️ Мф. Антикрита', value: `+${mfAntiCrit}%` }
-        ];
-
-        stats.forEach(s => {
-          const row = document.createElement('div');
-          row.className = 'profile-row';
-          row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
-          pBody.appendChild(row);
-        });
-
-        // Прячем вражеский если открыт, и показываем этот
-        document.getElementById('monster-stats-popover').style.display = 'none';
-        document.getElementById('player-stats-popover').style.display = 'flex';
-      };
-    }
     }
 
     resetTacticalButtons();
@@ -285,6 +249,40 @@ function renderFighters() {
     const dHp = Math.max(0, myFighter.currentHp);
     if (elHpFill) elHpFill.style.width = `${(dHp / myFighter.maxHp) * 100}%`;
     if (elHpText) elHpText.textContent = `${dHp} / ${myFighter.maxHp}`;
+     if (heroImg) {
+      heroImg.style.cursor = 'pointer';
+      heroImg.onclick = function() {
+        const pBody = document.getElementById('player-popover-body');
+        if (!pBody) return;
+        pBody.innerHTML = ''; 
+
+        const mfInv = (Number(myFighter.agility || 1) * 10);
+        const mfAntiInv = (Number(myFighter.agility || 1) * 4);
+        const mfCrit = (Number(myFighter.luck || 1) * 10);
+        const mfAntiCrit = (Number(myFighter.luck || 1) * 4);
+
+        const stats = [
+          { label: '💪 Сила', value: myFighter.strength || 1 },
+          { label: '🏹 Ловкость', value: myFighter.agility || 1 },
+          { label: '🛡️ Выносливость', value: myFighter.endurance || 1 },
+          { label: '🍀 Удача', value: myFighter.luck || 1 },
+          { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
+          { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
+          { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
+          { label: '🛡️ Мф. Антикрита', value: `+${mfAntiCrit}%` }
+        ];
+
+        stats.forEach(s => {
+          const row = document.createElement('div');
+          row.className = 'profile-row';
+          row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
+          pBody.appendChild(row);
+        });
+
+        document.getElementById('monster-stats-popover').style.display = 'none';
+        document.getElementById('player-stats-popover').style.display = 'flex';
+      };
+    }
   }
   // ============================================================================
 // ===== ⚔️ КЛИЕНТСКИЙ БОЕВОЙ МОДУЛЬ (CLIENT_BATTLE.JS) — ЧАСТЬ 4 ИЗ 4 =====
@@ -295,7 +293,12 @@ function renderFighters() {
   const targetCard = document.getElementById('main-target-card');
   if (targetFighter && targetFighter.currentHp > 0) {
     if (targetCard) targetCard.classList.remove('dead');
-     // [ДОБАВЛЕНО] Клик на картинку врага для просмотра его характеристик
+    const elTName = document.getElementById('target-name-text');
+    const elTLvl = document.getElementById('target-lvl-text');
+    const elTHpFill = document.getElementById('target-hp-fill');
+    const elTHpText = document.getElementById('target-hp-text');
+    const tImg = document.getElementById('target-card-bg-img');
+      // [ДОБАВЛЕНО] Клик на картинку врага для просмотра его характеристик
     if (tImg) {
       tImg.style.cursor = 'pointer';
       tImg.onclick = function() {
@@ -332,12 +335,6 @@ function renderFighters() {
         document.getElementById('monster-stats-popover').style.display = 'flex';
       };
     }
-    const elTName = document.getElementById('target-name-text');
-    const elTLvl = document.getElementById('target-lvl-text');
-    const elTHpFill = document.getElementById('target-hp-fill');
-    const elTHpText = document.getElementById('target-hp-text');
-    const tImg = document.getElementById('target-card-bg-img');
-
     if (elTName) elTName.textContent = targetFighter.name;
     if (elTLvl) elTLvl.textContent = `Lv. ${targetFighter.level || 1}`;
     if (elTHpFill) elTHpFill.style.width = `${(targetFighter.currentHp / targetFighter.maxHp) * 100}%`;
