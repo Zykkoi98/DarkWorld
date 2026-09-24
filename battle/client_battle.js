@@ -547,113 +547,52 @@ window.addEventListener('browse_battle', () => { console.log('Смена кон�
 window.addEventListener('DOMContentLoaded', () => { initBattleSocket(); });
 
 
-// 🔥 КЛИЕНТСКИЙ СБОРЩИК БОНУСОВ ШМОТОК ДЛЯ ХАРАКТЕРИСТИК В БОЮ
-window.getEquipmentBonusInBattle = function(fighterObj, bonusKey) {
-  if (!fighterObj || !fighterObj.equipped) return 0;
-  let totalBonus = 0;
-  const slots = ['head', 'body', 'legs', 'gloves', 'neck', 'mainHand', 'offHand', 'extra'];
-  
-  slots.forEach(slot => {
-    const itemId = fighterObj.equipped[slot];
-    if (itemId) {
-      const itemData = window.getItemData ? window.getItemData(itemId) : null;
-      if (itemData && itemData.bonus) {
-        if (itemData.bonus[bonusKey] !== undefined) totalBonus += itemData.bonus[bonusKey];
-        if (itemData.bonus.stats && itemData.bonus.stats[bonusKey] !== undefined) {
-          totalBonus += itemData.bonus.stats[bonusKey];
-        }
-      }
-    }
-  });
-  return totalBonus;
-};
-
-// 🔥 ИСПРАВЛЕННЫЙ ТРИГГЕР: ХАРАКТЕРИСТИКИ ИГРОКА В БОЮ
+// 🔥 ОБНОВЛЕННЫЙ ТРИГГЕР: ПОЛУЧЕНИЕ ТОЧНЫХ СТАТОВ ИГРОКА С СЕРВЕРА
 window.openPlayerStatsInBattle = function() {
-  const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
   const pBody = document.getElementById('player-popover-body');
-  if (!myFighter || !pBody) return;
-  pBody.innerHTML = ''; 
+  if (!socket || !currentRoomId || !myUuid || !pBody) return;
 
-  // Читаем статы из объекта stats, который присылает бэкенд
-  const str = Number(myFighter.stats?.strength ?? myFighter.strength ?? 1);
-  const agi = Number(myFighter.stats?.agility ?? myFighter.agility ?? 1);
-  const end = Number(myFighter.stats?.endurance ?? myFighter.endurance ?? 1);
-  const lck = Number(myFighter.stats?.luck ?? myFighter.luck ?? 1);
-
-  // Считаем бонусы через наш боевой метод, чтобы JS не падал
-  const gearAgiBonus = window.getEquipmentBonusInBattle(myFighter, 'agility');
-  const gearLuckBonus = window.getEquipmentBonusInBattle(myFighter, 'luck');
-
-  const totalAgi = agi + gearAgiBonus;
-  const totalLuck = lck + gearLuckBonus;
-
-  const mfInv = (totalAgi * 10);
-  const mfAntiInv = (totalAgi * 4);
-  const mfCrit = (totalLuck * 10);
-  const mfAntiCrit = (totalLuck * 4);
-
-  const stats = [
-    { label: '💪 Сила', value: str },
-    { label: '🏹 Ловкость', value: totalAgi },
-    { label: '🛡️ Выносливость', value: end },
-    { label: '🍀 Удача', value: totalLuck },
-    { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
-    { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
-    { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
-    { label: '🛡️ Мф. Антикрита', value: `+${mfAntiCrit}%` }
-  ];
-
-  stats.forEach(s => {
-    const row = document.createElement('div');
-    row.className = 'profile-row';
-    row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
-    pBody.appendChild(row);
-  });
-
+  pBody.innerHTML = '<div style="color:var(--hint); padding:10px; text-align:center;">⏳ Запрос данных у сервера...</div>';
   document.getElementById('monster-stats-popover').style.display = 'none';
   document.getElementById('player-stats-popover').style.display = 'flex';
+
+  // Запрашиваем точные данные у бэкенда через сокет-коллбэк
+  socket.emit('get_fighter_exact_stats', { roomId: currentRoomId, targetUuid: myUuid }, (response) => {
+    if (response && response.success && Array.isArray(response.stats)) {
+      pBody.innerHTML = ''; // Сносим лоадер
+      response.stats.forEach(s => {
+        const row = document.createElement('div');
+        row.className = 'profile-row';
+        row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
+        pBody.appendChild(row);
+      });
+    } else {
+      pBody.innerHTML = `<div style="color:var(--danger); padding:10px;">❌ ${response.error || 'Ошибка сети'}</div>`;
+    }
+  });
 };
 
-// 🔥 ИСПРАВЛЕННЫЙ ТРИГГЕР: ХАРАКТЕРИСТИКИ ВРАГА В БОЮ
+// 🔥 ОБНОВЛЕННЫЙ ТРИГГЕР: ПОЛУЧЕНИЕ ТОЧНЫХ СТАТОВ ВРАГА С СЕРВЕРА
 window.openEnemyStatsInBattle = function() {
-  const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
-  if (!myFighter) return;
-  const opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
-  const targetFighter = opposingTeam.find(e => e.uuid === selectedTargetUuid);
   const mBody = document.getElementById('monster-popover-body');
+  if (!socket || !currentRoomId || !selectedTargetUuid || !mBody) return;
 
-  if (!targetFighter || targetFighter.currentHp <= 0 || !mBody) return;
-  mBody.innerHTML = ''; 
-
-  const str = Number(targetFighter.stats?.strength ?? targetFighter.strength ?? 1);
-  const agi = Number(targetFighter.stats?.agility ?? targetFighter.agility ?? 1);
-  const end = Number(targetFighter.stats?.endurance ?? targetFighter.endurance ?? 1);
-  const lck = Number(targetFighter.stats?.luck ?? targetFighter.luck ?? 1);
-
-  const mfInv = (agi * 10);
-  const mfAntiInv = (agi * 4);
-  const mfCrit = (lck * 10);
-  const mfAntiCrit = (lck * 4);
-
-  const stats = [
-    { label: '💪 Сила', value: str },
-    { label: '🏹 Ловкость', value: agi },
-    { label: '🛡️ Выносливость', value: end },
-    { label: '🍀 Удача', value: lck },
-    { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
-    { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
-    { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
-    { label: '🛡️ Мф. Антикрита', value: `+${mfAntiCrit}%` }
-  ];
-
-  stats.forEach(s => {
-    const row = document.createElement('div');
-    row.className = 'profile-row';
-    row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
-    mBody.appendChild(row);
-  });
-
+  mBody.innerHTML = '<div style="color:var(--hint); padding:10px; text-align:center;">⏳ Запрос данных у сервера...</div>';
   document.getElementById('player-stats-popover').style.display = 'none';
   document.getElementById('monster-stats-popover').style.display = 'flex';
+
+  // Запрашиваем точные данные цели у бэкенда
+  socket.emit('get_fighter_exact_stats', { roomId: currentRoomId, targetUuid: selectedTargetUuid }, (response) => {
+    if (response && response.success && Array.isArray(response.stats)) {
+      mBody.innerHTML = ''; // Сносим лоадер
+      response.stats.forEach(s => {
+        const row = document.createElement('div');
+        row.className = 'profile-row';
+        row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
+        mBody.appendChild(row);
+      });
+    } else {
+      mBody.innerHTML = `<div style="color:var(--danger); padding:10px;">❌ ${response.error || 'Ошибка сети'}</div>`;
+    }
+  });
 };
