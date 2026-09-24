@@ -100,20 +100,15 @@ window.exitShop = function() {
   window.location.replace('../index.html');
 };
 // ============================================================================
-// ===== 🛒 ИЗОЛИРОВАННЫЙ АВТОНОМНЫЙ СКРИПТ ТОРГОВЛИ (SHOP_CLIENT.JS) =====
-// ===== ЧАСТЬ 2 ИЗ 2: ОТРЕНДЕР ИНТЕРФЕЙСА И СОКЕТ-ТРАНЗАКЦИИ =====
+// ===== 🛒 SHOP_CLIENT.JS | ЧАСТЬ 2 | КУСОК 1 ИЗ 2: СЕТКА ВИТРИНЫ =====
 // ============================================================================
 
 window.updateShopUi = function() {
   if (!localPlayer) return;
 
-  // Чистый вывод золота в левую часть кошелька (без упоминания уровня)
   const goldValEl = document.getElementById('wallet-gold-value');
-  if (goldValEl) {
-    goldValEl.textContent = `💰 Золото: ${localPlayer.gold} монет`;
-  }
+  if (goldValEl) goldValEl.textContent = `💰 Золото: ${localPlayer.gold} монет`;
 
-  // Подсвечиваем активные вкладки верхнего уровня (Амуниция / Расходники / Продажа)
   ['ammo', 'consumables', 'sell'].forEach(mode => {
     const btn = document.getElementById(`main-nav-${mode}`);
     if (btn) {
@@ -122,13 +117,10 @@ window.updateShopUi = function() {
     }
   });
 
-  // Управление видимостью подменю выбора комплектов (Уровень 2)
   const subMenu = document.getElementById('shop-sub-categories');
   if (subMenu) {
     if (activeMainMode === 'ammo') {
       subMenu.style.display = 'flex';
-      
-      // Подсвечиваем активный класс внутри подменю
       ['dodger', 'critter', 'tank'].forEach(cls => {
         const subBtn = document.getElementById(`sub-tab-${cls}`);
         if (subBtn) {
@@ -145,118 +137,132 @@ window.updateShopUi = function() {
   if (!container) return;
   container.innerHTML = '';
 
-  // ============================================================================
-  // ВКЛАДКА ПРОДАЖИ: СКУПКА ЛЮБЫХ ПРЕДМЕТОВ ИЗ РЮКЗАКА ИГРОКА ЗА 50% МОНЕТ
-  // ============================================================================
   if (activeMainMode === 'sell') {
     const eqItems = localPlayer.inventory?.equipment || [];
     const conItems = localPlayer.inventory?.consumables || [];
-
     if (eqItems.length === 0 && conItems.length === 0) {
-      container.innerHTML = `<div class="shop-empty-msg">🎒 Ваш рюкзак совершенно пуст. Продавать торговцу нечего!</div>`;
+      container.innerHTML = `<div class="shop-empty-msg">🎒 Ваш рюкзак пуст.</div>`;
       return;
     }
-
     const block = document.createElement('div');
     block.className = 'lvl-group';
     block.innerHTML = `<div class="lvl-header">🎒 Ваше снаряжение (Скупка за 50% цены)</div>`;
 
-    // Выводим снаряжение
     eqItems.forEach(item => {
       const dbData = window.GAME_ITEMS_DATABASE[item.id];
-      if (!dbData) return;
-      renderSellRow(block, item.uuid, dbData, false);
+      if (dbData) renderSellRow(block, item.uuid, dbData, false);
     });
-
-    // Выводим накопленные эликсиры/расходники
     conItems.forEach(item => {
       const dbData = window.GAME_ITEMS_DATABASE[item.id];
-      if (!dbData) return;
-      renderSellRow(block, item.id, dbData, true, item.count);
+      if (dbData) renderSellRow(block, item.id, dbData, true, item.count);
     });
-
     container.appendChild(block);
     return;
   }
 
-  // ============================================================================
-  // ВКЛАДКИ ПОКУПКИ: ФИЛЬТРАЦИЯ И ВЫВОД КАТАЛОГА АМУНИЦИИ ИЛИ ЭЛИКСИРОВ
-  // ============================================================================
-  const filteredIds = Object.keys(window.GAME_ITEMS_DATABASE).filter(id => {
-    if (activeMainMode === 'consumables') return id.includes('potion') || id === 'fish_soup';
-    
-    if (activeMainMode === 'ammo') {
-      if (activeAmmoClass === 'dodger') return id.startsWith('rogue_') || id.startsWith('bandit_') || id.startsWith('thief_') || id.startsWith('mercenary_') || id.startsWith('assassin_') || id.startsWith('stalker_') || id.startsWith('shadow_') || id.startsWith('phantom_') || id.startsWith('gale_') || id.startsWith('grandmaster_');
-      if (activeAmmoClass === 'critter') return id.startsWith('scratched_') || id.startsWith('savage_') || id.startsWith('barbarian_') || id.startsWith('fury_') || id.startsWith('seeker_') || id.startsWith('heavy_halberd') || id.startsWith('highland_') || id.startsWith('slasher_') || id.startsWith('ravager_') || id.startsWith('berserk_') || id.startsWith('blood_') || id.startsWith('bloodlust_') || id.startsWith('reaper_') || id.startsWith('hellfire_') || id.startsWith('inferno_') || id.startsWith('executioner_') || id.startsWith('warlord_');
-      if (activeAmmoClass === 'tank') return id.startsWith('wooden_') || id.startsWith('recruit_') || id.startsWith('militia_') || id.startsWith('iron_') || id.startsWith('guard_') || id.startsWith('knight_') || id.startsWith('order_') || id.startsWith('guardian_') || id.startsWith('heavy_boots') || id.startsWith('centurion_') || id.startsWith('ancient_') || id.startsWith('bastion_') || id.startsWith('gothic_') || id.startsWith('titan_') || id.startsWith('paladin_') || id.startsWith('immortal_') || id.startsWith('aegis_');
+  if (activeMainMode === 'consumables') {
+    const allItems = window.GAME_ITEMS_DATABASE;
+    const potions = Object.keys(allItems).filter(id => id.includes('potion') || id === 'fish_soup');
+    const scrolls = Object.keys(allItems).filter(id => id.includes('scroll'));
+
+    if (potions.length > 0) {
+      const block = document.createElement('div');
+      block.className = 'lvl-group';
+      block.innerHTML = `<div class="lvl-header">🧪 Целебные эликсиры и еда</div>`;
+      potions.forEach(id => renderShopRow(block, id, allItems[id]));
+      container.appendChild(block);
     }
+    if (scrolls.length > 0) {
+      const block = document.createElement('div');
+      block.className = 'lvl-group';
+      block.innerHTML = `<div class="lvl-header">📜 Магические свитки</div>`;
+      scrolls.forEach(id => renderShopRow(block, id, allItems[id]));
+      container.appendChild(block);
+    }
+    return;
+  }
+
+  const filteredIds = Object.keys(window.GAME_ITEMS_DATABASE).filter(id => {
+    if (activeAmmoClass === 'dodger') return id.startsWith('rogue_') || id.startsWith('bandit_') || id.startsWith('thief_') || id.startsWith('mercenary_') || id.startsWith('assassin_') || id.startsWith('stalker_') || id.startsWith('shadow_') || id.startsWith('phantom_') || id.startsWith('gale_') || id.startsWith('grandmaster_');
+    if (activeAmmoClass === 'critter') return id.startsWith('scratched_') || id.startsWith('savage_') || id.startsWith('barbarian_') || id.startsWith('fury_') || id.startsWith('seeker_') || id.startsWith('heavy_halberd') || id.startsWith('highland_') || id.startsWith('slasher_') || id.startsWith('ravager_') || id.startsWith('berserk_') || id.startsWith('blood_') || id.startsWith('bloodlust_') || id.startsWith('reaper_') || id.startsWith('hellfire_') || id.startsWith('inferno_') || id.startsWith('executioner_') || id.startsWith('warlord_');
+    if (activeAmmoClass === 'tank') return id.startsWith('wooden_') || id.startsWith('recruit_') || id.startsWith('militia_') || id.startsWith('iron_') || id.startsWith('guard_') || id.startsWith('knight_') || id.startsWith('order_') || id.startsWith('guardian_') || id.startsWith('heavy_boots') || id.startsWith('centurion_') || id.startsWith('ancient_') || id.startsWith('bastion_') || id.startsWith('gothic_') || id.startsWith('titan_') || id.startsWith('paladin_') || id.startsWith('immortal_') || id.startsWith('aegis_');
     return false;
   });
 
   const itemsByLvl = {};
   filteredIds.forEach(id => {
     const item = window.GAME_ITEMS_DATABASE[id];
-    if (!itemsByLvl[item.level]) itemsByLvl[item.level] = [];
-    itemsByLvl[item.level].push({ id, ...item });
+    const itemLvl = item.level || 1;
+    if (!itemsByLvl[itemLvl]) itemsByLvl[itemLvl] = [];
+    itemsByLvl[itemLvl].push({ id, ...item });
   });
 
   Object.keys(itemsByLvl).sort((a,b) => a - b).forEach(lvl => {
     const block = document.createElement('div');
     block.className = 'lvl-group';
-    
-    let titleText = (activeMainMode === 'consumables') ? '🧪 Эликсиры и боевой провиант' : `📋 Комплекты вещей ${lvl} уровня`;
-    block.innerHTML = `<div class="lvl-header">${titleText}</div>`;
-
-    itemsByLvl[lvl].forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'item-row';
-
-      const myAgi = Number(localPlayer.stats?.agility || 1);
-      const myLuck = Number(localPlayer.stats?.luck || 1);
-      const myEnd = Number(localPlayer.stats?.endurance || 1);
-
-      let reqText = ''; let hasEnoughStats = true;
-      if (item.req?.agility) { reqText = ` 🏹Ловк:${item.req.agility}`; if (myAgi < item.req.agility) hasEnoughStats = false; }
-      if (item.req?.luck) { reqText = ` 🍀Уд:${item.req.luck}`; if (myLuck < item.req.luck) hasEnoughStats = false; }
-      if (item.req?.endurance) { reqText = ` 🛡️Вын:${item.req.endurance}`; if (myEnd < item.req.endurance) hasEnoughStats = false; }
-
-      const isLevelOk = localPlayer.level >= item.level;
-      const isGoldOk = localPlayer.gold >= item.price;
-      const canBuy = isLevelOk && isGoldOk && hasEnoughStats;
-
-      const statColor = hasEnoughStats ? '#2ecc71' : '#e74c3c';
-      const lvlColor = isLevelOk ? '#2ecc71' : '#e74c3c';
-
-      row.innerHTML = `
-        <div class="item-icon">${item.icon || '📦'}</div>
-        <div class="item-info">
-          <div class="item-name">${item.name}</div>
-          <div class="item-desc">${item.desc}</div>
-          <div style="font-size:11px; font-weight:bold; margin-top:2px;">
-            <span style="color: ${statColor}">Требует: ${reqText || 'Нет'}</span> 
-            <span style="color: ${lvlColor}">(Lv. ${item.level})</span>
-          </div>
-        </div>
-        <button onclick="window.triggerServerBuy('${item.id}', event)" class="btn-buy" ${canBuy ? '' : 'disabled'}>
-          💰 ${item.price}
-        </button>
-      `;
-      block.appendChild(row);
-    });
+    block.innerHTML = `<div class="lvl-header">📋 Комплекты вещей ${lvl} уровня</div>`;
+    itemsByLvl[lvl].forEach(item => renderShopRow(block, item.id, item));
     container.appendChild(block);
   });
 };
+// ============================================================================
+// ===== 🛒 SHOP_CLIENT.JS | ЧАСТЬ 2 | КУСОК 2 ИЗ 2: СБОРКА СТРОК И КЛИКИ =====
+// ============================================================================
 
+// Функция отрисовки товара на витрине лавки (С вызовом характеристик)
+function renderShopRow(block, itemId, item) {
+  const row = document.createElement('div');
+  row.className = 'item-row';
+
+  const myAgi = Number(localPlayer.stats?.agility || 1);
+  const myLuck = Number(localPlayer.stats?.luck || 1);
+  const myEnd = Number(localPlayer.stats?.endurance || 1);
+
+  let reqText = ''; let hasEnoughStats = true;
+  if (item.req?.agility) { reqText = ` 🏹Ловк:${item.req.agility}`; if (myAgi < item.req.agility) hasEnoughStats = false; }
+  if (item.req?.luck) { reqText = ` 🍀Уд:${item.req.luck}`; if (myLuck < item.req.luck) hasEnoughStats = false; }
+  if (item.req?.endurance) { reqText = ` 🛡️Вын:${item.req.endurance}`; if (myEnd < item.req.endurance) hasEnoughStats = false; }
+
+  const isLevelOk = item.level ? (localPlayer.level >= item.level) : true;
+  const isGoldOk = localPlayer.gold >= item.price;
+  const canBuy = isLevelOk && isGoldOk && hasEnoughStats;
+
+  const statColor = hasEnoughStats ? '#2ecc71' : '#e74c3c';
+  const lvlColor = isLevelOk ? '#2ecc71' : '#e74c3c';
+
+  // Оборачиваем левую часть в кликабельную зону для вызова поп-апа характеристик
+  row.innerHTML = `
+    <div onclick="if(window.parent && window.parent.showItemInfo) { window.parent.showItemInfo('${itemId}', false); } else if(typeof window.showItemInfo === 'function') { window.showItemInfo('${itemId}', false); }" style="display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;">
+      <div class="item-icon">${item.icon || '📦'}</div>
+      <div class="item-info">
+        <div class="item-name" style="text-decoration: underline; color: #a29bfe;">${item.name}</div>
+        <div class="item-desc">${item.desc}</div>
+        <div style="font-size:11px; font-weight:bold; margin-top:2px;">
+          <span style="color: ${statColor}">Требует: ${reqText || 'Нет'}</span> 
+          ${item.level ? `<span style="color: lvlColor">(Lv. {item.level})</span>` : ''}
+        </div>
+      </div>
+    </div>
+    <button onclick="window.triggerServerBuy('${itemId}', event)" class="btn-buy" ${canBuy ? '' : 'disabled'}>
+      💰 ${item.price}
+    </button>
+  `;
+  block.appendChild(row);
+}
+
+// Функция отрисовки строки продажи в лавку (С выводом стака и кликом)
 function renderSellRow(block, itemUuidOrId, dbData, isConsumable, count = 1) {
   const halfPrice = Math.floor(dbData.price * 0.5) || 1;
   const row = document.createElement('div');
   row.className = 'item-row';
 
   row.innerHTML = `
-    <div class="item-icon">${dbData.icon || '📦'}</div>
-    <div class="item-info">
-      <div class="item-name">${dbData.name} ${isConsumable ? `<span style="color:#2ecc71">x\${count}</span>` : ''}</div>
-      <div class="item-desc">${dbData.desc}</div>
+    <div onclick="if(window.parent && window.parent.showItemInfo) { window.parent.showItemInfo('${itemUuidOrId}', false); } else if(typeof window.showItemInfo === 'function') { window.showItemInfo('${itemUuidOrId}', false); }" style="display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;">
+      <div class="item-icon">${dbData.icon || '📦'}</div>
+      <div class="item-info">
+        <div class="item-name" style="text-decoration: underline; color: #e67e22;">${dbData.name} ${isConsumable ? `<span style="color:#2ecc71">x\${count}</span>` : ''}</div>
+        <div class="item-desc">${dbData.desc}</div>
+      </div>
     </div>
     <button onclick="window.triggerServerSell('${itemUuidOrId}', ${isConsumable}, event)" class="btn-sell-action">
       💸 +${halfPrice}
