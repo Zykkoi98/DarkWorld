@@ -93,7 +93,7 @@ function createPlayer() {
 
   const newPlayer = {
     id: uniqueId, name: name, avatar: window.DEFAULT_AVATAR || 'assets/avatars/hero5.jpg',
-    level: 1, xp: 0, gold: 50, currentTownIndex: 0, statPoints: 8, 
+    level: 1, xp: 0, gold: 50, currentTownIndex: 0, statPoints: 5, 
     stats: { strength: 1, agility: 1, endurance: 1, luck: 1 },
     inventory: { equipment: [], resources: [], consumables: [] },
     equipped: {
@@ -122,13 +122,13 @@ window.checkLevelUp = function(isInitialLoad = false) {
 
     if (!isLeveledDown) {
       const levelsGained = correctLevel - oldLevel;
-      // 🔥 НАЧИСЛЯЕМ ПО 8 СВОБОДНЫХ ОЧКОВ ЗА КАЖДЫЙ НОВЫЙ УРОВЕНЬ!
-      window.player.statPoints = (window.player.statPoints || 0) + (levelsGained * 8);
+      // 🔥 НАЧИСЛЯЕМ ПО 5 СВОБОДНЫХ ОЧКОВ ЗА КАЖДЫЙ НОВЫЙ УРОВЕНЬ!
+      window.player.statPoints = (window.player.statPoints || 0) + (levelsGained * 5);
       window.player.hp = window.getMaxHp(window.player);
     } else {
-      // Экстренный античит-сброс под прогрессию по 8 очков
+      // Экстренный античит-сброс под прогрессию по 5 очков
       window.player.stats = { strength: 1, agility: 1, endurance: 1, luck: 1 };
-      window.player.statPoints = 8 + ((correctLevel - 1) * 8);
+      window.player.statPoints = 5 + ((correctLevel - 1) * 5);
     }
 
     const maxHp = window.getMaxHp(window.player);
