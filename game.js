@@ -436,16 +436,20 @@ window.closeProfile = function() {
 };
 
 // --- 🔥 ИНТЕРАКТИВНОЕ ОКНО ИНФОРМАЦИИ О ПРЕДМЕТЕ ---
-window.showItemInfo = function(itemUidOrId, isEquipped, slotKey = null, ringIndex = null) {
-  if (!itemUidOrId) return;
+window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringIndex = null) {
+  if (!itemUuidOrId) return;
 
-  // 🔥 ИСПРАВЛЕНО: Извлекаем чистый ID предмета, если к нам прилетел длинный UUID с дефисами/подчеркиваниями
-  let cleanId = itemUidOrId;
-  if (itemUidOrId.includes('_') && !window.WEAPON_DATABASE[itemUidOrId] && !window.GAME_ITEMS_DATABASE[itemUidOrId]) {
-    // Отсекаем временную метку Date.now(), оставляя только имя (например rogue_buckler_1)
-    const parts = itemUidOrId.split('_');
-    // Собираем обратно все части, кроме двух последних (Date.now() и случайного числа)
-    if (parts.length > 2) {
+  let cleanId = itemUuidOrId;
+  
+  if (itemUuidOrId.includes('_')) {
+    const parts = itemUuidOrId.split('_');
+    
+    // 🔥 УЛЬТИМАТИВНЫЙ ФИКС: Уникальный UUID шмотки всегда заканчивается штампом времени (Date.now() - это длинное число)
+    // Мы проверяем последнюю или предпоследнюю часть UUID: если это число (timestamp), значит перед нами РЕАЛЬНЫЙ UUID шмотки.
+    // Если там буквы (как в hp_potion_small), то это обычный ID расходника, и мы его НЕ ТРОГАЕМ!
+    const isTimestamp = parts.length > 2 && !isNaN(parts[parts.length - 2]);
+    
+    if (isTimestamp) {
       cleanId = parts.slice(0, -2).join('_');
     }
   }
