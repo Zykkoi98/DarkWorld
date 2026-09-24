@@ -1,6 +1,6 @@
 // ============================================================================
 // ===== 🛒 ИЗОЛИРОВАННЫЙ АВТОНОМНЫЙ СКРИПТ ТОРГОВЛИ (SHOP_CLIENT.JS) =====
-// ===== ЧАСТЬ 1 ИЗ 2: СЕТЕВОЕ СОЕДИНЕНИЕ И НАВИГАЦИЯ ВКЛАДОК =====
+// ===== ЧАСТЬ 1 ИЗ 2: СЕТЕВОЕ СОЕДИНЕНИЕ И НАВИГАЦИЯ ВКЛАДОК (ФИКС АЛЕРТОВ) =====
 // ============================================================================
 
 let shopSocket = null;
@@ -42,6 +42,9 @@ function initShopPage() {
     shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   });
 
+  // 🔥 ЖЕСТКИЙ ФИКС: Перед регистрацией каждого события принудительно сбрасываем старые бинды,
+  // чтобы стек Socket.io на смартфоне не переполнялся и не игнорировал 4-ю покупку!
+  shopSocket.off('load_game_success');
   shopSocket.on('load_game_success', (data) => {
     if (data && data.player) {
       console.log("☁️ [МАГАЗИН] Кошелек и инвентарь синхронизированы с облаком.");
@@ -51,16 +54,24 @@ function initShopPage() {
     }
   });
 
+  shopSocket.off('shop_buy_success');
   shopSocket.on('shop_buy_success', (data) => {
-    alert(data.message);
+    // Гарантируем, что алерт вызовется в основном потоке браузера
+    setTimeout(() => {
+      alert(data.message || "🎉 Успешно!");
+    }, 10);
     window.updateShopUi();
   });
 
+  shopSocket.off('shop_buy_error');
   shopSocket.on('shop_buy_error', (data) => {
-    alert(data.message);
+    setTimeout(() => {
+      alert(data.message || "🚨 Ошибка транзакции");
+    }, 10);
     window.updateShopUi(); // Гарантированно разблокирует зависшие кнопки покупки
   });
 
+  shopSocket.off('error');
   shopSocket.on('error', (msg) => { 
     alert(`❌ Ошибка сети магазина: ${msg}`); 
     window.updateShopUi();
