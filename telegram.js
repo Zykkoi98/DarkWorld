@@ -104,14 +104,24 @@ socket.on('load_game_success', (data) => {
     console.log("☁️ [СИНХРОНИЗАЦИЯ] Свежий профиль получен от сервера...");
     window.player = data.player;
 
+    // ============================================================================
+    // 🏰 🔥 [ДОБАВЛЕНО] ДИНАМИЧЕСКИЙ ОБНОВЛЯТОР БАДЖА ЭТАЖА БАШНИ НА ПЛОЩАДИ
+    // ============================================================================
+    const towerBadge = document.getElementById('town-tower-floor-badge');
+    if (towerBadge) {
+      // Считываем новую колонку из Supabase. Если ее еще нет — выводим 1 этаж
+      const currentSavedFloor = window.player.tower_floor || 1;
+      towerBadge.textContent = `Этаж ${currentSavedFloor}`;
+    }
+    // ============================================================================
+
     // 🔥 ВОЗВРАЩАЕМ СТАРУЮ ЛОГИКУ: Запускаем экспресс-проверку боевого статуса СРАЗУ.
-    // Мы гасим лоадер мгновенно, до того, как тяжелый рендеринг картинок и куклы успеет что-то заблокировать в браузере!
     console.log(`📡 Отправляем экспресс-проверку боевого статуса для ID: ${window.player.id}`);
     
     socket.emit('check_active_battle_directly', { userId: String(window.player.id) }, (response) => {
       try {
         if (response && response.activeRoomId) {
-          console.log(`⚔️ [ПЕРЕХВАТ] Обнаружен активный бой ${response.activeRoomId}. Уходим на арену!`);
+          console.log(`⚔️ [ПЕРЕХВАТ] Обнаружен активный бой ${response.activeRoomId}. Уходим на arena!`);
           
           if (window.Telegram && window.Telegram.WebApp) {
             try { window.Telegram.WebApp.ready(); } catch(e) {}
@@ -125,7 +135,6 @@ socket.on('load_game_success', (data) => {
           if (typeof hideMainGameLoader === 'function') {
             hideMainGameLoader();
           } else {
-            // Подстраховка: если функция не найдена в области видимости, гасим лоадер напрямую
             const rawLoader = document.getElementById('game-loader-screen');
             if (rawLoader) rawLoader.style.display = 'none';
           }
@@ -135,8 +144,6 @@ socket.on('load_game_success', (data) => {
         if (typeof hideMainGameLoader === 'function') hideMainGameLoader();
       }
 
-      // 🔥 ТЯЖЕЛЫЙ РЕНДЕРИНГ ЗАПУСКАЕМ ПОСЛЕ ТОГО, КАК ШТОРА ОТКРЫЛАСЬ!
-      // Теперь, даже если инвентарь или аватарка выдадут ошибку, город уже будет виден на экране!
       setTimeout(() => {
         try {
           localStorage.setItem('rpg_save', JSON.stringify({ player: window.player }));
@@ -147,7 +154,7 @@ socket.on('load_game_success', (data) => {
         } catch (heavyRenderErr) {
           console.error("⚠️ Ошибка фонового рендеринга интерфейса города:", heavyRenderErr.message);
         }
-      }, 50); // Небольшая задержка в 50мс, чтобы браузер успел обработать анимацию скрытия лоадера
+      }, 50);
     });
 
   } catch (globalFrontErr) {

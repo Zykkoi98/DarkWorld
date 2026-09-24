@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Dark World | Бесконечная Башня</title>
+  <link rel="stylesheet" href="../style.css?v=777">
+  <!-- Подключаем Socket.io и скрипт моста Telegram -->
+  <script src="https://socket.io"></script>
+  <script src="https://telegram.org"></script>
+</head>
+<body style="background: #0b0c10; color: #fff; font-family: sans-serif; padding: 16px; margin: 0;">
+
+  <!-- ШАПКА БАШНИ С КОШЕЛЬКОМ И ЛОГОМ ОШИБОК -->
+  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1f2833; padding-bottom: 12px; margin-bottom: 16px;">
+    <div>
+      <h2 style="margin: 0; color: #6c5ce7; font-size: 20px;">🏰 Темная Башня</h2>
+      <div id="tower-cooldown-banner" style="font-size: 12px; color: #e74c3c; margin-top: 4px; display: none;">⏳ Доступ закрыт! Ожидание: <span id="cooldown-timer-text">00:00:00</span></div>
+    </div>
+    <div id="tower-wallet-gold" style="font-weight: bold; color: #f1c40f; font-size: 14px;">💰 0 монет</div>
+  </div>
+
+  <!-- ОПОВЕЩЕНИЯ ОПЕРАЦИЙ ЛАВКИ -->
+  <div id="tower-status-log" style="text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 12px; min-height: 16px;"></div>
+
+  <!-- ДВУХУРОВНЕВЫЕ ВКЛАДКИ (ИНТЕРФЕЙС МИНИ-АПП) -->
+  <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+    <button id="nav-tab-floor" onclick="switchTowerMode('floor')" style="flex: 1; padding: 10px; background: #1f2833; border: 1px solid #6c5ce7; color: #fff; border-radius: 8px; font-weight: bold; cursor: pointer;">⚔️ Штурм Этажей</button>
+    <button id="nav-tab-shop" onclick="switchTowerMode('shop')" style="flex: 1; padding: 10px; background: #111; border: 1px solid #333; color: #888; border-radius: 8px; font-weight: bold; cursor: pointer;">🛒 Лавка Инквизитора</button>
+  </div>
+
+  <!-- ЭКРАН А: ЛИФТ БЕСКОНЕЧНЫХ ЭТАЖЕЙ -->
+  <div id="area-tower-floors" style="display: flex; flex-direction: column; gap: 10px;">
+    <!-- Сюда JS вставит карточки доступных этажей -->
+  </div>
+
+  <!-- ЭКРАН Б: ЭКСКЛЮЗИВНЫЙ ТОВАРНЫЙ РЯД БАШНИ -->
+  <div id="area-tower-shop" style="display: none; flex-direction: column; gap: 10px;">
+    <div style="background: rgba(108, 92, 231, 0.1); border: 1px solid rgba(108, 92, 231, 0.3); padding: 10px; border-radius: 8px; font-size: 12px; color: #a29bfe; margin-bottom: 10px; text-align: center;">
+      🔮 Артефакты Инквизитора продаются за обычное золото, но требуют прохождения этажей Башни!
+    </div>
+    <div id="tower-shop-scroll-area">
+      <!-- Сюда JS вставит товары лавки Башни -->
+    </div>
+  </div>
+
+  <!-- КНОПКА ПОКИДАТЬ ЛОКАЦИЮ -->
+  <button onclick="window.location.replace('../index.html')" style="width: 100%; margin-top: 24px; padding: 12px; background: #e74c3c; border: none; color: #fff; font-weight: bold; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);">🏃‍♂️ Вернуться на Площадь</button>
+
+  <script src="./tower_client.js?v=777"></script>
+</body>
+</html>
