@@ -34,7 +34,7 @@ function initTowerPage() {
   }
 
   console.log("📡 Поднимаем сокет-мост штурма Башни...");
-  towerSocket = io('https://onrender.com', {
+  towerSocket = io('https://darkworld-server.onrender.com', {
     transports: ['websocket'],
     forceNew: true
   });
