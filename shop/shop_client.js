@@ -296,11 +296,34 @@ document.addEventListener('DOMContentLoaded', initShopPage);
 
 
 // 🔥 ЛОКАЛЬНЫЙ ОБРАБОТЧИК ХАРАКТЕРИСТИК С ДИНАМИЧЕСКИМИ ИКОНКАМИ ✅ / 🔒 ДЛЯ ВСЕХ ТРЕБОВАНИЙ
-window.showItemInfo = function(itemId) {
-  if (!itemId) return;
+window.showItemInfo = function(itemUuidOrId) {
+  if (!itemUuidOrId) return;
 
-  const itemData = window.GAME_ITEMS_DATABASE[itemId];
-  if (!itemData) return;
+  // 1. Сначала проверяем, не лежит ли этот конкретный уникальный предмет в рюкзаке у игрока
+  let uniqueItemInInv = null;
+  if (localPlayer && localPlayer.inventory && localPlayer.inventory.equipment) {
+    uniqueItemInInv = localPlayer.inventory.equipment.find(i => i.uuid === itemUuidOrId);
+  }
+
+  let itemData = null;
+
+  // 2. Если вещь найдена в рюкзаке и у нее есть измененные бонуса (заточка/руны) — берем их!
+  if (uniqueItemInInv && uniqueItemInInv.bonus) {
+    itemData = uniqueItemInInv; 
+  } else {
+    // Если вещи в рюкзаке нет (витрина покупки) или у нее нет модификаций — берем чистую базу
+    let cleanId = itemUuidOrId;
+    if (itemUuidOrId.includes('_') && !window.GAME_ITEMS_DATABASE[itemUuidOrId]) {
+      const parts = itemUuidOrId.split('_'); 
+      if (parts.length > 2) cleanId = parts.slice(0, -2).join('_');
+    }
+    itemData = window.GAME_ITEMS_DATABASE[cleanId];
+  }
+
+  if (!itemData) {
+    console.error('🚨 [ЛАВКА] Предмет с ID "' + itemUuidOrId + '" не найден в базах данных');
+    return;
+  }
 
   const popover = document.getElementById('item-info-popover');
   const pName = document.getElementById('popover-item-name');
@@ -309,30 +332,31 @@ window.showItemInfo = function(itemId) {
 
   if (!popover || !pName || !pIcon || !pDesc) return;
 
-  pName.textContent = itemData.name;
+  // Запасной вывод уровня заточки прямо в название, если в будущем добавишь поле itemData.sharpen
+  const sharpenSuffix = itemData.sharpen ? ' (+' + itemData.sharpen + ')' : '';
+  pName.textContent = itemData.name + sharpenSuffix;
   pIcon.textContent = itemData.icon || '📦';
 
-  // Собираем текст по структуре: Описание -> Требования -> Бонусы
+  // Собираем текст по строгой структуре: Описание -> Требования -> Бонусы
   let statsText = itemData.desc || '';
-  
   if (statsText) statsText += '\n';
 
-  // 1. РАЗДЕЛ ТРЕБОВАНИЙ (С проверкой на ✅ или 🔒 для уровня и характеристик)
+  // 3. 🔒 РАЗДЕЛ ТРЕБОВАНИЙ (Выводится в первую очередь с проверкой на ✅ или 🔒)
   let reqsText = '';
   
-  // А. Проверка уровня
+  // А. Динамическая проверка уровня
   if (itemData.level) {
     const pLevel = localPlayer && localPlayer.level ? Number(localPlayer.level) : 1;
     const levelIcon = (pLevel >= Number(itemData.level)) ? '✅' : '🔒';
     reqsText += '\n' + levelIcon + ' Требуется уровень: ' + itemData.level;
   }
   
-  // Б. Проверка базовых характеристик игрока (Сила, Ловкость, Выносливость, Удача)
+  // Б. Динамическая проверка базовых характеристик игрока
   if (itemData.req) {
+    const pStr = localPlayer && localPlayer.stats && localPlayer.stats.strength ? Number(localPlayer.stats.strength) : 1;
     const pAgi = localPlayer && localPlayer.stats && localPlayer.stats.agility ? Number(localPlayer.stats.agility) : 1;
     const pEnd = localPlayer && localPlayer.stats && localPlayer.stats.endurance ? Number(localPlayer.stats.endurance) : 1;
     const pLuck = localPlayer && localPlayer.stats && localPlayer.stats.luck ? Number(localPlayer.stats.luck) : 1;
-    const pStr = localPlayer && localPlayer.stats && localPlayer.stats.strength ? Number(localPlayer.stats.strength) : 1;
 
     if (itemData.req.strength) {
       const strIcon = (pStr >= Number(itemData.req.strength)) ? '✅' : '🔒';
@@ -356,7 +380,7 @@ window.showItemInfo = function(itemId) {
     statsText += reqsText + '\n';
   }
 
-  // 2. ✨ РАЗДЕЛ БОНУСОВ И СТАТОВ ВЕЩИ
+  // 4. ✨ РАЗДЕЛ БОНУСОВ И СТАТОВ ВЕЩИ (Выводится во вторую очередь)
   let bonusesText = '';
   if (itemData.bonus) {
     if (itemData.bonus.atk) bonusesText += '\n⚔️ Бонус Атаки: +' + itemData.bonus.atk;
@@ -366,6 +390,7 @@ window.showItemInfo = function(itemId) {
     if (itemData.bonus.mf_antiinv) bonusesText += '\n🎯 Мф. Против увертывания: +' + itemData.bonus.mf_antiinv + '%';
     if (itemData.bonus.mf_anticrit) bonusesText += '\n🛡️ Мф. Против крита: +' + itemData.bonus.mf_anticrit + '%';
     
+    // Бонусы к статам
     if (itemData.bonus.stats) {
       const b = itemData.bonus.stats;
       if (b.strength) bonusesText += '\n💪 Добавляет Силу: +' + b.strength;
@@ -380,5 +405,5 @@ window.showItemInfo = function(itemId) {
   }
   
   pDesc.innerText = statsText;
-  popover.style.display = 'flex';
+  popover.style.display = 'flex'; 
 };
