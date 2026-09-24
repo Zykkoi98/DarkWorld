@@ -437,25 +437,26 @@ window.closeProfile = function() {
 
 // --- 🔥 ИНТЕРАКТИВНОЕ ОКНО ИНФОРМАЦИИ О ПРЕДМЕТЕ (ИСПРАВЛЕННОЕ) ---
 window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringIndex = null) {
-  if (!itemUuidOrId) return;
+  if (!itemUidOrId) return;
 
-  let cleanId = itemUuidOrId;
+  let cleanId = itemUidOrId;
   
-  if (itemUuidOrId.includes('_')) {
-    const parts = itemUuidOrId.split('_');
-    
-    // 🔥 УЛЬТИМАТИВНЫЙ ФИКС: Уникальный UUID шмотки всегда заканчивается числовым штампом времени (Date.now())
-    // Мы проверяем предпоследнюю часть UUID: если это число (timestamp), значит перед нами РЕАЛЬНЫЙ UUID снаряжения.
-    // Если там буквы (как в hp_potion_small), то это обычный ID расходника, и мы его НЕ ТРОГАЕМ!
-    const isTimestamp = parts.length > 2 && !isNaN(parts[parts.length - 2]);
-    
-    if (isTimestamp) {
-      cleanId = parts.slice(0, -2).join('_');
+  if (itemUidOrId.includes('_')) {
+    // 🔥 Если этот ID УЖЕ присутствует в нашей новой глобальной базе как чистый товар —
+    // значит его не нужно резать, это базовый ID шмотки или банки!
+    if (!window.GAME_ITEMS_DATABASE[itemUidOrId]) {
+      const parts = itemUuidOrId.split('_'); // Проверяем аргумент функции
+      if (parts.length > 2) {
+        cleanId = parts.slice(0, -2).join('_');
+      }
     }
   }
 
   const itemData = window.getItemData(cleanId);
-  if (!itemData) return;
+  if (!itemData) {
+    console.error(`🚨 Ошибка: Предмет с ID "${cleanId}" отсутствует в базе контента!`);
+    return;
+  }
 
   const popover = document.getElementById('item-info-popover');
   const pName = document.getElementById('popover-item-name');
