@@ -410,35 +410,42 @@ function checkStrikeButtonState() {
 // === КЛИЕНТСКИЙ ФИКС ДИНАМИЧЕСКИХ ЗОН БК (CLIENT_BATTLE.JS) ===
 
 function getMyTacticalLimits() {
-  // Находим объект бойца на Арене
+  // Находим объект вашего бойца на Арене
   const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
   
   let maxAttacks = 1;
-  let maxDefends = 1; // Базовое правило БК: 1 зона блока для всех старше 1 уровня
+  let maxDefends = 1;
 
-  // Сначала берём точный уровень игрока из глобального профиля города
+  // Считываем точный уровень игрока из глобального профиля города
   const myRealLevel = (window.player && window.player.level) ? Number(window.player.level) : (myFighter ? Number(myFighter.level || 1) : 1);
 
   if (myFighter && myFighter.equipped) {
     const mainHand = myFighter.equipped.mainHand;
     const offHand = myFighter.equipped.offHand;
 
-    // Проверяем двуручное оружие (алебарда) -> дает 2 атаки
-    const itemData = window.getItemData ? window.getItemData(mainHand) : null;
-    if (itemData && itemData.slotType === 'twoHanded') {
-      maxAttacks = 2;
+    // 🔥 Проверяем левую руку: если в системном ID есть "shield", "buckler" или "wall" — это щит!
+    let isShieldEquipped = false;
+    if (offHand) {
+      const idLower = String(offHand).toLowerCase();
+      isShieldEquipped = idLower.includes('shield') || idLower.includes('buckler') || 
+                         idLower.includes('wall') || idLower.includes('scutum') || 
+                         idLower.includes('aegis') || idLower.includes('screen');
     }
 
-    // Проверяем щит -> дает 3 блока
-    if (offHand && String(offHand).includes('shield')) {
-      maxDefends = 3;
-    } 
-    // Если щита нет, но игрок СТРОГО 1-го уровня — даем 2 зоны блока
-    else if (myRealLevel <= 1) {
-      maxDefends = 2;
+    // 1. Расчет лимита атак (Дуалы дают 2 удара, щит или пустая рука — 1 удар)
+    if (offHand && !isShieldEquipped) {
+      maxAttacks = 2; // В левой руке левый нож/клинок (не щит) -> разрешаем дуалы (2 удара)!
+    } else {
+      maxAttacks = 1; // В левой руке щит или занята двуручником -> 1 тяжелый удар!
+    }
+
+    // 2. Расчет лимита блоков (Щит дает 3 блока, новичкам 1 лвл — 2 блока, остальным — 1 блок)
+    if (isShieldEquipped) {
+      maxDefends = 3; // Танк со щитом легально получает 3 блока!
+    } else if (myRealLevel <= 1) {
+      maxDefends = 2; 
     }
   } else {
-    // Подстраховка на случай, если бой только загружается — смотрим по реальному лвл
     maxDefends = (myRealLevel <= 1) ? 2 : 1;
   }
 
