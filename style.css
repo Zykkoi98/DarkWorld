@@ -631,3 +631,19 @@ body {
   height: 32px !important;
   object-fit: contain !important;
 }
+/* 🔥 ДОПОЛНИТЕЛЬНО: Делаем так, чтобы тело скроллилось внутри поп-апа профиля */
+.modal-body-stats {
+  flex: 1 !important;
+  overflow-y: auto !important; /* Включаем вертикальный скролл для статов */
+  padding-right: 4px;
+  -webkit-overflow-scrolling: touch; /* Плавный свайп на iPhone */
+}
+
+/* Красивый тонкий скроллбар для характеристик, как и в рюкзаке */
+.modal-body-stats::-webkit-scrollbar {
+  width: 4px;
+}
+.modal-body-stats::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
