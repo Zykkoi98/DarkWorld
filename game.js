@@ -185,76 +185,46 @@ function renderTown() {
     btn.className = 'loc-btn';
     btn.innerHTML = `<span>${loc.icon}</span><span>${loc.name}</span>`;
     btn.addEventListener('click', function() {
-  // 🔥 [НОВОЕ] Динамическое переименование локации Башни прямо в меню города
-      let displayLocationName = loc.name;
-      if (loc.name === "Тёмная Башня" || loc.name.includes("Башня")) {
-        const savedFloor = window.player?.tower_floor || 1;
-        displayLocationName = `🏰 Башня (Этаж ${savedFloor})`;
-      }
-
-      const btn = document.createElement('button'); 
-      btn.className = 'loc-btn';
-      // Подставляем иконку и наше обновленное динамическое имя
-      btn.innerHTML = `<span>${loc.icon}</span><span>${displayLocationName}</span>`;
-      
-      // Навешиваем фиолетовую рамку-бадж для красоты, если это Башня
-      if (loc.name === "Тёмная Башня" || loc.name.includes("Башня")) {
-        btn.style.borderLeft = "4px solid #6c5ce7";
-        btn.style.background = "rgba(108, 92, 231, 0.05)";
-      }
-
-      btn.addEventListener('click', function() {
-        if (loc.name === "Выход на природу") {
-          if (!window.player || window.player.hp <= 0) {
-            return alert("❌ Вы слишком слабы для боя! Восстановите здоровье в Таверне.");
-          }
-          if (window.player.in_battle) {
-            window.location.href = `battle/battle.html`;
-            return;
-          }
-
-          let targetMonster = 'wild_wolf';
-          let minCount = 1; let maxCount = 1;
-
-          if (window.player.level >= 3 && window.player.level < 5) {
-            targetMonster = 'goblin'; minCount = 1; maxCount = 2;
-          } else if (window.player.level >= 5) {
-            targetMonster = 'stone_golem'; minCount = 1; maxCount = 3;
-          }
-
-          const finalCount = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
-
-          if (window.socket) {
-            try { window.socket.disconnect(); } catch(e) {}
-          }
-          for (let i = 1; i < 100; i++) { window.clearInterval(i); window.clearTimeout(i); }
-          window.location.href = `battle/battle.html?monster=${targetMonster}&count=${finalCount}`;
-        } 
-        else if (loc.name === "Магазин") {
-          console.log("🏪 Игрок заходит в изолированную Торговую Лавку...");
-          window.location.href = 'shop/shop.html';
-        } 
-        else if (loc.name === "Арена PvP") {
-          const wrapper = document.getElementById('arena-iframe-wrapper');
-          const frame = document.getElementById('arena-iframe-frame');
-          if (wrapper && frame) {
-            frame.src = 'arena.html'; 
-            wrapper.style.display = 'flex';
-          }
-        } 
-        // 🔥 [НОВОЕ] ОБРАБОТЧИК КЛИКА ДЛЯ ПЕРЕХОДА В ТЁМНУЮ БАШНЮ
-        else if (loc.name === "Тёмная Башня" || loc.name.includes("Башня")) {
-          if (!window.player) return;
-          if (Number(window.player.hp) <= 0) {
-            return alert("❌ Вы слишком слабы для штурма! Восстановите здоровье в Таверне.");
-          }
-          console.log("🏰 Игрок выдвигается на штурм этажей Башни...");
-          window.location.href = 'tower/tower.html'; // Перенаправляем в изолированную папку
+      if (loc.name === "Выход на природу") {
+        if (!window.player || window.player.hp <= 0) {
+          return alert("❌ Вы слишком слабы для боя! Восстановите здоровье в Таверне.");
         }
-        else { 
-          alert(`Вы зашли в здание: ${loc.name}`); 
+        if (window.player.in_battle) {
+          window.location.href = `battle/battle.html`;
+          return;
         }
-      });
+
+        let targetMonster = 'wild_wolf';
+        let minCount = 1; let maxCount = 1;
+
+        if (window.player.level >= 3 && window.player.level < 5) {
+          targetMonster = 'goblin'; minCount = 1; maxCount = 2;
+        } else if (window.player.level >= 5) {
+          targetMonster = 'stone_golem'; minCount = 1; maxCount = 3;
+        }
+
+        const finalCount = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
+
+        if (window.socket) {
+          try { window.socket.disconnect(); } catch(e) {}
+        }
+        for (let i = 1; i < 100; i++) { window.clearInterval(i); window.clearTimeout(i); }
+        window.location.href = `battle/battle.html?monster=${targetMonster}&count=${finalCount}`;
+      } else if (loc.name === "Магазин") {
+         console.log("🏪 Игрок заходит в изолированную Торговую Лавку...");
+  
+        // Мгновенно перенаправляем браузер на отдельную HTML-страницу магазина
+        window.location.href = 'shop/shop.html';
+      } else if (loc.name === "Арена PvP") {
+        const wrapper = document.getElementById('arena-iframe-wrapper');
+        const frame = document.getElementById('arena-iframe-frame');
+        if (wrapper && frame) {
+          frame.src = 'arena.html'; 
+          wrapper.style.display = 'flex'; // Жесткий фикс высоты iframe
+        }
+      } else { 
+        alert(`Вы зашли в здание: ${loc.name}`); 
+      }
     });
     grid.appendChild(btn);
   });
