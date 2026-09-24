@@ -92,7 +92,7 @@ window.exitShop = function() {
 };
 // ============================================================================
 // ===== 🛒 ИЗОЛИРОВАННЫЙ АВТОНОМНЫЙ СКРИПТ ТОРГОВЛИ (SHOP_CLIENT.JS) =====
-// ===== ЧАСТЬ 2 ИЗ 2: ОТРЕНДЕР ИНТЕРФЕЙСА И СОКЕТ-ТРАНЗАКЦИИ =====
+// ===== ЧАСТЬ 2 ИЗ 2: ОТРЕНДЕР ИНТЕРФЕЙСА И СОКЕТ-ТРАНЗАКЦИИ (ИСПРАВЛЕННАЯ) =====
 // ============================================================================
 
 window.updateShopUi = function() {
@@ -119,7 +119,7 @@ window.updateShopUi = function() {
     if (activeMainMode === 'ammo') {
       subMenu.style.display = 'flex'; // Показываем подменю только на вкладке Амуниции
       
-      // Подсвечиваем активный класс внутри подменю
+      // Подсвечиваем active класс внутри подменю
       ['dodger', 'critter', 'tank'].forEach(cls => {
         const subBtn = document.getElementById(`sub-tab-${cls}`);
         if (subBtn) {
@@ -219,12 +219,19 @@ window.updateShopUi = function() {
       const isGoldOk = localPlayer.gold >= item.price;
       const canBuy = isLevelOk && isGoldOk && hasEnoughStats;
 
+      const statColor = hasEnoughStats ? '#2ecc71' : '#e74c3c';
+      const lvlColor = isLevelOk ? '#2ecc71' : '#e74c3c';
+
+      // 🔥 Фикс подстановки: убрали косые слэши внутри шаблонной строки, чтобы JS правильно прочитал переменные
       row.innerHTML = `
         <div class="item-icon">${item.icon || '📦'}</div>
         <div class="item-info">
           <div class="item-name">${item.name}</div>
           <div class="item-desc">${item.desc}</div>
-          ${reqText ? `<div style="font-size:11px; font-weight:bold; color:\${hasEnoughStats ? '#2ecc71' : '#e74c3c'}">Требует: reqText (Lv. {item.level})</div>` : ''}
+          <div style="font-size:11px; font-weight:bold; margin-top:2px;">
+            <span style="color: ${statColor}">Требует: ${reqText || 'Нет'}</span> 
+            <span style="color: ${lvlColor}">(Lv. ${item.level})</span>
+          </div>
         </div>
         <button onclick="window.triggerServerBuy('${item.id}', event)" class="btn-buy" ${canBuy ? '' : 'disabled'}>
           💰 ${item.price}
@@ -257,13 +264,19 @@ function renderSellRow(block, itemUuidOrId, dbData, isConsumable, count = 1) {
 
 window.triggerServerBuy = function(itemId, event) {
   const btn = event.currentTarget;
-  btn.disabled = true; btn.textContent = '⏳';
-  shopSocket.emit('buy_item_secure', { userId: localPlayer.id, itemId });
+  if (btn) {
+    btn.disabled = true; 
+    btn.textContent = '⏳';
+  }
+  shopSocket.emit('buy_item_secure', { userId: localPlayer.id, itemId: itemId });
 };
 
 window.triggerServerSell = function(itemUuidOrId, isConsumable, event) {
   const btn = event.currentTarget;
-  btn.disabled = true; btn.textContent = '⏳';
+  if (btn) {
+    btn.disabled = true; 
+    btn.textContent = '⏳';
+  }
   shopSocket.emit('sell_item_secure', { 
     userId: localPlayer.id, 
     itemUuidOrId: itemUuidOrId, 
