@@ -94,7 +94,7 @@ function setupSocketListeners() {
       const opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
       const firstAliveEnemy = opposingTeam.find(e => e.currentHp > 0);
       selectedTargetUuid = firstAliveEnemy ? firstAliveEnemy.uuid : null;
-      // [ДОБАВЛЕНО] Клик на картинку героя для открытия его статов
+
     }
 
     resetTacticalButtons();
