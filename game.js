@@ -173,18 +173,44 @@ function render() {
   renderTown(); 
 }
 
+// --- ОТРИСОВКА ГЛАВНОГО ЭКРАНОМ ГОРОДА (ПОЛНОСТЬЮ ВОССТАНОВЛЕННЫЙ ИСПРАВЛЕННЫЙ ВАРИАНТ) ---
 function renderTown() {
+  if (!window.player || !window.TOWNS) return; // Подстраховка от пустых данных
+  
   const town = window.TOWNS[window.player.currentTownIndex];
-  document.getElementById('current-town-name').textContent = town.name;
+  if (document.getElementById('current-town-name')) {
+    document.getElementById('current-town-name').textContent = town.name;
+  }
+  
   const grid = document.getElementById('town-locations'); 
   if (!grid) return;
   grid.innerHTML = '';
   
+  // Безопасно пробегаемся по локациям города
   town.locations.forEach(loc => {
+    if (!loc) return;
+
+    // 🏰 Динамически прокачиваем имя Башни, если эта локация сейчас отрисовывается
+    let displayLocationName = loc.name;
+    if (loc.name === "Тёмная Башня" || loc.name === "Башня") {
+      const savedFloor = window.player.tower_floor || window.player.stats?.tower_floor || 1;
+      displayLocationName = `🏰 Башня (Этаж ${savedFloor})`;
+    }
+
     const btn = document.createElement('button'); 
     btn.className = 'loc-btn';
-    btn.innerHTML = `<span>${loc.icon}</span><span>${loc.name}</span>`;
+    
+    // Если это Башня — подставляем прокачанное имя, иначе — стандартное
+    if (loc.name === "Тёмная Башня" || loc.name === "Башня") {
+      btn.innerHTML = `<span>${loc.icon}</span><span>${displayLocationName}</span>`;
+      btn.style.borderLeft = "4px solid #6c5ce7"; // Фирменный фиолетовый бадж
+      btn.style.background = "rgba(108, 92, 231, 0.05)";
+    } else {
+      btn.innerHTML = `<span>${loc.icon}</span><span>${loc.name}</span>`; // Твой родной код
+    }
+
     btn.addEventListener('click', function() {
+      // 🌲 ТВОЙ РОДНОЙ КЛИК: ВЫХОД НА ПРИРОДУ (ЛЕС)
       if (loc.name === "Выход на природу") {
         if (!window.player || window.player.hp <= 0) {
           return alert("❌ Вы слишком слабы для боя! Восстановите здоровье в Таверне.");
@@ -210,25 +236,40 @@ function renderTown() {
         }
         for (let i = 1; i < 100; i++) { window.clearInterval(i); window.clearTimeout(i); }
         window.location.href = `battle/battle.html?monster=${targetMonster}&count=${finalCount}`;
-      } else if (loc.name === "Магазин") {
-         console.log("🏪 Игрок заходит в изолированную Торговую Лавку...");
-  
-        // Мгновенно перенаправляем браузер на отдельную HTML-страницу магазина
+      } 
+      // 🏪 ТВОЙ РОДНОЙ КЛИК: ПЕРЕХОД В МАГАЗИН
+      else if (loc.name === "Магазин") {
+        console.log("🏪 Игрок заходит в изолированную Торговую Лавку...");
         window.location.href = 'shop/shop.html';
-      } else if (loc.name === "Арена PvP") {
+      } 
+      // ⚔️ ТВОЙ РОДНОЙ КЛИК: АРЕНА PvP
+      else if (loc.name === "Арена PvP") {
         const wrapper = document.getElementById('arena-iframe-wrapper');
         const frame = document.getElementById('arena-iframe-frame');
         if (wrapper && frame) {
           frame.src = 'arena.html'; 
-          wrapper.style.display = 'flex'; // Жесткий фикс высоты iframe
+          wrapper.style.display = 'flex'; 
         }
-      } else { 
+      } 
+      // 🏰 [НОВОЕ ИЗОЛИРОВАННОЕ УСЛОВИЕ] КЛИК ДЛЯ ТЁМНОЙ БАШНИ
+      else if (loc.name === "Тёмная Башня" || loc.name === "Башня") {
+        if (!window.player) return;
+        if (Number(window.player.hp) <= 0) {
+          return alert("❌ Вы слишком слабы для штурма! Восстановите здоровье в Таверне.");
+        }
+        console.log("🏰 Игрок выдвигается на штурм этажей Башни...");
+        window.location.href = 'tower/tower.html';
+      } 
+      // ДЕФОЛТНЫЙ ТВОЙ ВЫВОД
+      else { 
         alert(`Вы зашли в здание: ${loc.name}`); 
       }
     });
+
     grid.appendChild(btn);
   });
 
+  // Твой родной код кнопки путешествия между городами
   const travelBtn = document.createElement('button'); 
   travelBtn.className = 'loc-btn';
   const nextIdx = window.player.currentTownIndex === 0 ? 1 : 0;
