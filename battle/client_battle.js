@@ -249,40 +249,6 @@ function renderFighters() {
     const dHp = Math.max(0, myFighter.currentHp);
     if (elHpFill) elHpFill.style.width = `${(dHp / myFighter.maxHp) * 100}%`;
     if (elHpText) elHpText.textContent = `${dHp} / ${myFighter.maxHp}`;
-     if (heroImg) {
-      heroImg.style.cursor = 'pointer';
-      heroImg.onclick = function() {
-        const pBody = document.getElementById('player-popover-body');
-        if (!pBody) return;
-        pBody.innerHTML = ''; 
-
-        const mfInv = (Number(myFighter.agility || 1) * 10);
-        const mfAntiInv = (Number(myFighter.agility || 1) * 4);
-        const mfCrit = (Number(myFighter.luck || 1) * 10);
-        const mfAntiCrit = (Number(myFighter.luck || 1) * 4);
-
-        const stats = [
-          { label: '💪 Сила', value: myFighter.strength || 1 },
-          { label: '🏹 Ловкость', value: myFighter.agility || 1 },
-          { label: '🛡️ Выносливость', value: myFighter.endurance || 1 },
-          { label: '🍀 Удача', value: myFighter.luck || 1 },
-          { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
-          { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
-          { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
-          { label: '🛡️ Мф. Антикрита', value: `+${mfAntiCrit}%` }
-        ];
-
-        stats.forEach(s => {
-          const row = document.createElement('div');
-          row.className = 'profile-row';
-          row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
-          pBody.appendChild(row);
-        });
-
-        document.getElementById('monster-stats-popover').style.display = 'none';
-        document.getElementById('player-stats-popover').style.display = 'flex';
-      };
-    }
   }
   // ============================================================================
 // ===== ⚔️ КЛИЕНТСКИЙ БОЕВОЙ МОДУЛЬ (CLIENT_BATTLE.JS) — ЧАСТЬ 4 ИЗ 4 =====
@@ -298,43 +264,6 @@ function renderFighters() {
     const elTHpFill = document.getElementById('target-hp-fill');
     const elTHpText = document.getElementById('target-hp-text');
     const tImg = document.getElementById('target-card-bg-img');
-      // [ДОБАВЛЕНО] Клик на картинку врага для просмотра его характеристик
-    if (tImg) {
-      tImg.style.cursor = 'pointer';
-      tImg.onclick = function() {
-        const mBody = document.getElementById('monster-popover-body');
-        if (!mBody) return;
-        mBody.innerHTML = ''; // Чистим старое
-
-        // Считаем модификаторы БК для монстра/соперника
-        const mfInv = (Number(targetFighter.agility || 1) * 10);
-        const mfAntiInv = (Number(targetFighter.agility || 1) * 4);
-        const mfCrit = (Number(targetFighter.luck || 1) * 10);
-        const mfAntiCrit = (Number(targetFighter.luck || 1) * 4);
-
-        const stats = [
-          { label: '💪 Сила', value: targetFighter.strength || 1 },
-          { label: '🏹 Ловкость', value: targetFighter.agility || 1 },
-          { label: '🛡️ Выносливость', value: targetFighter.endurance || 1 },
-          { label: '🍀 Удача', value: targetFighter.luck || 1 },
-          { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
-          { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
-          { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
-          { label: '🛡️ Мф. Антикрита', value: `+${mfAntiCrit}%` }
-        ];
-
-        stats.forEach(s => {
-          const row = document.createElement('div');
-          row.className = 'profile-row';
-          row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
-          mBody.appendChild(row);
-        });
-
-        // Прячем наш если открыт, и показываем вражеский
-        document.getElementById('player-stats-popover').style.display = 'none';
-        document.getElementById('monster-stats-popover').style.display = 'flex';
-      };
-    }
     if (elTName) elTName.textContent = targetFighter.name;
     if (elTLvl) elTLvl.textContent = `Lv. ${targetFighter.level || 1}`;
     if (elTHpFill) elTHpFill.style.width = `${(targetFighter.currentHp / targetFighter.maxHp) * 100}%`;
@@ -379,6 +308,7 @@ function renderFighters() {
 
       if (!isDead && !isBattleOver) {
         card.addEventListener('click', function() {
+          document.getElementById('monster-stats-popover').style.display = 'none';
           selectedTargetUuid = enemy.uuid;
           document.querySelectorAll('.mini-fighter-card').forEach(c => c.classList.remove('active-target'));
           card.classList.add('active-target');
@@ -405,81 +335,6 @@ function renderFighters() {
   checkStrikeButtonState();
   initTacticalClickListeners();
 }
-/*
-// Слушатели кнопок атак и блоков
-function initTacticalClickListeners() {
-  const strikeBtn = document.getElementById('strike-action-btn');
-  if (strikeBtn && strikeBtn.textContent.includes('ГОРОД')) return;
-
-  document.querySelectorAll('.btn-atk').forEach(btn => {
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-    const zone = newBtn.getAttribute('data-zone');
-    
-    if (selectedAttackZone === zone) newBtn.classList.add('attack-selected');
-
-    newBtn.onclick = function() {
-      document.querySelectorAll('.btn-atk').forEach(b => b.classList.remove('attack-selected'));
-      selectedAttackZone = zone;
-      newBtn.classList.add('attack-selected');
-      checkStrikeButtonState();
-    };
-  });
-
-  document.querySelectorAll('.btn-def').forEach(btn => {
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-    const zone = newBtn.getAttribute('data-zone');
-    
-    if (selectedDefendZones.includes(zone)) newBtn.classList.add('defend-selected');
-
-    newBtn.onclick = function() {
-      if (selectedDefendZones.includes(zone)) {
-        selectedDefendZones = selectedDefendZones.filter(z => z !== zone);
-        newBtn.classList.remove('defend-selected');
-      } else {
-        if (selectedDefendZones.length >= 2) {
-          const removedZone = selectedDefendZones.shift();
-          const oldBtn = document.querySelector(`.btn-def[data-zone="${removedZone}"]`);
-          if (oldBtn) oldBtn.classList.remove('defend-selected');
-        }
-        selectedDefendZones.push(zone);
-        newBtn.classList.add('defend-selected');
-      }
-      checkStrikeButtonState();
-    };
-  });
-
-  const strikeActionBtn = document.getElementById('strike-action-btn');
-  if (strikeActionBtn) {
-    const newStrikeBtn = strikeActionBtn.cloneNode(true);
-    strikeActionBtn.parentNode.replaceChild(newStrikeBtn, strikeActionBtn);
-
-    newStrikeBtn.onclick = function() {
-      if (this.textContent.includes('ГОРОД')) return;
-      if (!selectedAttackZone || selectedDefendZones.length !== 2 || !selectedTargetUuid) return;
-      
-      this.disabled = true;
-      this.textContent = 'Расчет...';
-
-      socket.emit('submit_turn', {
-        roomId: currentRoomId,
-        targetUuid: String(selectedTargetUuid), 
-        attack: selectedAttackZone,
-        defends: selectedDefendZones
-      });
-    };
-  }
-}
-function checkStrikeButtonState() {
-  const strikeBtn = document.getElementById('strike-action-btn');
-  if (!strikeBtn) return;
-  if (strikeBtn.textContent.includes('ГОРОД')) {
-    strikeBtn.disabled = false;
-    return;
-  }
-  strikeBtn.disabled = !(selectedAttackZone && selectedDefendZones.length === 2 && selectedTargetUuid);
-}*/
 // === КЛИЕНТСКИЙ ФИКС ДИНАМИЧЕСКИХ ЗОН БК (CLIENT_BATTLE.JS) ===
 
 function getMyTacticalLimits() {
@@ -670,3 +525,75 @@ function checkPotionAvailability() {
 // ТОЧКА ВХОДА НА СТРАНИЦУ
 window.addEventListener('browse_battle', () => { console.log('Смена контекста...'); });
 window.addEventListener('DOMContentLoaded', () => { initBattleSocket(); });
+
+// 🔥 ГЛОБАЛЬНЫЙ ТРИГГЕР: ПОКАЗ СТАТОВ ИГРОКА В БОЮ
+window.openPlayerStatsInBattle = function() {
+  // Находим вашего бойца в актуальных массивах раунда
+  const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+  const pBody = document.getElementById('player-popover-body');
+  
+  if (!myFighter || !pBody) return;
+  pBody.innerHTML = ''; // Чистим старое
+
+  const mfInv = (Number(myFighter.agility || 1) * 10);
+  const mfAntiInv = (Number(myFighter.agility || 1) * 4);
+  const mfCrit = (Number(myFighter.luck || 1) * 10);
+  const mfAntiCrit = (Number(myFighter.luck || 1) * 4);
+
+  const stats = [
+    { label: '💪 Сила', value: myFighter.strength || 1 },
+    { label: '🏹 Ловкость', value: myFighter.agility || 1 },
+    { label: '🛡️ Выносливость', value: myFighter.endurance || 1 },
+    { label: '🍀 Удача', value: myFighter.luck || 1 },
+    { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
+    { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
+    { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
+    { label: '🛡️ Мф. Антикрита', value: `+${mfAntiCrit}%` }
+  ];
+
+  stats.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'profile-row';
+    row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
+    pBody.appendChild(row);
+  });
+
+  document.getElementById('monster-stats-popover').style.display = 'none';
+  document.getElementById('player-stats-popover').style.display = 'flex';
+};
+
+// 🔥 ГЛОБАЛЬНЫЙ ТРИГГЕР: ПОКАЗ СТАТОВ ВРАГА В БОЮ
+window.openEnemyStatsInBattle = function() {
+  const opposingTeam = teamA.includes([...teamA, ...teamB].find(f => f.uuid === myUuid)) ? teamB : teamA;
+  const targetFighter = opposingTeam.find(e => e.uuid === selectedTargetUuid);
+  const mBody = document.getElementById('monster-popover-body');
+
+  if (!targetFighter || targetFighter.currentHp <= 0 || !mBody) return;
+  mBody.innerHTML = ''; // Чистим старое
+
+  const mfInv = (Number(targetFighter.agility || 1) * 10);
+  const mfAntiInv = (Number(targetFighter.agility || 1) * 4);
+  const mfCrit = (Number(targetFighter.luck || 1) * 10);
+  const mfAntiCrit = (Number(targetFighter.luck || 1) * 4);
+
+  const stats = [
+    { label: '💪 Сила', value: targetFighter.strength || 1 },
+    { label: '🏹 Ловкость', value: targetFighter.agility || 1 },
+    { label: '🛡️ Выносливость', value: targetFighter.endurance || 1 },
+    { label: '🍀 Удача', value: targetFighter.luck || 1 },
+    { label: '🏹 Мф. Уворота', value: `+${mfInv}%` },
+    { label: '🎯 Мф. Антиуворота', value: `+${mfAntiInv}%` },
+    { label: '💥 Мф. Крита', value: `+${mfCrit}%` },
+    { label: '🛡️ Мф. Антикрита', value: `+${mfAntiCrit}%` }
+  ];
+
+  stats.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'profile-row';
+    row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
+    mBody.appendChild(row);
+  });
+
+  document.getElementById('player-stats-popover').style.display = 'none';
+  document.getElementById('monster-stats-popover').style.display = 'flex';
+};
