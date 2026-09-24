@@ -10,7 +10,7 @@ function initShopPage() {
   // 1. Читаем кэш профиля персонажа
   const localSave = localStorage.getItem('rpg_save');
   if (localSave) {
-    try { localPlayer = JSON.parse(localSave).player; } catch(e) {}
+    try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
   }
 
   if (!localPlayer) {
@@ -21,7 +21,7 @@ function initShopPage() {
 
   console.log("📡 [АВТОНОМНЫЙ МАГАЗИН] Поднимаем собственный сокет лавки...");
   
-  // 🔥 ПОДНИМАЕМ НОВЫЙ СОБСТВЕННЫЙ СОКЕТ СПЕЦИАЛЬНО ДЛЯ МАГАЗИНА
+  // ПОДНИМАЕМ НОВЫЙ СОБСТВЕННЫЙ СОКЕТ СПЕЦИАЛЬНО ДЛЯ МАГАЗИНА
   if (typeof io !== 'undefined') {
     shopSocket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket'],
@@ -35,10 +35,8 @@ function initShopPage() {
   }
 
   // Навешиваем слушатели на наш персональный сокет магазина
-   shopSocket.on('connect', () => {
+  shopSocket.on('connect', () => {
     console.log("✅ [УСПЕХ] Магазин успешно подключился к серверу на своем сокете:", shopSocket.id);
-    
-    // 🔥 ИСПРАВЛЕНО: Вместо покупки отправляем безопасный запрос синхронизации кошелька!
     shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   });
 
@@ -56,31 +54,38 @@ function initShopPage() {
     if (data && data.player) {
       localPlayer = data.player;
       localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-      window.updateShopUi();
     }
+    window.updateShopUi(); // Перерисовываем UI и сбрасываем состояние кнопок
   });
 
   shopSocket.on('shop_buy_error', (data) => {
     alert(data.message);
-    if (typeof window.updateShopUi === 'function') window.updateShopUi();
+    window.updateShopUi(); // Манипуляция гарантированно разблокирует кнопку покупки
   });
 
-  shopSocket.on('error', (msg) => { alert(`❌ Ошибка сети магазина: ${msg}`); });
-  shopSocket.on('connect_error', () => { console.warn("🚨 Магазин не смог достучаться до Render."); });
+  shopSocket.on('error', (msg) => { 
+    alert(`❌ Ошибка сети магазина: ${msg}`); 
+    window.updateShopUi();
+  });
+  
+  shopSocket.on('connect_error', () => { 
+    console.warn("🚨 Магазин не смог достучаться до Render."); 
+  });
 
   // Сразу рисуем интерфейс из кэша, чтобы игрок мгновенно видел золото и шмотки
   window.updateShopUi();
 }
 
 window.setShopClass = function(className) {
+  if (currentTabClass === className) return; // Защита от лишних перерисовок кликами
   currentTabClass = className;
   window.updateShopUi();
 };
 
 window.exitShop = function() {
-  // 🔥 При выходе обязательно глушим сокет магазина, чтобы не спамить сервер
+  // При выходе обязательно глушим сокет магазина, чтобы не спамить сервер
   if (shopSocket) {
-    try { shopSocket.disconnect(); } catch(e) {}
+    try { shopSocket.disconnect(); } catch(e) { console.error(e); }
   }
   window.location.replace('../index.html'); // Возврат на главную площадь города
 };
@@ -111,9 +116,27 @@ window.updateShopUi = function() {
 
   // Сортируем предметы по префиксам классов из config.js
   const filteredIds = Object.keys(window.GAME_ITEMS_DATABASE).filter(id => {
-    if (currentTabClass === 'dodger') return id.startsWith('rogue_') || id.startsWith('bandit_') || id.startsWith('thief_') || id.startsWith('mercenary_') || id.startsWith('assassin_') || id.startsWith('stalker_') || id.startsWith('shadow_') || id.startsWith('phantom_') || id.startsWith('gale_') || id.startsWith('grandmaster_');
-    if (currentTabClass === 'critter') return id.startsWith('scratched_') || id.startsWith('savage_') || id.startsWith('barbarian_') || id.startsWith('fury_') || id.startsWith('seeker_') || id.startsWith('heavy_halberd') || id.startsWith('highland_') || id.startsWith('slasher_') || id.startsWith('ravager_') || id.startsWith('berserk_') || id.startsWith('blood_') || id.startsWith('bloodlust_') || id.startsWith('reaper_') || id.startsWith('hellfire_') || id.startsWith('inferno_') || id.startsWith('executioner_') || id.startsWith('warlord_');
-    if (currentTabClass === 'tank') return id.startsWith('wooden_') || id.startsWith('recruit_') || id.startsWith('militia_') || id.startsWith('iron_') || id.startsWith('guard_') || id.startsWith('knight_') || id.startsWith('order_') || id.startsWith('guardian_') || id.startsWith('heavy_boots') || id.startsWith('centurion_') || id.startsWith('ancient_') || id.startsWith('bastion_') || id.startsWith('gothic_') || id.startsWith('titan_') || id.startsWith('paladin_') || id.startsWith('immortal_') || id.startsWith('aegis_');
+    if (currentTabClass === 'dodger') {
+      return id.startsWith('rogue_') || id.startsWith('bandit_') || id.startsWith('thief_') || 
+             id.startsWith('mercenary_') || id.startsWith('assassin_') || id.startsWith('stalker_') || 
+             id.startsWith('shadow_') || id.startsWith('phantom_') || id.startsWith('gale_') || id.startsWith('grandmaster_');
+    }
+    if (currentTabClass === 'critter') {
+      return id.startsWith('scratched_') || id.startsWith('savage_') || id.startsWith('barbarian_') || 
+             id.startsWith('fury_') || id.startsWith('seeker_') || id.startsWith('heavy_halberd') || 
+             id.startsWith('highland_') || id.startsWith('slasher_') || id.startsWith('ravager_') || 
+             id.startsWith('berserk_') || id.startsWith('blood_') || id.startsWith('bloodlust_') || 
+             id.startsWith('reaper_') || id.startsWith('hellfire_') || id.startsWith('inferno_') || 
+             id.startsWith('executioner_') || id.startsWith('warlord_');
+    }
+    if (currentTabClass === 'tank') {
+      return id.startsWith('wooden_') || id.startsWith('recruit_') || id.startsWith('militia_') || 
+             id.startsWith('iron_') || id.startsWith('guard_') || id.startsWith('knight_') || 
+             id.startsWith('order_') || id.startsWith('guardian_') || id.startsWith('heavy_boots') || 
+             id.startsWith('centurion_') || id.startsWith('ancient_') || id.startsWith('bastion_') || 
+             id.startsWith('gothic_') || id.startsWith('titan_') || id.startsWith('paladin_') || 
+             id.startsWith('immortal_') || id.startsWith('aegis_');
+    }
     return false;
   });
 
@@ -146,17 +169,19 @@ window.updateShopUi = function() {
       let reqText = '';
       let hasEnoughStats = true;
 
-      if (item.req && item.req.agility) {
-        reqText = ` 🏹Ловк:${item.req.agility}`;
-        if (myAgility < item.req.agility) hasEnoughStats = false;
-      }
-      if (item.req && item.req.luck) {
-        reqText = ` 🍀Уд:${item.req.luck}`;
-        if (myLuck < item.req.luck) hasEnoughStats = false;
-      }
-      if (item.req && item.req.endurance) {
-        reqText = ` 🛡️Вын:${item.req.endurance}`;
-        if (myEndurance < item.req.endurance) hasEnoughStats = false;
+      if (item.req) {
+        if (item.req.agility) {
+          reqText = ` 🏹Ловк:${item.req.agility}`;
+          if (myAgility < item.req.agility) hasEnoughStats = false;
+        }
+        if (item.req.luck) {
+          reqText = ` 🍀Уд:${item.req.luck}`;
+          if (myLuck < item.req.luck) hasEnoughStats = false;
+        }
+        if (item.req.endurance) {
+          reqText = ` 🛡️Вын:${item.req.endurance}`;
+          if (myEndurance < item.req.endurance) hasEnoughStats = false;
+        }
       }
 
       const isLevelOk = localPlayer && localPlayer.level >= item.level;
@@ -203,4 +228,5 @@ window.triggerServerBuy = function(itemId, event) {
     itemId: itemId
   });
 };
+
 document.addEventListener('DOMContentLoaded', initShopPage);
