@@ -206,10 +206,9 @@ window.updateShopUi = function() {
   });
 };
 // ============================================================================
-// ===== 🛒 SHOP_CLIENT.JS | ЧАСТЬ 2 | КУСОК 2 ИЗ 2: СБОРКА СТРОК И КЛИКИ =====
+// ===== 🛒 SHOP_CLIENT.JS | ЧАСТЬ 2 | КУСОК 2 ИЗ 2: БРОНИРОВАННЫЙ РЕНДЕР =====
 // ============================================================================
 
-// Функция отрисовки товара на витрине лавки (С вызовом характеристик)
 function renderShopRow(block, itemId, item) {
   const row = document.createElement('div');
   row.className = 'item-row';
@@ -219,9 +218,9 @@ function renderShopRow(block, itemId, item) {
   const myEnd = Number(localPlayer.stats?.endurance || 1);
 
   let reqText = ''; let hasEnoughStats = true;
-  if (item.req?.agility) { reqText = ` 🏹Ловк:${item.req.agility}`; if (myAgi < item.req.agility) hasEnoughStats = false; }
-  if (item.req?.luck) { reqText = ` 🍀Уд:${item.req.luck}`; if (myLuck < item.req.luck) hasEnoughStats = false; }
-  if (item.req?.endurance) { reqText = ` 🛡️Вын:${item.req.endurance}`; if (myEnd < item.req.endurance) hasEnoughStats = false; }
+  if (item.req?.agility) { reqText = ' 🏹Ловк:' + item.req.agility; if (myAgi < item.req.agility) hasEnoughStats = false; }
+  if (item.req?.luck) { reqText = ' 🍀Уд:' + item.req.luck; if (myLuck < item.req.luck) hasEnoughStats = false; }
+  if (item.req?.endurance) { reqText = ' 🛡️Вын:' + item.req.endurance; if (myEnd < item.req.endurance) hasEnoughStats = false; }
 
   const isLevelOk = item.level ? (localPlayer.level >= item.level) : true;
   const isGoldOk = localPlayer.gold >= item.price;
@@ -230,44 +229,51 @@ function renderShopRow(block, itemId, item) {
   const statColor = hasEnoughStats ? '#2ecc71' : '#e74c3c';
   const lvlColor = isLevelOk ? '#2ecc71' : '#e74c3c';
 
-  // Оборачиваем левую часть в кликабельную зону для вызова поп-апа характеристик
-  row.innerHTML = `
-    <div onclick="if(window.parent && window.parent.showItemInfo) { window.parent.showItemInfo('${itemId}', false); } else if(typeof window.showItemInfo === 'function') { window.showItemInfo('${itemId}', false); }" style="display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;">
-      <div class="item-icon">${item.icon || '📦'}</div>
-      <div class="item-info">
-        <div class="item-name" style="text-decoration: underline; color: #a29bfe;">${item.name}</div>
-        <div class="item-desc">${item.desc}</div>
-        <div style="font-size:11px; font-weight:bold; margin-top:2px;">
-          <span style="color: ${statColor}">Требует: ${reqText || 'Нет'}</span> 
-          ${item.level ? `<span style="color: lvlColor">(Lv. {item.level})</span>` : ''}
-        </div>
-      </div>
-    </div>
-    <button onclick="window.triggerServerBuy('${itemId}', event)" class="btn-buy" ${canBuy ? '' : 'disabled'}>
-      💰 ${item.price}
-    </button>
-  `;
+  // 🔥 БРОНИРОВАННАЯ СБОРКА СТРОКИ: Убрали шаблонные кавычки, чтобы полностью исключить баги с {item.level}
+  let innerHtml = '';
+  innerHtml += '<div onclick="if(window.parent && window.parent.showItemInfo) { window.parent.showItemInfo(\'' + itemId + '\', false); } else if(typeof window.showItemInfo === \'function\') { window.showItemInfo(\'' + itemId + '\', false); }" style="display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;">';
+  innerHtml += '  <div class="item-icon">' + (item.icon || '📦') + '</div>';
+  innerHtml += '  <div class="item-info">';
+  innerHtml += '    <div class="item-name" style="text-decoration: underline; color: #a29bfe;">' + item.name + '</div>';
+  innerHtml += '    <div class="item-desc">' + item.desc + '</div>';
+  innerHtml += '    <div style="font-size:11px; font-weight:bold; margin-top:2px;">';
+  innerHtml += '      <span style="color: ' + statColor + ';">Требует: ' + (reqText || 'Нет') + '</span> ';
+  if (item.level) {
+    innerHtml += '    <span style="color: ' + lvlColor + ';">(Lv. ' + item.level + ')</span>';
+  }
+  innerHtml += '    </div>';
+  innerHtml += '  </div>';
+  innerHtml += '</div>';
+  innerHtml += '<button onclick="window.triggerServerBuy(\'' + itemId + '\', event)" class="btn-buy" ' + (canBuy ? '' : 'disabled') + '>';
+  innerHtml += '  💰 ' + item.price;
+  innerHtml += '</button>';
+
+  row.innerHTML = innerHtml;
   block.appendChild(row);
 }
 
-// Функция отрисовки строки продажи в лавку (С выводом стака и кликом)
 function renderSellRow(block, itemUuidOrId, dbData, isConsumable, count = 1) {
   const halfPrice = Math.floor(dbData.price * 0.5) || 1;
   const row = document.createElement('div');
   row.className = 'item-row';
 
-  row.innerHTML = `
-    <div onclick="if(window.parent && window.parent.showItemInfo) { window.parent.showItemInfo('${itemUuidOrId}', false); } else if(typeof window.showItemInfo === 'function') { window.showItemInfo('${itemUuidOrId}', false); }" style="display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;">
-      <div class="item-icon">${dbData.icon || '📦'}</div>
-      <div class="item-info">
-        <div class="item-name" style="text-decoration: underline; color: #e67e22;">${dbData.name} ${isConsumable ? `<span style="color:#2ecc71">x\${count}</span>` : ''}</div>
-        <div class="item-desc">${dbData.desc}</div>
-      </div>
-    </div>
-    <button onclick="window.triggerServerSell('${itemUuidOrId}', ${isConsumable}, event)" class="btn-sell-action">
-      💸 +${halfPrice}
-    </button>
-  `;
+  let innerHtml = '';
+  innerHtml += '<div onclick="if(window.parent && window.parent.showItemInfo) { window.parent.showItemInfo(\'' + itemUuidOrId + '\', false); } else if(typeof window.showItemInfo === \'function\') { window.showItemInfo(\'' + itemUuidOrId + '\', false); }" style="display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;">';
+  innerHtml += '  <div class="item-icon">' + (dbData.icon || '📦') + '</div>';
+  innerHtml += '  <div class="item-info">';
+  
+  let displayName = dbData.name;
+  if (isConsumable) displayName += ' <span style="color:#2ecc71">x' + count + '</span>';
+  
+  innerHtml += '    <div class="item-name" style="text-decoration: underline; color: #e67e22;">' + displayName + '</div>';
+  innerHtml += '    <div class="item-desc">' + dbData.desc + '</div>';
+  innerHtml += '  </div>';
+  innerHtml += '</div>';
+  innerHtml += '<button onclick="window.triggerServerSell(\'' + itemUuidOrId + '\', ' + !!isConsumable + ', event)" class="btn-sell-action">';
+  innerHtml += '  💸 +' + halfPrice;
+  innerHtml += '</button>';
+
+  row.innerHTML = innerHtml;
   block.appendChild(row);
 }
 
