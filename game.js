@@ -567,22 +567,72 @@ window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringInd
   pDesc.innerText = statsText;
 
   // Шаг 4: Управление кнопкой действия инвентаря (Надеть / Снять) без изменений логики сокетов
+  let btnContainer = pBtn.parentElement;
+  if (btnContainer) {
+    btnContainer.style.display = 'flex';
+    btnContainer.style.gap = '10px';
+    btnContainer.style.width = '100%';
+  }
+
+  // 2. Сужаем кнопку экипировки, чтобы она делила место с кнопкой удаления
+  pBtn.style.flex = '2'; // Займет ~65-70% ширины
+  pBtn.style.width = 'auto';
+
+  // 3. Ищем или динамически создаем кнопку "Выбросить"
+  let deleteBtn = document.getElementById('popover-item-delete-btn');
+  if (!deleteBtn && btnContainer) {
+    deleteBtn = document.createElement('button');
+    deleteBtn.id = 'popover-item-delete-btn';
+    deleteBtn.style.cssText = 'flex: 1; background: #e74c3c; border: none; color: #fff; padding: 12px; font-weight: bold; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px;';
+    btnContainer.appendChild(deleteBtn);
+  }
+
+  // 4. Логика распределения кнопок (Снятие / Экипировка / Уничтожение)
   if (isEquipped) {
+    // Если вещь надета на куклу — меняем кнопку на «Снять»
     pBtn.textContent = '❌ Снять в рюкзак';
     pBtn.style.background = '#e74c3c';
     pBtn.onclick = function() {
       popover.style.display = 'none';
       window.unequipItem(slotKey, ringIndex);
     };
+    
+    // Скрываем кнопку удаления, так как надетые из рук вещи выбрасывать нельзя!
+    if (deleteBtn) deleteBtn.style.display = 'none';
+    
   } else {
+    // Если вещь лежит в рюкзаке — настраиваем кнопку «Экипировать» или «Взять в бой»
     let isConsumable = itemData.heal || cleanId.includes('potion') || cleanId.includes('soup') || itemData.duration || cleanId.includes('scroll');
     pBtn.textContent = isConsumable ? '🧪 Взять в бой' : '🛡️ Экипировать';
     pBtn.style.background = '#6c5ce7';
+    
     pBtn.onclick = function() {
       popover.style.display = 'none';
-      window.equipItem(itemUuidOrId); // Шлем на сервер полноценный UUID/ID вещи
+      window.equipItem(itemUuidOrId);
     };
+
+    // Включаем и настраиваем кнопку «Выбросить» с жестким Confirm-подтверждением
+    if (deleteBtn) {
+      deleteBtn.style.display = 'flex';
+      deleteBtn.textContent = '🗑️ Выбросить';
+      deleteBtn.onclick = function() {
+        const confirmDelete = confirm('⚠️ Вы уверены, что хотите навсегда выбросить и удалить предмет "' + itemData.name + '"?');
+        if (confirmDelete) {
+          popover.style.display = 'none';
+          console.log('📡 [КЛИЕНТ] Отправка запроса на уничтожение предмета: ' + itemUuidOrId);
+          
+          // Отправляем сигнал удаления на бэкенд по сокету
+          window.socket.emit('destroy_item_secure', { 
+            userId: window.player.id, 
+            itemUuidOrId: itemUuidOrId,
+            isConsumable: !!isConsumable
+          });
+        }
+      };
+    }
   }
+  
+  // Выводим заполненный поп-ап на экран смартфона
   popover.style.display = 'flex';
 };
 // --- ОТРИСОВКА ИНВЕНТАРЯ И КУКЛЫ ПЕРСОНАЖА ---
