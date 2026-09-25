@@ -190,7 +190,7 @@ function setupSocketListeners() {
       logBox.scrollTop = logBox.scrollHeight;
     }
 
-    // Управляем главной кнопкой в зависимости от статуса поединка
+// Управляем главной кнопкой в зависимости от статуса поединка
     const strikeBtn = document.getElementById('strike-action-btn');
     if (!data.isOver) {
       if (strikeBtn) {
@@ -199,17 +199,37 @@ function setupSocketListeners() {
       }
     } else {
       if (strikeBtn) {
-        strikeBtn.textContent = 'ВЕРНУТЬСЯ В ГОРОД';
-        strikeBtn.disabled = false;
-        strikeBtn.style.background = '#2ecc71';
-         // 🔥 Скрываем кнопку случайного удара, когда бой окончен
+        // Скрываем кнопку случайного удара, когда бой окончен
         const randBtn = document.getElementById('random-strike-btn');
         if (randBtn) randBtn.style.display = 'none';
-        strikeBtn.onclick = function() {
-          console.log("🏃‍♂️ Покидаем поле боя. Отключаем сокеты...");
-          if (socket) socket.disconnect();
-          window.location.replace('../index.html');
-        };
+
+        // 🔥 [ИСПРАВЛЕНО] ДИНАМИЧЕСКИЙ РЕДИРЕКТ ДЛЯ ТЁМНОЙ БАШНИ
+        if (data.isTower && data.resultType === 'win') {
+          // Игрок победил в Башне! Даем ему кнопку быстрого перехода на следующий этаж
+          strikeBtn.textContent = '⚔️ СЛЕДУЮЩИЙ ЭТАЖ';
+          strikeBtn.disabled = false;
+          strikeBtn.style.background = '#6c5ce7'; // Фирменный фиолетовый цвет Башни
+          strikeBtn.style.boxShadow = '0 4px 12px rgba(108, 92, 231, 0.4)';
+
+          strikeBtn.onclick = function() {
+            console.log("🏰 Быстрый переход! Возвращаемся сразу в Башню...");
+            if (socket) socket.disconnect();
+            // Перенаправляем игрока строго на экран Башни, минуя площадь города
+            window.location.replace('../tower/tower.html');
+          };
+        } else {
+          // Стандартный исход (Победа в лесу, ничья или любое поражение с КД)
+          strikeBtn.textContent = 'ВЕРНУТЬСЯ В ГОРОД';
+          strikeBtn.disabled = false;
+          strikeBtn.style.background = '#2ecc71'; // Зеленый цвет города
+          strikeBtn.style.boxShadow = '0 4px 12px rgba(46, 204, 113, 0.3)';
+
+          strikeBtn.onclick = function() {
+            console.log("🏃‍♂️ Покидаем поле боя. Отключаем сокеты...");
+            if (socket) socket.disconnect();
+            window.location.replace('../index.html');
+          };
+        }
       }
     }
   });
