@@ -237,7 +237,6 @@ function runCooldownTimer() {
   }
 }
 
-// Находим функцию клика по кнопке штурма и переписываем её:
 window.triggerTowerFight = function(floorNumber) {
   console.log(`==================================================`);
   console.log(`🎯 [КЛИК] Игрок инициировал штурм. Этаж: ${floorNumber}`);
@@ -248,6 +247,19 @@ window.triggerTowerFight = function(floorNumber) {
     updateTowerLog("❌ Нет соединения с сервером!", true);
     return;
   }
+
+  // ============================================================================
+  // 🔥 [ЖЕЛЕЗНЫЙ АНТИ-КЛИК ФИКС] 
+  // Находим кнопку, на которую кликнули, и мгновенно её отключаем!
+  // ============================================================================
+  const clickedBtn = document.querySelector(`button[onclick*="triggerTowerFight(${floorNumber})"]`);
+  if (clickedBtn) {
+    clickedBtn.disabled = true;
+    clickedBtn.textContent = "⏳ ВХОД...";
+    clickedBtn.style.background = "#222";
+    clickedBtn.style.boxShadow = "none";
+  }
+  // ============================================================================
 
   updateTowerLog("⏳ Отправка отряда на этаж...");
   
