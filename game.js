@@ -93,12 +93,12 @@ function createPlayer() {
 
   const newPlayer = {
     id: uniqueId, name: name, avatar: window.DEFAULT_AVATAR || 'assets/avatars/hero5.jpg',
-    level: 1, xp: 0, gold: 50, currentTownIndex: 0, statPoints: 5, 
+    level: 1, xp: 0, gold: 200, currentTownIndex: 0, statPoints: 5, 
     stats: { strength: 1, agility: 1, endurance: 1, luck: 1 },
     inventory: { equipment: [], resources: [], consumables: [] },
     equipped: {
       head: null, body: null, legs: null, neck: null, gloves: null,
-      mainHand: 'rusty_sword', offHand: null, potion: 'hp_potion_small', scroll: null,
+      mainHand: null, offHand: null, potion: null, scroll: null,
       rings: [null, null, null] 
     }
   };

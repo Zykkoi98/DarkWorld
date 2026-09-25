@@ -50,35 +50,7 @@ window.TOWNS = [
   }
 ];
 
-// ============================================================================
-// ===== 🗡️ БАЗА ДАННЫХ ОРУЖИЯ И ЩИТОВ (WEAPON_DATABASE) =====
-// ============================================================================
-window.WEAPON_DATABASE = {
-  'rusty_sword': { name: 'Ржавый меч', icon: '🗡️', slotType: 'mainHand', price: 10, level: 1, desc: 'Старый клинок. Слегка помогает попасть.', bonus: { atk: 2, mf_antiinv: 10 } },
-  'iron_sword': { name: 'Железный меч', icon: '⚔️', slotType: 'mainHand', price: 45, level: 2, desc: 'Хороший кованый меч. Повышает шанс критического удара.', bonus: { atk: 7, mf_crit: 20 } },
-  'wooden_shield': { name: 'Щит новичка', icon: '🛡️', slotType: 'offHand', price: 15, level: 1, desc: 'Простой щит. Защищает от критических ударов.', bonus: { def: 3, mf_anticrit: 15 } },
-  'steel_mace': { name: 'Стальная булава', icon: '🔨', slotType: 'mainHand', price: 90, level: 3, desc: 'Тяжелое оружие. Бойцы не могут от нее увернуться.', bonus: { atk: 12, mf_antiinv: 35 } },
-  'heavy_halberd': { name: 'Тяжелая алебарда', icon: '🔱', slotType: 'twoHanded', price: 120, level: 5, desc: 'Огромное оружие. Гарантирует колоссальные криты.', bonus: { atk: 22, mf_crit: 50 } }
-};
 
-// ============================================================================
-// ===== 🛡️ БАЗА ДАННЫХ ДОСПЕХОВ И БРОНИ (ARMOR_DATABASE) =====
-// ============================================================================
-window.ARMOR_DATABASE = {
-  'leather_cap': { name: 'Кожаная шапка', icon: '🪖', slotType: 'head', price: 20, level: 1, desc: 'Легкая защита для головы. Повышает увертливость.', bonus: { def: 1, stats: { agility: 1 }, mf_inv: 15 } },
-  'leather_armor': { name: 'Кожаная куртка', icon: '👕', slotType: 'body', price: 30, level: 2, desc: 'Плотная кожа. Защищает от критических ударов.', bonus: { def: 4, stats: { endurance: 1 }, mf_anticrit: 20 } },
-  'leather_boots': { name: 'Кожаные сапоги', icon: '🥾', slotType: 'legs', price: 18, level: 1, desc: 'Удобная обувь, позволяющая легко уходить от чужих атак.', bonus: { def: 1, stats: { agility: 2 }, mf_inv: 25 } },
-  'leather_gloves': { name: 'Кожаные перчатки', icon: '🧤', slotType: 'gloves', price: 15, level: 2, desc: 'Улучшают хват оружия, мешая врагам уворачиваться.', bonus: { def: 1, stats: { strength: 1 }, mf_antiinv: 15 } }
-};
-// ============================================================================
-// ===== 💍 БАЗА ДАННЫХ БИЖУТЕРИИ (JEWELRY_DATABASE) =====
-// ============================================================================
-window.JEWELRY_DATABASE = {
-  'copper_ring': { name: 'Медное кольцо', icon: '💍', slotType: 'ring', price: 25, level: 1, desc: 'Простенькое кольцо, оберегающее от случайных критов.', bonus: { stats: { endurance: 1 }, mf_anticrit: 10 } },
-  'wolf_amulet': { name: 'Амулет Волка', icon: '📿', slotType: 'neck', price: 60, level: 3, desc: 'Клык дикого волка. Разжигает боевую ярость.', bonus: { stats: { strength: 2, luck: 1 }, mf_crit: 15 } },
-  'lucky_ring': { name: 'Кольцо Фортуны', icon: '🪙', slotType: 'ring', price: 75, level: 3, desc: 'Значительно увеличивает шанс критического удара.', bonus: { stats: { luck: 3 }, mf_crit: 30 } },
-  'ruby_ring': { name: 'Рубиновое кольцо', icon: '💎', slotType: 'ring', price: 80, level: 5, desc: 'Массивный рубин. Помогает пробивать уворотчиков.', bonus: { stats: { strength: 3 }, mf_antiinv: 25 } }
-};
 /**
  * Глобальная утилита для поиска характеристик предмета по его ID во всех базах данных.
  * @param {string} itemId - Уникальный идентификатор предмета (например, 'iron_sword')
@@ -92,38 +64,7 @@ window.getItemData = function(itemId) {
     return window.GAME_ITEMS_DATABASE[itemId];
   }
 
-  // Если не нашли, проверяем старые дефолтные массивы
-  if (window.WEAPON_DATABASE && window.WEAPON_DATABASE[itemId]) { return window.WEAPON_DATABASE[itemId]; }
-  if (window.ARMOR_DATABASE && window.ARMOR_DATABASE[itemId]) { return window.ARMOR_DATABASE[itemId]; }
-  if (window.JEWELRY_DATABASE && window.JEWELRY_DATABASE[itemId]) { return window.JEWELRY_DATABASE[itemId]; }
-  if (window.CONSUMABLE_DATABASE && window.CONSUMABLE_DATABASE[itemId]) { return window.CONSUMABLE_DATABASE[itemId]; }
-  if (window.RESOURCE_DATABASE && window.RESOURCE_DATABASE[itemId]) { return window.RESOURCE_DATABASE[itemId]; }
-
   console.warn(`⚠️ Предмет с ID "${itemId}" не найден ни в одной базе данных.`);
   return null;
 };
-// ============================================================================
-// ===== 🧪 БАЗА ДАННЫХ РАСХОДНИКОВ И РЕСУРСОВ (ITEMS_DATABASE) =====
-// ============================================================================
-// Сюда вынесем то, что нельзя надеть, но можно съесть или использовать в крафте
-window.CONSUMABLE_DATABASE = {
-  'hp_potion_small': { name: 'Малое зелье HP', icon: '🧪', heal: 25, price: 8, desc: 'Восстанавливает 25 единиц здоровья.' },
-  'hp_potion_big':   { name: 'Большое зелье HP', icon: '🍯', heal: 60, price: 20, desc: 'Восстанавливает 60 единиц здоровья.' },
-  'fish_soup':       { name: 'Уха из таверны', icon: '🥣', heal: 40, price: 15, desc: 'Ароматный суп. Восстанавливает 40 HP.' },
-  'blessing_scroll': { name: 'Свиток Удачи', icon: '📜', duration: 3, price: 50, desc: 'Древний свиток. Увеличивает шанс редкого лута.' }
-};
 
-window.RESOURCE_DATABASE = {
-  'iron_ore':      { name: 'Железная руда', icon: '🪨', price: 3, desc: 'Необработанный кусок руды. Нужен для ковки.' },
-  'coal':          { name: 'Уголь', icon: '🪵', price: 2, desc: 'Горючий камень. Используется как топливо в кузнице.' },
-  'wood':          { name: 'Древесина', icon: '🌲', price: 2, desc: 'Крепкие поленья для крафта щитов и рукоятей.' },
-  'raw_fish':      { name: 'Сырая рыба', icon: '🐟', price: 4, desc: 'Свежевыловленная рыба. Можно выгодно продать.' },
-  'magic_crystal': { name: 'Магический кристалл', icon: '💎', price: 25, desc: 'Редкий светящийся осколок, полный энергии.' }
-};
-
-// 👹 5. База данных монстров и противников
-window.MONSTER_DATABASE = {
-  'wild_wolf': { name: 'Дикий волк', icon: '🐺', level: 1, stats: { strength: 8, agility: 12, endurance: 8, luck: 8 }, rewardXp: 15, rewardGold: 10 },
-  'goblin': { name: 'Гоблин-грабитель', icon: '👺', level: 3, stats: { strength: 12, agility: 15, endurance: 10, luck: 15 }, rewardXp: 40, rewardGold: 35 },
-  'stone_golem': { name: 'Каменный голем', icon: '🪨', level: 5, stats: { strength: 25, agility: 5, endurance: 25, luck: 5 }, rewardXp: 100, rewardGold: 50 }
-};
