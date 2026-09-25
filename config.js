@@ -4,7 +4,7 @@
 window.DEFAULT_AVATAR = "assets/avatars/hero1.png";
 
 // 📊 2. Таблица порогов опыта (Суммарный опыт для уровня)
-const SERVER_XP_TABLE = [
+window.XP_TABLE = [
   0, 
   0,     // 1 ур
   200,    // 2 ур
