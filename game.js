@@ -441,6 +441,34 @@ window.openProfile = function() {
       confirmBtn.addEventListener('click', window.submitStatDistribution);
       statsBody.appendChild(confirmBtn);
     }
+    // ============================================================================
+    // 🔥 [ДОБАВЛЕНО] КНОПКА СБРОСА ХАРАКТЕРИСТИК ДЛЯ ПРОФИЛЯ ГЕРОЯ
+    // ============================================================================
+    const resetsCount = window.player.stat_resets !== undefined ? window.player.stat_resets : 3;
+    
+    const resetBtn = document.createElement('button');
+    resetBtn.style.cssText = 'margin-top: 8px; width: 100%; background: #e67e22; border: none; color: #fff; padding: 10px; font-weight: bold; border-radius: 10px; cursor: pointer; font-size: 12px; box-shadow: 0 4px 10px rgba(230, 126, 34, 0.2); transition: 0.1s;';
+    resetBtn.innerHTML = `🧹 Сбросить характеристики (Осталось: ${resetsCount})`;
+    
+    // Блокируем кнопку, если попыток больше нет
+    if (resetsCount <= 0) {
+      resetBtn.style.background = '#333';
+      resetBtn.style.color = '#666';
+      resetBtn.style.boxShadow = 'none';
+      resetBtn.disabled = true;
+    }
+
+    resetBtn.onclick = function() {
+      const confirmReset = confirm(`⚠️ Вы уверены, что хотите сбросить все характеристики до 1? Это потратит 1 попытку сброса (Осталось: ${resetsCount}). Надетые вещи могут слететь!`);
+      if (confirmReset) {
+        resetBtn.disabled = true;
+        resetBtn.textContent = '⏳ Сброс...';
+        console.log("📤 [ОТПРАВКА] Запрос request_stat_reset_secure улетает на бэкенд...");
+        window.socket.emit('request_stat_reset_secure', { userId: window.player.id });
+      }
+    };
+    
+    statsBody.appendChild(resetBtn);
   } 
   // ============================================================================
   // ВЕТВЬ Б: 🔥 ОТРИСОВКА ВТОРОСТЕПЕННЫХ МОДИФИКАТОРОВ БК (МФ. КРИТА, УВОР ОТА...)
