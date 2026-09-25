@@ -124,6 +124,7 @@ function setupSocketListeners() {
   });
 
   // ⚔️ 3. ПАКЕТ РЕЗУЛЬТАТОВ РАУНДА ОТ БЭКЕНДА (ИТОГИ ОБМЕНА УДАРАМИ)
+  socket.off('round_result');
   socket.on('round_result', (data) => {
     // [ДОБАВЛЕНО] Закрываем окна характеристик при обсчете раунда
     document.getElementById('player-stats-popover').style.display = 'none';
