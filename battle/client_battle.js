@@ -205,7 +205,41 @@ function setupSocketListeners() {
     }
   });
 
-  socket.on('error', (msg) => { alert(`❌ Ошибка боя: ${msg}`); });
+   // 🔥 [УЛЬТИМАТИВНЫЙ ФРОНТЕНД-ФИКС ДЛЯ КУЛДАУНОВ ЛЕСА/БАШНИ]
+  // Перехватываем серверную ошибку КД и выводим её вместо бесконечной загрузки
+  socket.on('error', (message) => {
+    console.error("🚨 [СЕРВЕРНАЯ ОШИБКА]:", message);
+    
+    // Скрываем оверлей загрузки арены, чтобы показать интерфейс и текст ошибки
+    const overlay = document.getElementById('battle-loading-overlay');
+    if (overlay) overlay.style.display = 'none';
+
+    // Вставляем красивый жирный текст ошибки прямо в поле логов боя
+    const logViewport = document.getElementById('battle-log-viewport');
+    if (logViewport) {
+      logViewport.innerHTML = `<div style="color: #e74c3c; font-weight: bold; text-align: center; margin-top: 40px; font-size: 15px; font-family: sans-serif; line-height: 1.6;">${message}</div>`;
+    }
+
+    // Находим главную боевую кнопку действий
+    const strikeBtn = document.getElementById('strike-action-btn');
+    if (strikeBtn) {
+      strikeBtn.disabled = false; // Насильно включаем кнопку
+      strikeBtn.textContent = 'ВЕРНУТЬСЯ В ГОРОД';
+      strikeBtn.style.background = '#2ecc71'; // Окрашиваем в зеленый цвет города
+      strikeBtn.style.boxShadow = '0 4px 12px rgba(46, 204, 113, 0.3)';
+      
+      // Скрываем оранжевую кнопку случайного удара, чтобы не путать игрока
+      const randBtn = document.getElementById('random-strike-btn');
+      if (randBtn) randBtn.style.display = 'none';
+
+      // При клике на неё вежливо уводим игрока обратно на площадь города
+      strikeBtn.onclick = function() {
+        console.log("🏃‍♂️ Покидаем пустую арену КД. Отключаем сокеты...");
+        if (socket) socket.disconnect();
+        window.location.replace('../index.html');
+      };
+    }
+  });
 } // Конец функции setupSocketListeners
 
 // --- 4. ДИНАМИЧЕСКИЙ БЕЗОПАСНЫЙ РЕНДЕРИНГ КАРТОЧЕК ХП И МАССОВКИ ---
