@@ -192,7 +192,9 @@ function setupSocketListeners() {
         strikeBtn.textContent = 'ВЕРНУТЬСЯ В ГОРОД';
         strikeBtn.disabled = false;
         strikeBtn.style.background = '#2ecc71';
-        
+         // 🔥 Скрываем кнопку случайного удара, когда бой окончен
+        const randBtn = document.getElementById('random-strike-btn');
+        if (randBtn) randBtn.style.display = 'none';
         strikeBtn.onclick = function() {
           console.log("🏃‍♂️ Покидаем поле боя. Отключаем сокеты...");
           if (socket) socket.disconnect();
@@ -440,11 +442,12 @@ function checkStrikeButtonState() {
 }
 
 function initTacticalClickListeners() {
+  
   const strikeBtn = document.getElementById('strike-action-btn');
   if (strikeBtn && strikeBtn.textContent.includes('ГОРОД')) return;
 
   const { maxAttacks, maxDefends } = getMyTacticalLimits();
-
+  const strikeActionBtn = document.getElementById('strike-action-btn');
   // 1. СЛУШАТЕЛИ АТАК (Поддержка одноручного и двуручного оружия)
   document.querySelectorAll('.btn-atk').forEach(btn => {
     const newBtn = btn.cloneNode(true);
@@ -504,9 +507,69 @@ function initTacticalClickListeners() {
       checkStrikeButtonState();
     };
   });
+   // ============================================================================
+  // 🔥 [ДОБАВЛЕНО] КНОПКА АВТОМАТИЧЕСКОГО СЛУЧАЙНОГО ХОДА (АНТИ-РУТИНА)
+  // ============================================================================
+  const randomStrikeBtn = document.getElementById('random-strike-btn');
+  if (randomStrikeBtn) {
+    // Если битва уже закончилась (кнопка ведет в город), скрываем кнопку авто-удара
+    if (strikeActionBtn && strikeActionBtn.textContent.includes('ГОРОД')) {
+      randomStrikeBtn.style.display = 'none';
+    } else {
+      randomStrikeBtn.style.display = 'block';
+      
+      randomStrikeBtn.onclick = function() {
+        // Подстраховка: если цель мертва или не выбрана — прерываем
+        if (!selectedTargetUuid) return alert("❌ Сначала выберите живую цель!");
 
+        const zones = ["head", "breast", "torso", "belt", "legs"];
+        const { maxAttacks, maxDefends } = getMyTacticalLimits(); // Твоя функция лимитов оружия/щита!
+
+        // 1. ГЕНЕРИРУЕМ СЛУЧАЙНУЮ АТАКУ
+        if (maxAttacks === 2) {
+          // Если дуалы — выбираем две случайные уникальные зоны
+          selectedAttackZone = [];
+          while (selectedAttackZone.length < 2) {
+            const rz = zones[Math.floor(Math.random() * zones.length)];
+            if (!selectedAttackZone.includes(rz)) selectedAttackZone.push(rz);
+          }
+        } else {
+          // Обычное оружие — 1 случайная зона (строка)
+          selectedAttackZone = zones[Math.floor(Math.random() * zones.length)];
+        }
+
+        // 2. ГЕНЕРИРУЕМ СЛУЧАЙНЫЙ БЛОК
+        selectedDefendZones = [];
+        while (selectedDefendZones.length < maxDefends) {
+          const rz = zones[Math.floor(Math.random() * zones.length)];
+          if (!selectedDefendZones.includes(rz)) selectedDefendZones.push(rz);
+        }
+
+        // 3. ВИЗУАЛЬНАЯ ПОДСВЕТКА (Сбрасываем старую и красим новые кнопки, чтобы игрок видел, что выпало)
+        resetTacticalButtons();
+        
+        // Подсвечиваем атаку
+        if (Array.isArray(selectedAttackZone)) {
+          selectedAttackZone.forEach(z => document.querySelector(`.btn-atk[data-zone="${z}"]`)?.classList.add('attack-selected'));
+        } else {
+          document.querySelector(`.btn-atk[data-zone="${selectedAttackZone}"]`)?.classList.add('attack-selected');
+        }
+
+        // Подсвечиваем блок
+        selectedDefendZones.forEach(z => document.querySelector(`.btn-def[data-zone="${z}"]`)?.classList.add('defend-selected'));
+
+        // Проверяем стейт главной кнопки
+        checkStrikeButtonState();
+
+        // 4. МГНОВЕННЫЙ АВТО-УДАР: Сами эмулируем клик по кнопке «Атаковать», чтобы сэкономить игроку время!
+        if (strikeActionBtn && !strikeActionBtn.disabled) {
+          console.log("🎲 [АВТО-БОЙ] Случайная тактика собрана легально. Отправляем на сервер...");
+          strikeActionBtn.click(); 
+        }
+      };
+    }
+  }
   // 3. ОТПРАВКА ПАКЕТА НА СЕРВЕР
-  const strikeActionBtn = document.getElementById('strike-action-btn');
   if (strikeActionBtn) {
     const newStrikeBtn = strikeActionBtn.cloneNode(true);
     strikeActionBtn.parentNode.replaceChild(newStrikeBtn, strikeActionBtn);
