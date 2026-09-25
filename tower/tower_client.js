@@ -161,7 +161,7 @@ function renderTowerInterface() {
         
         // Если тикает КД — кнопка штурма блокируется
         const isBanned = activeCooldownEnd && (new Date(activeCooldownEnd) > new Date());
-        innerHtml += `<button onclick="triggerTowerFight(${f})" ${isBanned ? 'disabled' : ''} style="padding:8px 16px; background:${isBanned ? '#222' : '#6c5ce7'}; color:${isBanned ? '#555' : '#fff'}; border:none; border-radius:6px; font-weight:bold; cursor:${isBanned ? 'default' : 'pointer'}; box-shadow:${isBanned ? 'none' : '0 0 10px rgba(108,92,231,0.4)'};">В БОЙ</button>`;
+        innerHtml += `<button onclick="triggerTowerFight(this, ${f})" ${isBanned ? 'disabled' : ''} style="padding:8px 16px; background:${isBanned ? '#222' : '#6c5ce7'}; color:${isBanned ? '#555' : '#fff'}; border:none; border-radius:6px; font-weight:bold; cursor:${isBanned ? 'default' : 'pointer'}; box-shadow:${isBanned ? 'none' : '0 0 10px rgba(108,92,231,0.4)'};">В БОЙ</button>`;
       } 
       else {
         card.style.background = '#111';
@@ -237,29 +237,35 @@ function runCooldownTimer() {
   }
 }
 
-window.triggerTowerFight = function(floorNumber) {
+window.triggerTowerFight = function(btnElement, floorNumber) {
   console.log(`==================================================`);
   console.log(`🎯 [КЛИК] Игрок инициировал штурм. Этаж: ${floorNumber}`);
-  console.log(`👤 Профиль игрока в localStorage: ID=${localPlayer?.id}, Name=${localPlayer?.name}`);
   
-  if (!towerSocket || !towerSocket.connected) {
-    console.error("🚨 [КЛИК ОШИБКА] Нет активного сокет-соединения с сервером Башни!");
-    updateTowerLog("❌ Нет соединения с сервером!", true);
+  // 1. МГНОВЕННЫЙ АНТИ-СПАМ БАРЬЕР:
+  // Если кнопка уже отключена или у неё статус ожидания — намертво блокируем выполнение!
+  if (!btnElement || btnElement.disabled || btnElement.textContent === "⏳...") {
+    console.log("🚫 [АНТИ-СПАМ] Повторный клик заблокирован на лету!");
     return;
   }
 
-  // ============================================================================
-  // 🔥 [ЖЕЛЕЗНЫЙ АНТИ-КЛИК ФИКС] 
-  // Находим кнопку, на которую кликнули, и мгновенно её отключаем!
-  // ============================================================================
-  const clickedBtn = document.querySelector(`button[onclick*="triggerTowerFight(${floorNumber})"]`);
-  if (clickedBtn) {
-    clickedBtn.disabled = true;
-    clickedBtn.textContent = "⏳ ВХОД...";
-    clickedBtn.style.background = "#222";
-    clickedBtn.style.boxShadow = "none";
+  // Насильно отключаем кнопку в эту же микросекунду
+  btnElement.disabled = true;
+  btnElement.textContent = "⏳...";
+  btnElement.style.background = "#222";
+  btnElement.style.boxShadow = "none";
+  btnElement.style.pointerEvents = "none"; // Полностью отключаем реакцию на тапы смартфона
+
+  if (!towerSocket || !towerSocket.connected) {
+    console.error("🚨 [КЛИК ОШИБКА] Нет активного сокет-соединения с сервером Башни!");
+    updateTowerLog("❌ Нет соединения с сервером!", true);
+    
+    // Если сокета нет, возвращаем кнопку в исходное состояние
+    btnElement.disabled = false;
+    btnElement.textContent = "В БОЙ";
+    btnElement.style.background = "#6c5ce7";
+    btnElement.style.pointerEvents = "auto";
+    return;
   }
-  // ============================================================================
 
   updateTowerLog("⏳ Отправка отряда на этаж...");
   
