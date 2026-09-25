@@ -496,7 +496,7 @@ body {
 
 /* Ограничитель высоты скролла для строк статов внутри поповера */
 .modal-body-stats {
-  max-height: 220px !important;
+  max-height: 350px !important;
   overflow-y: auto !important;
   padding-right: 4px;
   display: flex !important;
