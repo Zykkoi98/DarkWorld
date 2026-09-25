@@ -689,19 +689,29 @@ window.showItemInfo = function(itemUuidOrId, isEquipped, slotKey = null, ringInd
     };
 
     // Включаем и настраиваем кнопку «Выбросить» с жестким Confirm-подтверждением
-    if (deleteBtn) {
+if (deleteBtn) {
       deleteBtn.style.display = 'flex';
       deleteBtn.textContent = '🗑️ Выбросить';
+      
       deleteBtn.onclick = function() {
         const confirmDelete = confirm('⚠️ Вы уверены, что хотите навсегда выбросить и удалить предмет "' + itemData.name + '"?');
         if (confirmDelete) {
           popover.style.display = 'none';
-          console.log('📡 [КЛИЕНТ] Отправка запроса на уничтожение предмета: ' + itemUuidOrId);
+          
+          // 🔥 [ИСПРАВЛЕНО] Определяем, является ли предмет банкой или свитком
+          let isConsumable = itemData.heal || cleanId.includes('potion') || cleanId.includes('soup') || itemData.duration || cleanId.includes('scroll');
+          
+          // 🔥 [ЖЕЛЕЗНЫЙ ФИКС ИДЕНТИФИКАТОРА]
+          // Если это банка/расходник — шлем на сервер чистый базовый ID ('hp_potion_small').
+          // Если это шмотка экипировки — шлем уникальный UUID шмотки со всей её заточкой!
+          let finalTargetId = isConsumable ? cleanId : itemUuidOrId;
+          
+          console.log('📡 [КЛИЕНТ] Отправка запроса на уничтожение предмета: ' + finalTargetId + ' (Расходник: ' + isConsumable + ')');
           
           // Отправляем сигнал удаления на бэкенд по сокету
           window.socket.emit('destroy_item_secure', { 
             userId: window.player.id, 
-            itemUuidOrId: itemUuidOrId,
+            itemUuidOrId: finalTargetId, // Передаем исправленный ID/UUID
             isConsumable: !!isConsumable
           });
         }
