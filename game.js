@@ -192,22 +192,17 @@ function renderTown() {
 
     // 🏰 Динамически прокачиваем имя Башни, если эта локация сейчас отрисовывается
     let displayLocationName = loc.name;
-    if (loc.name === "Тёмная Башня" || loc.name === "Башня") {
-      const savedFloor = window.player.tower_floor || window.player.stats?.tower_floor || 1;
-      displayLocationName = `🏰 Башня (Этаж ${savedFloor})`;
-    }
-
+    
     const btn = document.createElement('button'); 
     btn.className = 'loc-btn';
     
-    // Если это Башня — подставляем прокачанное имя, иначе — стандартное
-    if (loc.name === "Тёмная Башня" || loc.name === "Башня") {
-      btn.innerHTML = `<span>${loc.icon}</span><span>${displayLocationName}</span>`;
-      btn.style.borderLeft = "4px solid #6c5ce7"; // Фирменный фиолетовый бадж
-      btn.style.background = "rgba(108, 92, 231, 0.05)";
-    } else {
-      btn.innerHTML = `<span>${loc.icon}</span><span>${loc.name}</span>`; // Твой родной код
-    }
+      if (loc.name === "Тёмная Башня" || loc.name === "Башня") {
+        btn.innerHTML = `<span>${loc.icon}</span><span>Тёмная Башня</span>`;
+        btn.style.borderLeft = "4px solid #6c5ce7"; // Фирменный фиолетовый бадж оставляем для стиля
+        btn.style.background = "rgba(108, 92, 231, 0.05)";
+      } else {
+        btn.innerHTML = `<span>${loc.icon}</span><span>${loc.name}</span>`; 
+      }
 
     btn.addEventListener('click', function() {
       // 🌲 ТВОЙ РОДНОЙ КЛИК: ВЫХОД НА ПРИРОДУ (ЛЕС)
