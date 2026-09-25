@@ -213,9 +213,19 @@ function setupSocketListeners() {
 
           strikeBtn.onclick = function() {
             console.log("🏰 Быстрый переход! Возвращаемся сразу в Башню...");
-            // 🔥 [ДОБАВЛЕНО]: Удаляем старый застрявший кэш пустых банок.
-            // Теперь Башня будет вынуждена загрузить чистый профиль с сервера!
-            localStorage.removeItem('rpg_save'); 
+           // 🔥 [ИСПРАВЛЕНО]: Вместо жесткого removeItem мы деликатно обнуляем только слот банок в кэше!
+            const localSave = localStorage.getItem('rpg_save');
+            if (localSave) {
+              try {
+                const saveObj = JSON.parse(localSave);
+                if (saveObj && saveObj.player && saveObj.player.equipped) {
+                  // Ставим null в кэш банок, чтобы tower_client заново перечитал долитый стак с сервера
+                  saveObj.player.equipped.potion = null; 
+                  localStorage.setItem('rpg_save', JSON.stringify(saveObj));
+                }
+              } catch(e) { console.error("Ошибка мягкого сброса кэша:", e); }
+            }
+ 
             if (socket) socket.disconnect();
             // Перенаправляем игрока строго на экран Башни, минуя площадь города
             window.location.replace('../tower/tower.html');
