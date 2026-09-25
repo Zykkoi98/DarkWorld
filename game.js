@@ -404,17 +404,30 @@ window.openProfile = function() {
       const btnContainer = document.createElement('div'); btnContainer.style.cssText = 'display: flex; gap: 4px;';
 
       if (tempAdded > 0) {
-        const minusBtn = document.createElement('button'); minusBtn.textContent = '-';
-        minusBtn.style.cssText = 'background:#e74c3c; border:none; color:#fff; border-radius:6px; padding:3px 9px; font-weight:bold; cursor:pointer;';
-        minusBtn.addEventListener('click', () => window.stepTempStat(key, 'minus'));
-        btnContainer.appendChild(minusBtn);
-      }
-      if (window._tempStatPoints > 0) {
-        const plusBtn = document.createElement('button'); plusBtn.textContent = '+';
-        plusBtn.style.cssText = 'background:var(--btn); border:none; color:#fff; border-radius:6px; padding:3px 9px; font-weight:bold; cursor:pointer;';
-        plusBtn.addEventListener('click', () => window.stepTempStat(key, 'plus'));
-        btnContainer.appendChild(plusBtn);
-      }
+      const minusBtn = document.createElement('button'); minusBtn.textContent = '-';
+      // 🔥 ФИКС КНОПКИ МИНУС: Сделали квадратной (28х28px), увеличили шрифт до 14px и добавили pointer-events
+      minusBtn.style.cssText = 'background:#e74c3c; border:none; color:#fff; border-radius:6px; width:28px; height:28px; font-size:14px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; transition: transform 0.1s;';
+      
+      // Добавляем эффект уменьшения при тапе пальцем
+      minusBtn.ontouchstart = function() { this.style.transform = 'scale(0.9)'; };
+      minusBtn.ontouchend = function() { this.style.transform = 'scale(1)'; };
+      
+      minusBtn.addEventListener('click', () => window.stepTempStat(key, 'minus'));
+      btnContainer.appendChild(minusBtn);
+    }
+
+    if (window._tempStatPoints > 0) {
+      const plusBtn = document.createElement('button'); plusBtn.textContent = '+';
+      // 🔥 ФИКС КНОПКИ ПЛЮС: Сделали квадратной (28х28px), увеличили шрифт до 14px для удобного мобильного тапа
+      plusBtn.style.cssText = 'background:var(--btn); border:none; color:#fff; border-radius:6px; width:28px; height:28px; font-size:14px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; transition: transform 0.1s;';
+      
+      // Добавляем эффект уменьшения при тапе пальцем
+      plusBtn.ontouchstart = function() { this.style.transform = 'scale(0.9)'; };
+      plusBtn.ontouchend = function() { this.style.transform = 'scale(1)'; };
+      
+      plusBtn.addEventListener('click', () => window.stepTempStat(key, 'plus'));
+      btnContainer.appendChild(plusBtn);
+    }
 
       vSpan.appendChild(btnContainer); row.appendChild(lSpan); row.appendChild(vSpan); statsBody.appendChild(row);
     });
