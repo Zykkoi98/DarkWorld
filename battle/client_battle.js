@@ -213,6 +213,9 @@ function setupSocketListeners() {
 
           strikeBtn.onclick = function() {
             console.log("🏰 Быстрый переход! Возвращаемся сразу в Башню...");
+            // 🔥 [ДОБАВЛЕНО]: Удаляем старый застрявший кэш пустых банок.
+            // Теперь Башня будет вынуждена загрузить чистый профиль с сервера!
+            localStorage.removeItem('rpg_save'); 
             if (socket) socket.disconnect();
             // Перенаправляем игрока строго на экран Башни, минуя площадь города
             window.location.replace('../tower/tower.html');
