@@ -152,6 +152,15 @@ function setupSocketListeners() {
     }
 
     resetTacticalButtons();
+     // Включаем кнопки обратно, если бой не окончен
+    if (!data.isOver) {
+      const randBtn = document.getElementById('random-strike-btn');
+      if (randBtn) {
+        randBtn.disabled = false;
+        randBtn.style.opacity = '1';
+        randBtn.style.pointerEvents = 'auto';
+      }
+    }
     renderFighters();
     checkPotionAvailability();
     // ============================================================================
@@ -625,7 +634,7 @@ function initTacticalClickListeners() {
     }
   }
 
-  // 3. ОБРАБОТЧИК КНОПКИ АТАКОВАТЬ (Простая и надежная замена через .onclick)
+ // 3. ОБРАБОТЧИК КНОПКИ АТАКОВАТЬ
   if (strikeActionBtn) {
     strikeActionBtn.onclick = function() {
       if (this.textContent.includes('ГОРОД')) {
@@ -636,6 +645,14 @@ function initTacticalClickListeners() {
       
       this.disabled = true;
       this.textContent = 'Расчет...';
+
+      // 🔥 [ДОБАВЛЕНО] Намертво блокируем кнопку случайного хода при отправке на сервер
+      const randBtn = document.getElementById('random-strike-btn');
+      if (randBtn) {
+        randBtn.disabled = true;
+        randBtn.style.opacity = '0.4';
+        randBtn.style.pointerEvents = 'none';
+      }
 
       socket.emit('submit_turn', {
         roomId: currentRoomId,
