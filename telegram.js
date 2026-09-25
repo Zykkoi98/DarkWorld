@@ -203,7 +203,25 @@ socket.on('connect_error', () => {
 
     if (typeof callback === 'function') callback(null);
   });
+  // 🔥 [ДОБАВЛЕНО] СЛУШАТЕЛЬ ЕЖЕСЕКУНДНОЙ АВТОРЕГЕНЕРАЦИИ ХП В ГОРОДЕ
+  window.socket.on('town_hp_regen_update', (data) => {
+    if (!window.player) return;
 
+    // Мгновенно обновляем ХП в оперативной памяти клиента
+    window.player.hp = data.currentHp;
+
+    // Находим текстовое поле ХП в городе и обновляем цифры на экране
+    const mainHpText = document.getElementById('player-hp-text') || document.getElementById('player-hp');
+    if (mainHpText) {
+      mainHpText.textContent = `❤️ ${data.currentHp} / ${data.maxHp}`;
+    }
+
+    // Дополнительно: если на верстке города есть плашка-заливка бара ХП ( progress fill )
+    const townHpFill = document.getElementById('town-player-hp-fill') || document.getElementById('hero-hp-fill');
+    if (townHpFill) {
+      townHpFill.style.width = ((data.currentHp / data.maxHp) * 100) + '%';
+    }
+  });
   // Ошибка на стороне бэкенда
   window.socket.on('load_game_failed', (data) => {
     console.error("❌ Ошибка загрузки игры через бэкенд:", data.message);
