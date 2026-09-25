@@ -31,24 +31,23 @@ function initShopPage() {
     return;
   }
 
-  console.log("📡 [АВТОНОМНЫЙ МАГАЗИН] Поднимаем сокет лавки...");
+  console.log("📡 [АВТОНОМНЫЙ МАГАЗИН] Подключаемся к сокет-мосту города...");
   
-  if (typeof io !== 'undefined') {
+  // 🔥 [ИСПРАВЛЕНО] Больше никаких forceNew! Цепляемся к единому живому сокету родительского окна
+  if (window.parent && window.parent.socket && window.parent.socket.connected) {
+    shopSocket = window.parent.socket;
+  } else if (typeof io !== 'undefined') {
+    // Резервный вариант для локальных тестов в браузере
     shopSocket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket'],
-      forceNew: true,
-      upgrade: false
+      forceNew: false
     });
   } else {
     alert("Ошибка сети: Библиотека Socket.io отсутствует в разметке.");
     return;
   }
 
-  shopSocket.on('connect', () => {
-    console.log("✅ [МАГАЗИН] Подключено к серверу, сокет ID:", shopSocket.id);
-    shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
-  });
-
+  // Привязываем сетевые слушатели магазина к единому каналу
   shopSocket.off('load_game_success');
   shopSocket.on('load_game_success', (data) => {
     if (data && data.player) {
@@ -58,26 +57,20 @@ function initShopPage() {
     }
   });
 
-  // 🔥 Ловим успешную покупку/продажу и сразу пишем статус в кошелек без алертов
   shopSocket.off('shop_buy_success');
   shopSocket.on('shop_buy_success', (data) => {
     updateWalletStatusLog(data.message || "🎉 Успешно!");
     window.updateShopUi();
   });
 
-  // Ловим ошибки (недостаточно золота, мало статов) и красим лог в красный
   shopSocket.off('shop_buy_error');
   shopSocket.on('shop_buy_error', (data) => {
     updateWalletStatusLog(data.message || "🚨 Ошибка", true);
     window.updateShopUi(); 
   });
 
-  shopSocket.off('error');
-  shopSocket.on('error', (msg) => { 
-    updateWalletStatusLog(`❌ Ошибка сети`, true);
-    window.updateShopUi();
-  });
-
+  // Запрашиваем актуальный баланс кошелька у сервера
+  shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   window.updateShopUi();
 }
 
