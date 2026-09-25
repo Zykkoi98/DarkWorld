@@ -194,7 +194,7 @@ body {
   
   width: 100%;
   max-width: 420px; /* Идеальная аккуратная ширина для Mini App */
-  padding: 20px;
+  padding: 12px 14px !important;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
   
   /* 🔥 МЯГКАЯ АНИМАЦИЯ ПОЯВЛЕНИЯ: Вместо выезда снизу, окно будет красиво всплывать (масштабироваться) */
@@ -217,15 +217,15 @@ body {
   align-items: center;
   margin-bottom: 16px;
 }
-.modal-header h3 { margin: 0; font-size: 18px; }
+.modal-header h3 { margin: 0; font-size: 14px !important; }
 
 .close-btn {
   background: rgba(255, 255, 255, 0.08);
   border: none;
   color: var(--text);
-  font-size: 16px;
-  width: 34px;
-  height: 34px;
+   font-size: 12px;
+  width: 26px !important;  /* Было 34px */
+  height: 26px !important; /* Было 34px */
   border-radius: 50%;
   cursor: pointer;
   display: flex;
@@ -238,14 +238,23 @@ body {
 .profile-row {
   display: flex;
   justify-content: space-between;
-  padding: 12px 0;
-  font-size: 16px;
+  padding: 6px 0 !important; /* Было 12px (сжимаем строки по вертикали) */
+  font-size: 12px !important; /* Было 16px (уменьшено строго на 1/3!) */
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 .profile-row:last-child { border-bottom: none; }
 .profile-row > span:first-child { color: var(--hint); }
 .profile-row > span:last-child { font-weight: bold; }
-
+.modal-body-stats hr, 
+.modal-content hr {
+  margin: 6px 0 !important; /* Было 12px */
+}
+/*  кнопки-переключатели вкладок ("Основные" / "Модификаторы") */
+.modal-body-stats button {
+  padding: 5px !important; /* Было 8px */
+  font-size: 11px !important;
+  border-radius: 5px !important;
+}
 .inv-tabs {
   display: flex;
   gap: 6px;
