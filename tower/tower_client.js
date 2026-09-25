@@ -6,6 +6,7 @@ let towerSocket = null;
 let localPlayer = null;
 let currentActiveMode = 'floor'; // 'floor' или 'shop'
 let activeCooldownEnd = null; // Храним время окончания КД
+let isCooldownDataLoaded = false; // 🔥 [ДОБАВЛЕНО]: Предохранитель загрузки данных КД
 
 const FRONT_TOWER_SHOP_DATABASE = {
   'tower_elixir_big':  { price: 20,  icon: '🧪', name: "Эликсир Инквизитора", desc: "Концентрированный хил Башни. +50 HP." },
@@ -68,14 +69,19 @@ function initTowerPage() {
   });
 
   towerSocket.on('tower_cooldown_status', (data) => {
-    if (data && data.active && data.ends_at) {
-      activeCooldownEnd = data.ends_at;
-    } else {
-      activeCooldownEnd = null;
-    }
-    renderTowerInterface();
-    runCooldownTimer();
-  });
+      console.log("📥 [СОКЕТ БАШНИ] Получен статус кулдауна от сервера:", data);
+      
+      // 🔥 [ДОБАВЛЕНО]: Данные успешно получены, снимаем блокировку интерфейса!
+      isCooldownDataLoaded = true; 
+
+      if (data && data.active && data.ends_at) {
+        activeCooldownEnd = data.ends_at;
+      } else {
+        activeCooldownEnd = null;
+      }
+      renderTowerInterface();
+      runCooldownTimer();
+    });
 
   towerSocket.on('tower_shop_success', (data) => {
     updateTowerLog(data.message || "🎉 Успешная покупка!");
@@ -133,7 +139,7 @@ function renderTowerInterface() {
         innerHtml += `<span style="color:#a29bfe; font-size:12px;">⚔️ Текущий вызов</span></div>`;
         
         // Если тикает КД — кнопка штурма блокируется
-        const isBanned = activeCooldownEnd && (new Date(activeCooldownEnd) > new Date());
+        const isBanned = !isCooldownDataLoaded || (activeCooldownEnd && (new Date(activeCooldownEnd) > new Date()));
         innerHtml += `<button onclick="triggerTowerFight(this, ${f})" ${isBanned ? 'disabled' : ''} style="padding:8px 16px; background:${isBanned ? '#222' : '#6c5ce7'}; color:${isBanned ? '#555' : '#fff'}; border:none; border-radius:6px; font-weight:bold; cursor:${isBanned ? 'default' : 'pointer'}; box-shadow:${isBanned ? 'none' : '0 0 10px rgba(108,92,231,0.4)'};">В БОЙ</button>`;
       } 
       else {
