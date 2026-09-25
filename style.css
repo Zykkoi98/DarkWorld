@@ -168,15 +168,16 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7); 
   backdrop-filter: blur(5px);
   display: none;
-  align-items: flex-end;
+  align-items: center; 
   justify-content: center;
   z-index: 1000;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.2s ease;
+  padding: 16px; 
 }
 .modal-overlay.active { 
   display: flex !important; 
@@ -187,18 +188,28 @@ body {
 .modal-content {
   background: var(--bg);
   border-top: 3px solid var(--btn);
-  border-radius: 24px 24px 0 0;
+  
+  /* 🔥 КРАСИВЫЙ СБОРНИК УГЛОВ: Округляем все 4 угла (20px), так как окно теперь центрировано! */
+  border-radius: 20px !important; 
+  
   width: 100%;
-  max-width: 480px;
+  max-width: 420px; /* Идеальная аккуратная ширина для Mini App */
   padding: 20px;
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6);
-  transform: translateY(100%);
-  transition: transform 0.25s ease;
-  max-height: 100vh !important; /* Окно никогда не займет больше 100% высоты экрана смартфона */
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+  
+  /* 🔥 МЯГКАЯ АНИМАЦИЯ ПОЯВЛЕНИЯ: Вместо выезда снизу, окно будет красиво всплывать (масштабироваться) */
+  transform: scale(0.9);
+  transition: transform 0.2s ease;
+  
+  max-height: 90vh !important; /* Занимает до 90% высоты экрана, давая статам раскрыться на полную! */
   display: flex;
   flex-direction: column;
 }
-.modal-overlay.active .modal-content { transform: translateY(0); }
+
+/* Когда модалка активна — плавно возвращаем масштаб в 1 */
+.modal-overlay.active .modal-content { 
+  transform: scale(1) !important; 
+}
 
 .modal-header {
   display: flex;
