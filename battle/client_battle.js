@@ -490,19 +490,17 @@ function checkStrikeButtonState() {
 }
 
 function initTacticalClickListeners() {
-  
-  const strikeBtn = document.getElementById('strike-action-btn');
-  if (strikeBtn && strikeBtn.textContent.includes('ГОРОД')) return;
+  const strikeActionBtn = document.getElementById('strike-action-btn');
+  if (strikeActionBtn && strikeActionBtn.textContent.includes('ГОРОД')) return;
 
   const { maxAttacks, maxDefends } = getMyTacticalLimits();
-  const strikeActionBtn = document.getElementById('strike-action-btn');
-  // 1. СЛУШАТЕЛИ АТАК (Поддержка одноручного и двуручного оружия)
+
+  // 1. СЛУШАТЕЛИ АТАК
   document.querySelectorAll('.btn-atk').forEach(btn => {
     const newBtn = btn.cloneNode(true);
     btn.parentNode.replaceChild(newBtn, btn);
     const zone = newBtn.getAttribute('data-zone');
     
-    // Подсветка выбранных зон
     if (maxAttacks === 2) {
       if (Array.isArray(selectedAttackZone) && selectedAttackZone.includes(zone)) newBtn.classList.add('attack-selected');
     } else {
@@ -518,7 +516,7 @@ function initTacticalClickListeners() {
         } else {
           if (selectedAttackZone.length >= 2) {
             const removed = selectedAttackZone.shift();
-            document.querySelector(`.btn-atk[data-zone="${removed}"]`)?.classList.remove('attack-selected');
+            document.querySelector('.btn-atk[data-zone="' + removed + '"]')?.classList.remove('attack-selected');
           }
           selectedAttackZone.push(zone);
           newBtn.classList.add('attack-selected');
@@ -532,7 +530,7 @@ function initTacticalClickListeners() {
     };
   });
 
-  // 2. СЛУШАТЕЛИ БЛОКОВ (Поддержка динамического капа: 1, 2 или 3 зоны)
+  // 2. СЛУШАТЕЛИ БЛОКОВ
   document.querySelectorAll('.btn-def').forEach(btn => {
     const newBtn = btn.cloneNode(true);
     btn.parentNode.replaceChild(newBtn, btn);
@@ -547,7 +545,7 @@ function initTacticalClickListeners() {
       } else {
         if (selectedDefendZones.length >= maxDefends) {
           const removedZone = selectedDefendZones.shift();
-          document.querySelector(`.btn-def[data-zone="${removedZone}"]`)?.classList.remove('defend-selected');
+          document.querySelector('.btn-def[data-zone="' + removedZone + '"]')?.classList.remove('defend-selected');
         }
         selectedDefendZones.push(zone);
         newBtn.classList.add('defend-selected');
@@ -555,8 +553,9 @@ function initTacticalClickListeners() {
       checkStrikeButtonState();
     };
   });
- // ============================================================================
-  // 🔥 [ПОЛНОСТЬЮ ИСПРАВЛЕНО] КНОПКА АВТОМАТИЧЕСКОГО СЛУЧАЙНОГО ХОДА ДЛЯ ВСЕХ КЛАССОВ
+
+  // ============================================================================
+  // 🔥 КНОПКА АВТОМАТИЧЕСКОГО СЛУЧАЙНОГО ХОДА (ЖЕСТКАЯ СИНХРОНИЗАЦИЯ С КЛИКОМ)
   // ============================================================================
   const randomStrikeBtn = document.getElementById('random-strike-btn');
   if (randomStrikeBtn) {
@@ -565,80 +564,70 @@ function initTacticalClickListeners() {
     } else {
       randomStrikeBtn.style.display = 'block';
       
-       randomStrikeBtn.onclick = function() {
+      randomStrikeBtn.onclick = function() {
         const zones = ["head", "breast", "torso", "belt", "legs"];
         const { maxAttacks, maxDefends } = getMyTacticalLimits(); 
 
-        // 🎯 [ИСПРАВЛЕНО] Авто-восстановление фокуса на живом монстре, если он слетел в PvE
+        // 🎯 Исправлен PvE фокус: Насильно восстанавливаем цель, если она пуста
         if (!selectedTargetUuid) {
           const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
           if (myFighter) {
             const opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
             const firstAliveEnemy = opposingTeam.find(e => e.currentHp > 0);
-            if (firstAliveEnemy) {
-              selectedTargetUuid = firstAliveEnemy.uuid;
-              console.log("🎯 Цель для авто-боя успешно захвачена:", selectedTargetUuid);
-            }
+            if (firstAliveEnemy) selectedTargetUuid = firstAliveEnemy.uuid;
           }
         }
 
-        // Подстраховка: если живых врагов вообще нет — выходим
-        if (!selectedTargetUuid) return alert("❌ Нет живых целей для атаки!");
+        if (!selectedTargetUuid) return alert("❌ Сначала выберите живую цель!");
 
-        // Сбрасываем старую подсветку перед генерацией нового хода
-        resetTacticalButtons();
+        // Насильно очищаем не только классы, но и переменные перед автовыбором!
+        document.querySelectorAll('.btn-atk').forEach(b => b.classList.remove('attack-selected'));
+        document.querySelectorAll('.btn-def').forEach(b => b.classList.remove('defend-selected'));
+        selectedAttackZone = maxAttacks === 2 ? [] : null;
+        selectedDefendZones = [];
 
-        // 1. ГЕНЕРИРУЕМ СЛУЧАЙНУЮ АТАКУ СТРОГО ПОД ЛИМИТЫ ОРУЖИЯ
+        // 1. Генерируем атаку
         if (maxAttacks === 2) {
-          // Дуалы или Двуручник — выбираем две случайные уникальные зоны (массив)
-          selectedAttackZone = [];
           while (selectedAttackZone.length < 2) {
             const rz = zones[Math.floor(Math.random() * zones.length)];
             if (!selectedAttackZone.includes(rz)) selectedAttackZone.push(rz);
           }
-          // Визуально подсвечиваем обе зоны на экране
           selectedAttackZone.forEach(z => {
             const btn = document.querySelector('.btn-atk[data-zone="' + z + '"]');
             if (btn) btn.classList.add('attack-selected');
           });
         } else {
-          // Обычное оружие/щит — строго 1 случайная зона (строка)
           selectedAttackZone = zones[Math.floor(Math.random() * zones.length)];
-          // Визуально подсвечиваем одну кнопку на экране
           const btn = document.querySelector('.btn-atk[data-zone="' + selectedAttackZone + '"]');
           if (btn) btn.classList.add('attack-selected');
         }
 
-        // 2. ГЕНЕРИРУЕМ СЛУЧАЙНЫЙ БЛОК (Поддерживает 1, 2 или 3 зоны щита танка)
-        selectedDefendZones = [];
+        // 2. Генерируем блоки
         while (selectedDefendZones.length < maxDefends) {
           const rz = zones[Math.floor(Math.random() * zones.length)];
           if (!selectedDefendZones.includes(rz)) selectedDefendZones.push(rz);
         }
-
-        // Визуально подсвечиваем щиты на экране
         selectedDefendZones.forEach(z => {
           const btn = document.querySelector('.btn-def[data-zone="' + z + '"]');
           if (btn) btn.classList.add('defend-selected');
         });
 
-        // 3. ОБНОВЛЯЕМ СОСТОЯНИЕ ГЛАВНОЙ КНОПКИ (Она прочитает новый selectedTargetUuid и разблокируется!)
+        // 3. Обновляем и ищем АКТУАЛЬНУЮ живую кнопку в DOM в эту милисекунду!
         checkStrikeButtonState();
+        const freshStrikeBtn = document.getElementById('strike-action-btn');
 
-        // 4. МГНОВЕННЫЙ АВТО-УДАР: Кнопка разблокирована, эмулируем клик и шлем пакет расчета на бэкенд!
-        if (strikeActionBtn && !strikeActionBtn.disabled) {
-          console.log("🎲 [АВТО-БОЙ] Ход успешно собран и проверен. Отправляем расчет...");
-          strikeActionBtn.click(); 
+        // 4. Эмулируем клик строго по живому узлу в разметке
+        if (freshStrikeBtn && !freshStrikeBtn.disabled) {
+          console.log("🎲 [АВТО-БОЙ] Пакет улетает на бэкенд...");
+          freshStrikeBtn.click(); 
         }
       };
     }
   }
-  // 3. ОТПРАВКА ПАКЕТА НА СЕРВЕР
-  if (strikeActionBtn) {
-    const newStrikeBtn = strikeActionBtn.cloneNode(true);
-    strikeActionBtn.parentNode.replaceChild(newStrikeBtn, strikeActionBtn);
 
-    newStrikeBtn.onclick = function() {
+  // 3. ОБРАБОТЧИК КНОПКИ АТАКОВАТЬ (Простая и надежная замена через .onclick)
+  if (strikeActionBtn) {
+    strikeActionBtn.onclick = function() {
       if (this.textContent.includes('ГОРОД')) {
         if (socket) socket.disconnect();
         window.location.replace('../index.html');
@@ -651,7 +640,7 @@ function initTacticalClickListeners() {
       socket.emit('submit_turn', {
         roomId: currentRoomId,
         targetUuid: String(selectedTargetUuid), 
-        attack: selectedAttackZone, // Может улетать как строка ("head") или как массив ["head", "torso"]
+        attack: selectedAttackZone, 
         defends: selectedDefendZones
       });
     };
