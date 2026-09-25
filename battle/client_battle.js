@@ -459,46 +459,77 @@ function renderFighters() {
 // === КЛИЕНТСКИЙ ФИКС ДИНАМИЧЕСКИХ ЗОН БК (CLIENT_BATTLE.JS) ===
 
 function getMyTacticalLimits() {
-  // Находим объект вашего бойца на Арене
   const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
   
   let maxAttacks = 1;
   let maxDefends = 1;
 
-  // Считываем точный уровень игрока из глобального профиля города
   const myRealLevel = (window.player && window.player.level) ? Number(window.player.level) : (myFighter ? Number(myFighter.level || 1) : 1);
 
   if (myFighter && myFighter.equipped) {
     const mainHand = myFighter.equipped.mainHand;
     const offHand = myFighter.equipped.offHand;
 
-    // 🔥 Проверяем левую руку: если в системном ID есть "shield", "buckler" или "wall" — это щит!
-    let isShieldEquipped = false;
-    if (offHand) {
-      const idLower = String(offHand).toLowerCase();
-      isShieldEquipped = idLower.includes('shield') || idLower.includes('buckler') || 
-                         idLower.includes('wall') || idLower.includes('scutum') || 
-                         idLower.includes('aegis') || idLower.includes('screen');
-    }
+    // 🔥 ИСПРАВЛЕНО: Проверяем щит через базу данных, а не через угадывание по ID
+    const isShieldEquipped = checkIsShieldViaDatabase(offHand);
 
-    // 1. Расчет лимита атак (Дуалы дают 2 удара, щит или пустая рука — 1 удар)
-    if (offHand && !isShieldEquipped) {
-      maxAttacks = 2; // В левой руке левый нож/клинок (не щит) -> разрешаем дуалы (2 удара)!
+    // 1. Расчет лимита атак
+    const mainHandData = window.getItemData ? window.getItemData(mainHand) : null;
+    const isTwoHanded = mainHand && (
+      mainHand.includes('twoHanded') || 
+      mainHand === 'heavy_halberd' ||
+      (mainHandData && mainHandData.slotType === 'twoHanded')
+    );
+
+    if (isTwoHanded) {
+      maxAttacks = 1; // Двуручник — только 1 удар
+    } else if (offHand && !isShieldEquipped) {
+      maxAttacks = 2; // Дуалы — 2 удара
     } else {
-      maxAttacks = 1; // В левой руке щит или занята двуручником -> 1 тяжелый удар!
+      maxAttacks = 1;
     }
 
-    // 2. Расчет лимита блоков (Щит дает 3 блока, новичкам 1 лвл — 2 блока, остальным — 1 блок)
+    // 2. Расчет лимита блоков
     if (isShieldEquipped) {
-      maxDefends = 3; // Танк со щитом легально получает 3 блока!
+      maxDefends = 3;
     } else if (myRealLevel <= 1) {
       maxDefends = 2; 
+    } else {
+      maxDefends = 1;
     }
   } else {
     maxDefends = (myRealLevel <= 1) ? 2 : 1;
   }
 
   return { maxAttacks, maxDefends };
+}
+
+// 🔥 НОВАЯ ФУНКЦИЯ: надёжная проверка щита через базу предметов
+function checkIsShieldViaDatabase(itemId) {
+  if (!itemId) return false;
+  
+  const itemData = window.getItemData ? window.getItemData(itemId) : null;
+  
+  if (itemData) {
+    // Проверяем slotType
+    if (itemData.slotType === 'shield') return true;
+    
+    // Проверяем по названию
+    const name = (itemData.name || '').toLowerCase();
+    if (name.includes('щит') || name.includes('баклер') || name.includes('эгида') || 
+        name.includes('скутум') || name.includes('бастион') || 
+        name.includes('оберег') || name.includes('зеркало мастера') ||
+        name.includes('стена') || name.includes('гвардейский') ||
+        name.includes('сетчатый') || name.includes('плетеный')) {
+      return true;
+    }
+  }
+  
+  // Подстраховка по системному ID
+  const id = String(itemId).toLowerCase();
+  return id.includes('shield') || id.includes('buckler') || id.includes('aegis') || 
+         id.includes('screen') || id.includes('mirror') || id.includes('wall') ||
+         id.includes('scutum') || id.includes('bastion') || id.includes('parry');
 }
 
 function checkStrikeButtonState() {
