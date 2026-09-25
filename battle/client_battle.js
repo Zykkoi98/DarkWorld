@@ -467,12 +467,25 @@ function checkStrikeButtonState() {
     return;
   }
 
+  // 🔥 [ЖЕЛЕЗНАЯ ПОДСТРАХОВКА ФОКУСА ЦЕЛИ]
+  if (!selectedTargetUuid) {
+    const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+    if (myFighter) {
+      const opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
+      const firstAliveEnemy = opposingTeam.find(e => e.currentHp > 0);
+      if (firstAliveEnemy) {
+        selectedTargetUuid = firstAliveEnemy.uuid;
+        console.log("🎯 Фокус цели восстановлен автоматически:", selectedTargetUuid);
+      }
+    }
+  }
+
   const { maxAttacks, maxDefends } = getMyTacticalLimits();
   
-  // Кнопка станет активной, только если игрок выбрал СТРОГО нужное количество зон под свое оружие!
   const hasValidAttack = (maxAttacks === 2) ? (selectedAttackZone && Array.isArray(selectedAttackZone) && selectedAttackZone.length === 2) : !!selectedAttackZone;
   const hasValidDefend = (selectedDefendZones.length === maxDefends);
 
+  // Кнопка активируется, только если все условия (включая цель) верны
   strikeBtn.disabled = !(hasValidAttack && hasValidDefend && selectedTargetUuid);
 }
 
@@ -552,11 +565,25 @@ function initTacticalClickListeners() {
     } else {
       randomStrikeBtn.style.display = 'block';
       
-      randomStrikeBtn.onclick = function() {
-        if (!selectedTargetUuid) return alert("❌ Сначала выберите живую цель!");
-
+       randomStrikeBtn.onclick = function() {
         const zones = ["head", "breast", "torso", "belt", "legs"];
         const { maxAttacks, maxDefends } = getMyTacticalLimits(); 
+
+        // 🎯 [ИСПРАВЛЕНО] Авто-восстановление фокуса на живом монстре, если он слетел в PvE
+        if (!selectedTargetUuid) {
+          const myFighter = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+          if (myFighter) {
+            const opposingTeam = teamA.includes(myFighter) ? teamB : teamA;
+            const firstAliveEnemy = opposingTeam.find(e => e.currentHp > 0);
+            if (firstAliveEnemy) {
+              selectedTargetUuid = firstAliveEnemy.uuid;
+              console.log("🎯 Цель для авто-боя успешно захвачена:", selectedTargetUuid);
+            }
+          }
+        }
+
+        // Подстраховка: если живых врагов вообще нет — выходим
+        if (!selectedTargetUuid) return alert("❌ Нет живых целей для атаки!");
 
         // Сбрасываем старую подсветку перед генерацией нового хода
         resetTacticalButtons();
@@ -595,10 +622,10 @@ function initTacticalClickListeners() {
           if (btn) btn.classList.add('defend-selected');
         });
 
-        // 3. ОБНОВЛЯЕМ СОСТОЯНИЕ ГЛАВНОЙ КНОПКИ
+        // 3. ОБНОВЛЯЕМ СОСТОЯНИЕ ГЛАВНОЙ КНОПКИ (Она прочитает новый selectedTargetUuid и разблокируется!)
         checkStrikeButtonState();
 
-        // 4. МГНОВЕННЫЙ АВТО-УДАР: Если кнопка разблокировалась — сами эмулируем клик!
+        // 4. МГНОВЕННЫЙ АВТО-УДАР: Кнопка разблокирована, эмулируем клик и шлем пакет расчета на бэкенд!
         if (strikeActionBtn && !strikeActionBtn.disabled) {
           console.log("🎲 [АВТО-БОЙ] Ход успешно собран и проверен. Отправляем расчет...");
           strikeActionBtn.click(); 
