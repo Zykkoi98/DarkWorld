@@ -542,63 +542,65 @@ function initTacticalClickListeners() {
       checkStrikeButtonState();
     };
   });
-   // ============================================================================
-  // 🔥 [ДОБАВЛЕНО] КНОПКА АВТОМАТИЧЕСКОГО СЛУЧАЙНОГО ХОДА (АНТИ-РУТИНА)
+ // ============================================================================
+  // 🔥 [ПОЛНОСТЬЮ ИСПРАВЛЕНО] КНОПКА АВТОМАТИЧЕСКОГО СЛУЧАЙНОГО ХОДА ДЛЯ ВСЕХ КЛАССОВ
   // ============================================================================
   const randomStrikeBtn = document.getElementById('random-strike-btn');
   if (randomStrikeBtn) {
-    // Если битва уже закончилась (кнопка ведет в город), скрываем кнопку авто-удара
     if (strikeActionBtn && strikeActionBtn.textContent.includes('ГОРОД')) {
       randomStrikeBtn.style.display = 'none';
     } else {
       randomStrikeBtn.style.display = 'block';
       
       randomStrikeBtn.onclick = function() {
-        // Подстраховка: если цель мертва или не выбрана — прерываем
         if (!selectedTargetUuid) return alert("❌ Сначала выберите живую цель!");
 
         const zones = ["head", "breast", "torso", "belt", "legs"];
-        const { maxAttacks, maxDefends } = getMyTacticalLimits(); // Твоя функция лимитов оружия/щита!
+        const { maxAttacks, maxDefends } = getMyTacticalLimits(); 
 
-        // 1. ГЕНЕРИРУЕМ СЛУЧАЙНУЮ АТАКУ
+        // Сбрасываем старую подсветку перед генерацией нового хода
+        resetTacticalButtons();
+
+        // 1. ГЕНЕРИРУЕМ СЛУЧАЙНУЮ АТАКУ СТРОГО ПОД ЛИМИТЫ ОРУЖИЯ
         if (maxAttacks === 2) {
-          // Если дуалы — выбираем две случайные уникальные зоны
+          // Дуалы или Двуручник — выбираем две случайные уникальные зоны (массив)
           selectedAttackZone = [];
           while (selectedAttackZone.length < 2) {
             const rz = zones[Math.floor(Math.random() * zones.length)];
             if (!selectedAttackZone.includes(rz)) selectedAttackZone.push(rz);
           }
+          // Визуально подсвечиваем обе зоны на экране
+          selectedAttackZone.forEach(z => {
+            const btn = document.querySelector('.btn-atk[data-zone="' + z + '"]');
+            if (btn) btn.classList.add('attack-selected');
+          });
         } else {
-          // Обычное оружие — 1 случайная зона (строка)
+          // Обычное оружие/щит — строго 1 случайная зона (строка)
           selectedAttackZone = zones[Math.floor(Math.random() * zones.length)];
+          // Визуально подсвечиваем одну кнопку на экране
+          const btn = document.querySelector('.btn-atk[data-zone="' + selectedAttackZone + '"]');
+          if (btn) btn.classList.add('attack-selected');
         }
 
-        // 2. ГЕНЕРИРУЕМ СЛУЧАЙНЫЙ БЛОК
+        // 2. ГЕНЕРИРУЕМ СЛУЧАЙНЫЙ БЛОК (Поддерживает 1, 2 или 3 зоны щита танка)
         selectedDefendZones = [];
         while (selectedDefendZones.length < maxDefends) {
           const rz = zones[Math.floor(Math.random() * zones.length)];
           if (!selectedDefendZones.includes(rz)) selectedDefendZones.push(rz);
         }
 
-        // 3. ВИЗУАЛЬНАЯ ПОДСВЕТКА (Сбрасываем старую и красим новые кнопки, чтобы игрок видел, что выпало)
-        resetTacticalButtons();
-        
-        // Подсвечиваем атаку
-        if (Array.isArray(selectedAttackZone)) {
-          selectedAttackZone.forEach(z => document.querySelector(`.btn-atk[data-zone="${z}"]`)?.classList.add('attack-selected'));
-        } else {
-          document.querySelector(`.btn-atk[data-zone="${selectedAttackZone}"]`)?.classList.add('attack-selected');
-        }
+        // Визуально подсвечиваем щиты на экране
+        selectedDefendZones.forEach(z => {
+          const btn = document.querySelector('.btn-def[data-zone="' + z + '"]');
+          if (btn) btn.classList.add('defend-selected');
+        });
 
-        // Подсвечиваем блок
-        selectedDefendZones.forEach(z => document.querySelector(`.btn-def[data-zone="${z}"]`)?.classList.add('defend-selected'));
-
-        // Проверяем стейт главной кнопки
+        // 3. ОБНОВЛЯЕМ СОСТОЯНИЕ ГЛАВНОЙ КНОПКИ
         checkStrikeButtonState();
 
-        // 4. МГНОВЕННЫЙ АВТО-УДАР: Сами эмулируем клик по кнопке «Атаковать», чтобы сэкономить игроку время!
+        // 4. МГНОВЕННЫЙ АВТО-УДАР: Если кнопка разблокировалась — сами эмулируем клик!
         if (strikeActionBtn && !strikeActionBtn.disabled) {
-          console.log("🎲 [АВТО-БОЙ] Случайная тактика собрана легально. Отправляем на сервер...");
+          console.log("🎲 [АВТО-БОЙ] Ход успешно собран и проверен. Отправляем расчет...");
           strikeActionBtn.click(); 
         }
       };
