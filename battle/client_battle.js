@@ -122,10 +122,18 @@ function setupSocketListeners() {
       logBox.scrollTop = logBox.scrollHeight;
     }
   });
-
+   // 🔥 НОВОЕ: Слушатель старта таймера хода
+  socket.on('turn_timer_started', (data) => {
+    if (data && data.durationMs) {
+      startVisualTimer(data.durationMs, data.round);
+    }
+  });
   // ⚔️ 3. ПАКЕТ РЕЗУЛЬТАТОВ РАУНДА ОТ БЭКЕНДА (ИТОГИ ОБМЕНА УДАРАМИ)
   socket.off('round_result');
   socket.on('round_result', (data) => {
+     // 🔥 Убираем таймер хода — раунд завершён
+    const timerBar = document.getElementById('turn-timer-bar');
+    if (timerBar) timerBar.remove();
     // [ДОБАВЛЕНО] Закрываем окна характеристик при обсчете раунда
     document.getElementById('player-stats-popover').style.display = 'none';
     document.getElementById('monster-stats-popover').style.display = 'none';
@@ -161,6 +169,16 @@ function setupSocketListeners() {
         randBtn.style.pointerEvents = 'auto';
       }
     }
+    // 🔥 НОВОЕ: Проверяем, пропустил ли я ход
+    const myFighterAfterRound = [...teamA, ...teamB].find(f => f.uuid === myUuid);
+    if (myFighterAfterRound && myFighterAfterRound.afkTurns > 0) {
+      const lastRoundHadMiss = data.logs && data.logs.some(log => 
+        log && log.includes(myFighterAfterRound.name) && log.includes('пропустил ход')
+      );
+      if (lastRoundHadMiss) {
+        showAfkWarning(myFighterAfterRound.afkTurns);
+      }
+    }
     renderFighters();
     checkPotionAvailability();
     // ============================================================================
@@ -176,7 +194,7 @@ function setupSocketListeners() {
       divBreak.innerHTML = `<span style="color:var(--hint)">--- Итоги раунда ${data.turnCount} ---</span>`;
       logBox.appendChild(divBreak);
 
-      data.logs.forEach(msg => {
+        data.logs.forEach(msg => {
         if (!msg) return;
         const strMsg = String(msg);
         const d = document.createElement('div');
@@ -185,6 +203,13 @@ function setupSocketListeners() {
         if (strMsg.includes('нанес') || strMsg.includes('повержен') || strMsg.includes('убил')) d.className = 'log-damage';
         if (strMsg.includes('заблокировал') || strMsg.includes('🛡️')) d.className = 'log-miss';
         if (strMsg.includes('🎉') || strMsg.includes('🏁') || strMsg.includes('🛑')) d.className = 'log-system';
+        
+        // 🔥 АФК-логи — оранжевые и жирные
+        if (strMsg.includes('💤')) {
+          d.style.color = '#f39c12';
+          d.style.fontWeight = 'bold';
+        }
+        
         logBox.appendChild(d);
       });
       logBox.scrollTop = logBox.scrollHeight;
@@ -815,3 +840,132 @@ window.openEnemyStatsInBattle = function() {
     }
   });
 };
+// ============================================================================
+// 🔥 НОВОЕ: ВИЗУАЛЬНЫЙ ТАЙМЕР ХОДА
+// ============================================================================
+function startVisualTimer(durationMs, round) {
+  // Удаляем старый таймер, если есть
+  const oldTimer = document.getElementById('turn-timer-bar');
+  if (oldTimer) oldTimer.remove();
+
+  // Создаём контейнер таймера (полоса сверху экрана)
+  const timerContainer = document.createElement('div');
+  timerContainer.id = 'turn-timer-bar';
+  timerContainer.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 9999;
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+  `;
+  
+  const timerFill = document.createElement('div');
+  timerFill.id = 'turn-timer-fill';
+  timerFill.style.cssText = `
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #2ecc71, #26de81);
+    transition: width ${durationMs}ms linear, background 0.3s;
+  `;
+  
+  timerContainer.appendChild(timerFill);
+  document.body.appendChild(timerContainer);
+  
+  // Запускаем анимацию уменьшения (через requestAnimationFrame для плавности)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      timerFill.style.width = '0%';
+    });
+  });
+  
+  // Жёлтый за 15 сек до конца
+  if (durationMs > 15000) {
+    setTimeout(() => {
+      if (timerFill.parentNode) {
+        timerFill.style.background = 'linear-gradient(90deg, #f1c40f, #e67e22)';
+      }
+    }, durationMs - 15000);
+  }
+  
+  // Красный + вибрация за 5 сек до конца
+  if (durationMs > 5000) {
+    setTimeout(() => {
+      if (timerFill.parentNode) {
+        timerFill.style.background = 'linear-gradient(90deg, #e74c3c, #c0392b)';
+        
+        // Вибрация для Telegram Mini App
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+          try { window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy'); } catch(e) {}
+        }
+      }
+    }, durationMs - 5000);
+  }
+  
+  console.log(`⏱️ [ТАЙМЕР] Запущен на ${durationMs / 1000} секунд (раунд ${round})`);
+}
+
+// ============================================================================
+// 🔥 НОВОЕ: ВСПЛЫВАЮЩЕЕ ПРЕДУПРЕЖДЕНИЕ ОБ АФК
+// ============================================================================
+function showAfkWarning(afkCount) {
+  const remaining = 3 - afkCount;
+  
+  // Удаляем старое предупреждение, если есть
+  const old = document.getElementById('afk-warning-toast');
+  if (old) old.remove();
+  
+  const toast = document.createElement('div');
+  toast.id = 'afk-warning-toast';
+  toast.style.cssText = `
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 14px;
+    box-shadow: 0 8px 24px rgba(231, 76, 60, 0.5);
+    z-index: 99999;
+    animation: afkPulse 1s infinite;
+    text-align: center;
+    max-width: 320px;
+    font-family: -apple-system, sans-serif;
+  `;
+  
+  toast.innerHTML = `💤 Вы пропустили ход!<br><span style="font-size:12px; opacity:0.9;">Осталось предупреждений: ${remaining}</span>`;
+  
+  // Инжектим CSS-анимацию (только один раз)
+  if (!document.getElementById('afk-style')) {
+    const style = document.createElement('style');
+    style.id = 'afk-style';
+    style.textContent = `
+      @keyframes afkPulse {
+        0% { transform: translateX(-50%) scale(1); }
+        50% { transform: translateX(-50%) scale(1.05); }
+        100% { transform: translateX(-50%) scale(1); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  document.body.appendChild(toast);
+  
+  // Вибрация
+  if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+    try { window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning'); } catch(e) {}
+  }
+  
+  // Автоудаление через 4 секунды
+  setTimeout(() => {
+    if (toast.parentNode) toast.remove();
+  }, 4000);
+}
