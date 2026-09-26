@@ -31,23 +31,29 @@ function initShopPage() {
     return;
   }
 
-  console.log("📡 [АВТОНОМНЫЙ МАГАЗИН] Подключаемся к сокет-мосту города...");
+  console.log("📡 [МАГАЗИН] Подключаемся к сокет-мосту города...");
   
-  // 🔥 [ИСПРАВЛЕНО] Больше никаких forceNew! Цепляемся к единому живому сокету родительского окна
-  if (window.parent && window.parent.socket && window.parent.socket.connected) {
+  // 🔥 ИСПРАВЛЕНО: Всегда используем сокет города, даже если он ещё не connected
+  if (window.parent && window.parent !== window && window.parent.socket) {
     shopSocket = window.parent.socket;
+    console.log("✅ [МАГАЗИН] Привязан к сокету родителя (города)");
   } else if (typeof io !== 'undefined') {
-    // Резервный вариант для локальных тестов в браузере
     shopSocket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket'],
       forceNew: false
     });
+    console.log("⚠️ [МАГАЗИН] Создан собственный сокет (родителя нет)");
   } else {
-    alert("Ошибка сети: Библиотека Socket.io отсутствует в разметке.");
+    alert("Ошибка сети: Библиотека Socket.io отсутствует.");
     return;
   }
 
-  // Привязываем сетевые слушатели магазина к единому каналу
+  // 🔥 ДУБЛИРУЕМ ССЫЛКУ В ГЛОБАЛЬНУЮ ОБЛАСТЬ, чтобы global_battle_watch.js её нашёл
+  window.shopSocket = shopSocket;
+  // Также кладём ID игрока для check_active_battle
+  shopSocket.userId = localPlayer.id;
+
+  // Привязываем сетевые слушатели магазина
   shopSocket.off('load_game_success');
   shopSocket.on('load_game_success', (data) => {
     if (data && data.player) {
@@ -69,7 +75,7 @@ function initShopPage() {
     window.updateShopUi(); 
   });
 
-  // Запрашиваем актуальный баланс кошелька у сервера
+  // 🔥 ВАЖНО: Даже если сокет ещё не connected, всё равно отправим запрос — он встанет в очередь
   shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   window.updateShopUi();
 }

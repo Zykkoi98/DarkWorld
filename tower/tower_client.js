@@ -40,17 +40,23 @@ function initTowerPage() {
   console.log("📡 [СОКЕТ БАШНИ] Подключаемся к единому сокет-мосту штурма...");
   
   // 🔥 [ИСПРАВЛЕНО] Используем общий сокет города, защищаясь от бесконечной загрузки Арены
-  if (window.parent && window.parent.socket && window.parent.socket.connected) {
+ if (window.parent && window.parent !== window && window.parent.socket) {
     towerSocket = window.parent.socket;
+    console.log("✅ [БАШНЯ] Привязан к сокету родителя (города)");
   } else if (typeof io !== 'undefined') {
     towerSocket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket'],
       forceNew: false
     });
+    console.log("⚠️ [БАШНЯ] Создан собственный сокет (родителя нет)");
   } else {
     setTimeout(initTowerPage, 50);
     return;
   }
+
+  // 🔥 Дублируем ссылку для global_battle_watch.js
+  window.towerSocket = towerSocket;
+  towerSocket.userId = localPlayer.id;
 
   // Очищаем старые дубликаты эвентов перед подпиской
   towerSocket.off('tower_load_game_success');
