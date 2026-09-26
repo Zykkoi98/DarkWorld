@@ -123,9 +123,10 @@ function setupSocketListeners() {
     }
   });
    // 🔥 НОВОЕ: Слушатель старта таймера хода
-  socket.on('turn_timer_started', (data) => {
+    socket.on('turn_timer_started', (data) => {
     if (data && data.durationMs) {
-      startVisualTimer(data.durationMs, data.round);
+      // 🔥 Передаём totalDurationMs для корректного отображения остатка при реконнекте
+      startVisualTimer(data.durationMs, data.round, data.totalDurationMs || data.durationMs);
     }
   });
   // ⚔️ 3. ПАКЕТ РЕЗУЛЬТАТОВ РАУНДА ОТ БЭКЕНДА (ИТОГИ ОБМЕНА УДАРАМИ)
@@ -851,12 +852,17 @@ window.openEnemyStatsInBattle = function() {
 // ============================================================================
 // 🔥 НОВОЕ: ВИЗУАЛЬНЫЙ ТАЙМЕР ХОДА
 // ============================================================================
-function startVisualTimer(durationMs, round) {
+// ============================================================================
+// 🔥 ВИЗУАЛЬНЫЙ ТАЙМЕР ХОДА (с поддержкой реконнекта)
+// ============================================================================
+function startVisualTimer(durationMs, round, totalDurationMs = null) {
   // Удаляем старый таймер, если есть
   const oldTimer = document.getElementById('turn-timer-bar');
   if (oldTimer) oldTimer.remove();
 
-  // Создаём контейнер таймера (полоса сверху экрана)
+  const total = totalDurationMs || durationMs;
+  const startPercent = (durationMs / total) * 100; // Начинаем НЕ с 100%, а с реального остатка
+
   const timerContainer = document.createElement('div');
   timerContainer.id = 'turn-timer-bar';
   timerContainer.style.cssText = `
@@ -877,7 +883,7 @@ function startVisualTimer(durationMs, round) {
   timerFill.id = 'turn-timer-fill';
   timerFill.style.cssText = `
     height: 100%;
-    width: 100%;
+    width: ${startPercent}%;
     background: linear-gradient(90deg, #2ecc71, #26de81);
     transition: width ${durationMs}ms linear, background 0.3s;
   `;
@@ -885,7 +891,7 @@ function startVisualTimer(durationMs, round) {
   timerContainer.appendChild(timerFill);
   document.body.appendChild(timerContainer);
   
-  // Запускаем анимацию уменьшения (через requestAnimationFrame для плавности)
+  // Запускаем анимацию уменьшения
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       timerFill.style.width = '0%';
@@ -901,13 +907,12 @@ function startVisualTimer(durationMs, round) {
     }, durationMs - 15000);
   }
   
-  // Красный + вибрация за 5 сек до конца
+  // Красный за 5 сек до конца
   if (durationMs > 5000) {
     setTimeout(() => {
       if (timerFill.parentNode) {
         timerFill.style.background = 'linear-gradient(90deg, #e74c3c, #c0392b)';
         
-        // Вибрация для Telegram Mini App
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
           try { window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy'); } catch(e) {}
         }
@@ -915,7 +920,7 @@ function startVisualTimer(durationMs, round) {
     }, durationMs - 5000);
   }
   
-  console.log(`⏱️ [ТАЙМЕР] Запущен на ${durationMs / 1000} секунд (раунд ${round})`);
+  console.log(`⏱️ [ТАЙМЕР] Запущен на ${Math.round(durationMs / 1000)}с из ${Math.round(total / 1000)}с (раунд ${round})`);
 }
 
 // ============================================================================
