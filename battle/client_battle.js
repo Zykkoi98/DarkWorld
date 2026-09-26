@@ -271,7 +271,15 @@ function setupSocketListeners() {
       }
     }
   });
+    // 🔥 Слушатель: соперник отключился
+  socket.on('opponent_disconnected', (data) => {
+    showConnectionToast(`⚠️ ${data.name} отключился. Ждём ${data.graceSeconds} сек...`, 'warning');
+  });
 
+  // 🔥 Слушатель: соперник вернулся
+  socket.on('opponent_reconnected', (data) => {
+    showConnectionToast(`✅ ${data.name} вернулся в бой!`, 'success');
+  });
    // 🔥 [УЛЬТИМАТИВНЫЙ ФРОНТЕНД-ФИКС ДЛЯ КУЛДАУНОВ ЛЕСА/БАШНИ]
   // Перехватываем серверную ошибку КД и выводим её вместо бесконечной загрузки
   socket.on('error', (message) => {
@@ -968,4 +976,57 @@ function showAfkWarning(afkCount) {
   setTimeout(() => {
     if (toast.parentNode) toast.remove();
   }, 4000);
+}
+// 🔥 НОВОЕ: Всплывающий тост для уведомлений о дисконнекте
+function showConnectionToast(message, type = 'info') {
+  const old = document.getElementById('connection-toast');
+  if (old) old.remove();
+
+  const colors = {
+    warning: 'linear-gradient(135deg, #f39c12, #e67e22)',
+    success: 'linear-gradient(135deg, #2ecc71, #27ae60)',
+    info: 'linear-gradient(135deg, #3498db, #2980b9)'
+  };
+
+  const toast = document.createElement('div');
+  toast.id = 'connection-toast';
+  toast.style.cssText = `
+    position: fixed;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: ${colors[type] || colors.info};
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 99999;
+    text-align: center;
+    max-width: 320px;
+    font-family: -apple-system, sans-serif;
+    animation: connectionFadeIn 0.3s ease;
+  `;
+  toast.textContent = message;
+
+  if (!document.getElementById('connection-toast-style')) {
+    const style = document.createElement('style');
+    style.id = 'connection-toast-style';
+    style.textContent = `
+      @keyframes connectionFadeIn {
+        from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  document.body.appendChild(toast);
+
+  // Автоудаление
+  const timeout = type === 'warning' ? 6000 : 3000;
+  setTimeout(() => {
+    if (toast.parentNode) toast.remove();
+  }, timeout);
 }
