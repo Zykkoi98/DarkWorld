@@ -149,6 +149,9 @@ function initTowerPage() {
     updateTowerLog(data.message || "🚨 Ошибка", true);
   });
 
+  // ❌ [УДАЛЕНО] Блок arena_redirect_to_battle — редирект в бой обрабатывает
+  // только global_battle_watch.js с абсолютным путём от корня проекта
+
   // 🔥 HP регенерирует — обновляем визуально
   towerSocket.off('town_hp_regen_update');
   towerSocket.on('town_hp_regen_update', (data) => {
@@ -293,11 +296,13 @@ window.triggerTowerFight = function(btnElement, floorNumber) {
   console.log(`==================================================`);
   console.log(`🎯 [КЛИК] Игрок инициировал штурм. Этаж: ${floorNumber}`);
   
+  // 1. МГНОВЕННЫЙ АНТИ-СПАМ БАРЬЕР
   if (!btnElement || btnElement.disabled || btnElement.textContent === "⏳...") {
     console.log("🚫 [АНТИ-СПАМ] Повторный клик заблокирован на лету!");
     return;
   }
 
+  // Насильно отключаем кнопку
   btnElement.disabled = true;
   btnElement.textContent = "⏳...";
   btnElement.style.background = "#222";
