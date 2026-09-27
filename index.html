@@ -345,5 +345,64 @@
 
   </div>
 </div> <!-- /arena-iframe-wrapper -->
+<!-- ============================================================================
+     ===== 🛒 ФРЕЙМ МАГАЗИНА (SHOP OVERLAY) =====
+     ============================================================================ -->
+<div id="shop-iframe-wrapper" style="
+  display: none; 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%; 
+  background: var(--bg); 
+  z-index: 1500; 
+  max-width: 480px; 
+  left: 50%; 
+  transform: translateX(-50%);
+">
+  <div style="display: flex; flex-direction: column; width: 100%; height: 100%; padding: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: #f1c40f;">🏪 Торговая Лавка</h3>
+    </div>
+    <iframe id="shop-iframe-frame" src="about:blank" style="
+      width: 100%; 
+      flex: 1; 
+      border: none; 
+      background: transparent;
+      border-radius: 12px;
+    "></iframe>
+  </div>
+</div>
+
+<!-- ============================================================================
+     ===== 🏰 ФРЕЙМ БАШНИ (TOWER OVERLAY) =====
+     ============================================================================ -->
+<div id="tower-iframe-wrapper" style="
+  display: none; 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%; 
+  background: var(--bg); 
+  z-index: 1500; 
+  max-width: 480px; 
+  left: 50%; 
+  transform: translateX(-50%);
+">
+  <div style="display: flex; flex-direction: column; width: 100%; height: 100%; padding: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+      <h3 style="margin: 0; font-size: 20px; color: #6c5ce7;">🏰 Тёмная Башня</h3>
+    </div>
+    <iframe id="tower-iframe-frame" src="about:blank" style="
+      width: 100%; 
+      flex: 1; 
+      border: none; 
+      background: transparent;
+      border-radius: 12px;
+    "></iframe>
+  </div>
+</div>
 <script src="global_battle_watch.js?v=1"></script>
 </body>

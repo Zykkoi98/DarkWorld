@@ -232,10 +232,15 @@ function renderTown() {
         for (let i = 1; i < 100; i++) { window.clearInterval(i); window.clearTimeout(i); }
         window.location.href = `battle/battle.html?monster=${targetMonster}&count=${finalCount}`;
       } 
-      // 🏪 ТВОЙ РОДНОЙ КЛИК: ПЕРЕХОД В МАГАЗИН
+    // 🏪 МАГАЗИН — теперь через iframe
       else if (loc.name === "Магазин") {
-        console.log("🏪 Игрок заходит в изолированную Торговую Лавку...");
-        window.location.href = 'shop/shop.html';
+        console.log("🏪 Открываем магазин в iframe...");
+        const wrapper = document.getElementById('shop-iframe-wrapper');
+        const frame = document.getElementById('shop-iframe-frame');
+        if (wrapper && frame) {
+          frame.src = 'shop/shop.html'; 
+          wrapper.style.display = 'flex'; 
+        }
       } 
       // ⚔️ ТВОЙ РОДНОЙ КЛИК: АРЕНА PvP
       else if (loc.name === "Арена PvP") {
@@ -246,14 +251,19 @@ function renderTown() {
           wrapper.style.display = 'flex'; 
         }
       } 
-      // 🏰 [НОВОЕ ИЗОЛИРОВАННОЕ УСЛОВИЕ] КЛИК ДЛЯ ТЁМНОЙ БАШНИ
+    // 🏰 БАШНЯ — теперь через iframe
       else if (loc.name === "Тёмная Башня" || loc.name === "Башня") {
         if (!window.player) return;
         if (Number(window.player.hp) <= 0) {
           return alert("❌ Вы слишком слабы для штурма! Восстановите здоровье в Таверне.");
         }
-        console.log("🏰 Игрок выдвигается на штурм этажей Башни...");
-        window.location.href = 'tower/tower.html';
+        console.log("🏰 Открываем Башню в iframe...");
+        const wrapper = document.getElementById('tower-iframe-wrapper');
+        const frame = document.getElementById('tower-iframe-frame');
+        if (wrapper && frame) {
+          frame.src = 'tower/tower.html'; 
+          wrapper.style.display = 'flex'; 
+        }
       } 
       // ДЕФОЛТНЫЙ ТВОЙ ВЫВОД
       else { 
@@ -1011,9 +1021,29 @@ function startGame() {
   
   window.addEventListener('message', function(event) {
     if (!event.data) return;
+    
+    // 🔥 Закрытие Арены
     if (event.data.type === 'CLOSE_ARENA_OVERLAY') {
       const wrapper = document.getElementById('arena-iframe-wrapper');
       const frame = document.getElementById('arena-iframe-frame');
+      if (wrapper) wrapper.style.display = 'none';
+      if (frame) frame.src = 'about:blank'; 
+      if (typeof window.render === 'function') window.render();
+    }
+    
+    // 🔥 Закрытие Магазина
+    if (event.data.type === 'CLOSE_SHOP_OVERLAY') {
+      const wrapper = document.getElementById('shop-iframe-wrapper');
+      const frame = document.getElementById('shop-iframe-frame');
+      if (wrapper) wrapper.style.display = 'none';
+      if (frame) frame.src = 'about:blank'; 
+      if (typeof window.render === 'function') window.render();
+    }
+    
+    // 🔥 Закрытие Башни
+    if (event.data.type === 'CLOSE_TOWER_OVERLAY') {
+      const wrapper = document.getElementById('tower-iframe-wrapper');
+      const frame = document.getElementById('tower-iframe-frame');
       if (wrapper) wrapper.style.display = 'none';
       if (frame) frame.src = 'about:blank'; 
       if (typeof window.render === 'function') window.render();

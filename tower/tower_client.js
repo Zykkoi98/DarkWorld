@@ -22,64 +22,32 @@ function updateTowerLog(text, isError = false) {
 }
 
 function initTowerPage() {
-  console.log("🎬 [СТАРТ ЗАГРУЗКИ] Инициализация страницы Башни...");
-
   const localSave = localStorage.getItem('rpg_save');
   if (localSave) {
-    try { 
-      localPlayer = JSON.parse(localSave).player; 
-    } catch(e) { console.error(e); }
+    try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
   }
 
   if (!localPlayer) {
-    alert("❌ Профиль гладиатора не найден! Вернитесь на площадь.");
-    window.location.replace('../index.html');
+    alert("❌ Профиль не найден!");
     return;
   }
 
-  console.log("📡 [СОКЕТ БАШНИ] Подключаемся к единому сокет-мосту штурма...");
+  console.log("📡 [БАШНЯ] Подключаемся к сокету родителя...");
   
+  // 🔥 Всегда берём сокет у родителя
   if (window.parent && window.parent !== window && window.parent.socket) {
     towerSocket = window.parent.socket;
     console.log("✅ [БАШНЯ] Привязан к сокету родителя (города)");
-  } else if (typeof io !== 'undefined') {
-    let handshakeUserId = localPlayer?.id || null;
-    
-    towerSocket = io('https://darkworld-server.onrender.com', {
-      transports: ['websocket'],
-      forceNew: false,
-      auth: { userId: handshakeUserId }
-    });
-    console.log("⚠️ [БАШНЯ] Создан собственный сокет (родителя нет)");
   } else {
-    setTimeout(initTowerPage, 50);
+    console.error("🚨 [БАШНЯ] Родительский сокет не найден!");
+    alert("Ошибка соединения. Вернитесь в город.");
     return;
   }
-
-  // 🔥 Дублируем ссылку для global_battle_watch.js
+  
   window.towerSocket = towerSocket;
-  towerSocket.userId = localPlayer.id;
-  // 🔥 Слушаем обновления HP от тикера регенерации
-  towerSocket.on('town_hp_regen_update', (data) => {
-    if (!localPlayer) return;
-    localPlayer.hp = data.currentHp;
-    
-    const hpEl = document.getElementById('tower-hero-hp');
-    if (hpEl) {
-      hpEl.textContent = `❤️ ${data.currentHp} / ${data.maxHp}`;
-    }
-    
-    localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-  });
 
-  // Очищаем старые дубликаты эвентов перед подпиской
+  // 🔥 Слушатели Башни
   towerSocket.off('tower_load_game_success');
-  towerSocket.off('tower_cooldown_status');
-  towerSocket.off('tower_shop_success');
-  towerSocket.off('tower_shop_error');
-  towerSocket.off('arena_redirect_to_battle');
-
-  // Регистрируем слушатели Тёмной Башни
   towerSocket.on('tower_load_game_success', (data) => {
     if (data && data.player) {
       localPlayer = data.player;
@@ -88,41 +56,56 @@ function initTowerPage() {
     }
   });
 
+  towerSocket.off('tower_cooldown_status');
   towerSocket.on('tower_cooldown_status', (data) => {
-      console.log("📥 [СОКЕТ БАШНИ] Получен статус кулдауна от сервера:", data);
-      
-      // 🔥 [ДОБАВЛЕНО]: Данные успешно получены, снимаем блокировку интерфейса!
-      isCooldownDataLoaded = true; 
+    isCooldownDataLoaded = true;
+    if (data && data.active && data.ends_at) {
+      activeCooldownEnd = data.ends_at;
+    } else {
+      activeCooldownEnd = null;
+    }
+    renderTowerInterface();
+    runCooldownTimer();
+  });
 
-      if (data && data.active && data.ends_at) {
-        activeCooldownEnd = data.ends_at;
-      } else {
-        activeCooldownEnd = null;
-      }
-      renderTowerInterface();
-      runCooldownTimer();
-    });
-
+  towerSocket.off('tower_shop_success');
   towerSocket.on('tower_shop_success', (data) => {
-    updateTowerLog(data.message || "🎉 Успешная покупка!");
+    updateTowerLog(data.message || "🎉 Успешно!");
     towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   });
 
+  towerSocket.off('tower_shop_error');
   towerSocket.on('tower_shop_error', (data) => {
-    updateTowerLog(data.message || "🚨 Ошибка покупки", true);
+    updateTowerLog(data.message || "🚨 Ошибка", true);
   });
 
+  towerSocket.off('arena_redirect_to_battle');
   towerSocket.on('arena_redirect_to_battle', (data) => {
     if (data && data.roomId) {
       window.location.replace(`../battle/battle.html?roomId=${data.roomId}`);
     }
   });
 
-  // Авторизуемся на сервере Башни
+  // 🔥 HP регенерирует — обновляем визуально
+  towerSocket.on('town_hp_regen_update', (data) => {
+    if (!localPlayer) return;
+    localPlayer.hp = data.currentHp;
+    const hpEl = document.getElementById('tower-hero-hp');
+    if (hpEl) hpEl.textContent = `❤️ ${data.currentHp} / ${data.maxHp}`;
+    localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+  });
+
   towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   towerSocket.emit('check_tower_cooldown_request', { userId: localPlayer.id });
 }
-
+window.exitTower = function() {
+  // 🔥 НЕ отключаем сокет — он принадлежит родителю!
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'CLOSE_TOWER_OVERLAY' }, '*');
+  } else {
+    window.location.replace('../index.html');
+  }
+};
 // ============================================================================
 // 🎨 ФУНКЦИЯ ОТРИСОВКИ ЭТАЖЕЙ И ЛАВКИ
 // ============================================================================

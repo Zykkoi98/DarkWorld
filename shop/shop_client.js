@@ -26,60 +26,25 @@ function initShopPage() {
   }
 
   if (!localPlayer) {
-    alert("❌ Ошибка: Профиль персонажа не найден! Вернитесь на главную площадь.");
-    window.exitShop();
+    alert("❌ Ошибка: Профиль персонажа не найден!");
     return;
   }
 
-  console.log("📡 [МАГАЗИН] Подключаемся к сокет-мосту города...");
+  console.log("📡 [МАГАЗИН] Подключаемся к сокету родителя...");
   
-if (window.parent && window.parent !== window && window.parent.socket) {
+  // 🔥 Всегда берём сокет у родителя (iframe города)
+  if (window.parent && window.parent !== window && window.parent.socket) {
     shopSocket = window.parent.socket;
     console.log("✅ [МАГАЗИН] Привязан к сокету родителя (города)");
-  } else if (typeof io !== 'undefined') {
-    // 🔥 Handshake userId для авто-регистрации в регене
-    let handshakeUserId = localPlayer?.id || null;
-    
-    shopSocket = io('https://darkworld-server.onrender.com', {
-      transports: ['websocket'],
-      forceNew: false,
-      auth: { userId: handshakeUserId }
-    });
-    console.log("⚠️ [МАГАЗИН] Создан собственный сокет (родителя нет)");
   } else {
-    alert("Ошибка сети: Библиотека Socket.io отсутствует.");
+    console.error("🚨 [МАГАЗИН] Родительский сокет не найден!");
+    alert("Ошибка соединения. Вернитесь в город.");
     return;
   }
-
-  // 🔥 ДУБЛИРУЕМ ССЫЛКУ В ГЛОБАЛЬНУЮ ОБЛАСТЬ, чтобы global_battle_watch.js её нашёл
+  
   window.shopSocket = shopSocket;
-  // Также кладём ID игрока для check_active_battle
-  shopSocket.userId = localPlayer.id;
-  // 🔥 Слушаем обновления HP от тикера регенерации
-  shopSocket.on('town_hp_regen_update', (data) => {
-    if (!localPlayer) return;
-    localPlayer.hp = data.currentHp;
-    
-    // Обновляем отображение HP в магазине (если есть)
-    const hpEl = document.getElementById('shop-hero-hp');
-    if (hpEl) {
-      hpEl.textContent = `❤️ ${data.currentHp} / ${data.maxHp}`;
-    }
-    
-    // Обновляем локальный кэш
-    localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-  });
 
-  // Привязываем сетевые слушатели магазина
-  shopSocket.off('load_game_success');
-  shopSocket.on('load_game_success', (data) => {
-    if (data && data.player) {
-      localPlayer = data.player;
-      localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-      window.updateShopUi();
-    }
-  });
-
+  // 🔥 Слушатели
   shopSocket.off('shop_buy_success');
   shopSocket.on('shop_buy_success', (data) => {
     updateWalletStatusLog(data.message || "🎉 Успешно!");
@@ -89,11 +54,22 @@ if (window.parent && window.parent !== window && window.parent.socket) {
   shopSocket.off('shop_buy_error');
   shopSocket.on('shop_buy_error', (data) => {
     updateWalletStatusLog(data.message || "🚨 Ошибка", true);
-    window.updateShopUi(); 
+    window.updateShopUi();
   });
 
-  // 🔥 ВАЖНО: Даже если сокет ещё не connected, всё равно отправим запрос — он встанет в очередь
+  // 🔥 HP регенерирует — обновляем визуально
+  shopSocket.on('town_hp_regen_update', (data) => {
+    if (!localPlayer) return;
+    localPlayer.hp = data.currentHp;
+    const hpEl = document.getElementById('shop-hero-hp');
+    if (hpEl) hpEl.textContent = `❤️ ${data.currentHp} / ${data.maxHp}`;
+    localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+  });
+
+  // 🔥 НЕ отправляем load_game_secure — сокет уже зарегистрирован городом
+  // Но запрашиваем свежий профиль для магазина
   shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
+  
   window.updateShopUi();
 }
 
@@ -109,10 +85,14 @@ window.setShopClass = function(className) {
   window.updateShopUi();
 };
 window.exitShop = function() {
-  if (shopSocket) {
-    try { shopSocket.disconnect(); } catch(e) { console.error(e); }
+  // 🔥 НЕ отключаем сокет — он принадлежит родителю!
+  // Просто отправляем сообщение городу закрыть iframe
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'CLOSE_SHOP_OVERLAY' }, '*');
+  } else {
+    // Fallback — если открыт напрямую
+    window.location.replace('../index.html');
   }
-  window.location.replace('../index.html');
 };
 // ============================================================================
 // ===== 🛒 SHOP_CLIENT.JS | ЧАСТЬ 2 | КУСОК 1 ИЗ 2: СЕТКА ВИТРИНЫ =====
