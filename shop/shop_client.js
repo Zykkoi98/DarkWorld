@@ -33,14 +33,17 @@ function initShopPage() {
 
   console.log("📡 [МАГАЗИН] Подключаемся к сокет-мосту города...");
   
-  // 🔥 ИСПРАВЛЕНО: Всегда используем сокет города, даже если он ещё не connected
-  if (window.parent && window.parent !== window && window.parent.socket) {
+if (window.parent && window.parent !== window && window.parent.socket) {
     shopSocket = window.parent.socket;
     console.log("✅ [МАГАЗИН] Привязан к сокету родителя (города)");
   } else if (typeof io !== 'undefined') {
+    // 🔥 Handshake userId для авто-регистрации в регене
+    let handshakeUserId = localPlayer?.id || null;
+    
     shopSocket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket'],
-      forceNew: false
+      forceNew: false,
+      auth: { userId: handshakeUserId }
     });
     console.log("⚠️ [МАГАЗИН] Создан собственный сокет (родителя нет)");
   } else {
@@ -52,6 +55,20 @@ function initShopPage() {
   window.shopSocket = shopSocket;
   // Также кладём ID игрока для check_active_battle
   shopSocket.userId = localPlayer.id;
+  // 🔥 Слушаем обновления HP от тикера регенерации
+  shopSocket.on('town_hp_regen_update', (data) => {
+    if (!localPlayer) return;
+    localPlayer.hp = data.currentHp;
+    
+    // Обновляем отображение HP в магазине (если есть)
+    const hpEl = document.getElementById('shop-hero-hp');
+    if (hpEl) {
+      hpEl.textContent = `❤️ ${data.currentHp} / ${data.maxHp}`;
+    }
+    
+    // Обновляем локальный кэш
+    localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+  });
 
   // Привязываем сетевые слушатели магазина
   shopSocket.off('load_game_success');

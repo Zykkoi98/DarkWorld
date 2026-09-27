@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Торговая Лавка — Dark World</title>
   <style>
+    
     /* ============================================================================
        ===== 🎨 БАЗОВАЯ НАСТРОЙКА, ПАЛИТРА И ИНТЕРФЕЙС СТРАНИЦЫ МАГАЗИНА =====
        ============================================================================ */
@@ -259,6 +260,9 @@
         <!-- 🔥 ИСПРАВЛЕННЫЙ ЗАГОЛОВОК: Обернут в flex-блок, чтобы крестик встал ровно справа от названия -->
     <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 4px;">
       <div id="shop-title" style="margin: 0; padding: 0;">🏪 Торговая Лавка</div>
+      <div id="shop-hero-hp" style="font-size: 12px; font-weight: bold; color: #e74c3c; margin-top: 4px;">
+  ❤️ 0 / 0
+</div>
       
       <!-- Элегантный крестик для закрытия лавки на телефоне -->
       <button onclick="window.exitShop()" style="background: rgba(255, 255, 255, 0.08); border: none; color: #ffffff; font-size: 16px; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; margin-top: 8px;" title="Покинуть лавку">
@@ -303,5 +307,6 @@
   <script src="shop_client.js"></script>
   <script src="../global_battle_watch.js?v=1"></script>
 </body>
+
 </html>
 

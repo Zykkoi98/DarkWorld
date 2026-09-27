@@ -24,19 +24,34 @@ window.loadGame = function(callback) {
     return;
   }
 
- console.log("📡 Подключаем сокет города к боевому серверу Render...");
+console.log("📡 Подключаем сокет города к боевому серверу Render...");
   if (typeof io !== 'undefined') {
     
-    // 🔥 ФИКС: Явно создаем и СРАЗУ записываем сокет в глобальный объект window.socket
+    // 🔥 Достаём userId из Telegram или localStorage ДО создания сокета
+    let handshakeUserId = null;
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (tgUser?.id) {
+      handshakeUserId = tgUser.id;
+    } else {
+      const localSave = localStorage.getItem('rpg_save');
+      if (localSave) {
+        try { handshakeUserId = JSON.parse(localSave).player?.id; } catch(e) {}
+      }
+    }
+    
+    console.log(`🔑 [HANDSHAKE] Передаём userId в auth: ${handshakeUserId}`);
+
     window.socket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket'],
       forceNew: false,
-      upgrade: false
+      upgrade: false,
+      auth: {
+        userId: handshakeUserId  // 🔥 Передаём сразу при подключении
+      }
     });
 
     // Инициализируем слушатели данных
     setupSecureDataListeners(callback);
-    
   } else {
     console.error("❌ Критическая ошибка: Библиотека Socket.io не подключена в index.html!");
     if (typeof callback === 'function') callback("Socket.io missing");

@@ -39,14 +39,16 @@ function initTowerPage() {
 
   console.log("📡 [СОКЕТ БАШНИ] Подключаемся к единому сокет-мосту штурма...");
   
-  // 🔥 [ИСПРАВЛЕНО] Используем общий сокет города, защищаясь от бесконечной загрузки Арены
- if (window.parent && window.parent !== window && window.parent.socket) {
+  if (window.parent && window.parent !== window && window.parent.socket) {
     towerSocket = window.parent.socket;
     console.log("✅ [БАШНЯ] Привязан к сокету родителя (города)");
   } else if (typeof io !== 'undefined') {
+    let handshakeUserId = localPlayer?.id || null;
+    
     towerSocket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket'],
-      forceNew: false
+      forceNew: false,
+      auth: { userId: handshakeUserId }
     });
     console.log("⚠️ [БАШНЯ] Создан собственный сокет (родителя нет)");
   } else {
@@ -57,6 +59,18 @@ function initTowerPage() {
   // 🔥 Дублируем ссылку для global_battle_watch.js
   window.towerSocket = towerSocket;
   towerSocket.userId = localPlayer.id;
+  // 🔥 Слушаем обновления HP от тикера регенерации
+  towerSocket.on('town_hp_regen_update', (data) => {
+    if (!localPlayer) return;
+    localPlayer.hp = data.currentHp;
+    
+    const hpEl = document.getElementById('tower-hero-hp');
+    if (hpEl) {
+      hpEl.textContent = `❤️ ${data.currentHp} / ${data.maxHp}`;
+    }
+    
+    localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+  });
 
   // Очищаем старые дубликаты эвентов перед подпиской
   towerSocket.off('tower_load_game_success');

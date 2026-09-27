@@ -25,9 +25,20 @@ function initBattleSocket() {
     return;
   }
 
+ // 🔥 Достаём userId для handshake
+  let handshakeUserId = null;
+  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+  if (tgUser?.id) handshakeUserId = tgUser.id;
+  else {
+    const ls = localStorage.getItem('rpg_save');
+    if (ls) { try { handshakeUserId = JSON.parse(ls).player?.id; } catch(e) {} }
+  }
+
   socket = io('https://darkworld-server.onrender.com', {
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    auth: { userId: handshakeUserId }  // 🔥 Передаём
   });
+
 
   const localSave = localStorage.getItem('rpg_save');
   let localPlayer = null;
