@@ -4,12 +4,17 @@
 // ============================================================================
 (function() {
   // Защита от повторной загрузки
-  if (window.__globalBattleWatchLoaded) return;
+  if (window.__globalBattleWatchLoaded) {
+    console.log("🌐 [GLOBAL WATCH] Уже загружен, пропускаем повторную инициализацию");
+    return;
+  }
   window.__globalBattleWatchLoaded = true;
 
   console.log("🌐 [GLOBAL WATCH] Активирован глобальный перехватчик боя");
 
-  // Функция экстренного ухода в бой
+  // ============================================================================
+  // ФУНКЦИЯ ЭКСТРЕННОГО УХОДА В БОЙ
+  // ============================================================================
   function forceRedirectToBattle(roomId) {
     if (!roomId) return;
     
@@ -21,14 +26,13 @@
     if (wrapper) wrapper.style.display = 'none';
     if (frame) frame.src = 'about:blank';
 
-    // 2. Закрываем любые модалки поверх (если игрок был в профиле/инвентаре)
+    // 2. Закрываем любые модалки поверх
     document.querySelectorAll('.modal-overlay').forEach(m => {
       m.classList.remove('active');
       m.style.display = 'none';
     });
 
     // 3. Определяем правильный путь до battle.html
-    // (в index.html это battle/battle.html, в shop/shop.html это ../battle/battle.html)
     const currentPath = window.location.pathname;
     const inSubfolder = currentPath.includes('/shop/') 
                      || currentPath.includes('/tower/') 
@@ -43,25 +47,36 @@
   // Экспортируем в глобальный объект — доступно с любой страницы
   window.forceRedirectToBattle = forceRedirectToBattle;
 
-  // Попытка привязаться к родительскому сокету (если мы в iframe)
+  // ============================================================================
+  // 🔥 ИМЕНОВАННЫЙ ОБРАБОТЧИК (чтобы снимать ТОЛЬКО свой, не задевая telegram.js)
+  // ============================================================================
+  const onArenaRedirect = (data) => {
+    if (data && data.roomId) {
+      forceRedirectToBattle(data.roomId);
+    }
+  };
+
+  // ============================================================================
+  // ПРИВЯЗКА К РОДИТЕЛЬСКОМУ СОКЕТУ (если мы в iframe города)
+  // ============================================================================
   function tryBindToParentSocket() {
     const parentWin = window.parent;
     
-    // Случай 1: Мы внутри iframe города (arena.html внутри index.html)
     if (parentWin && parentWin !== window && parentWin.socket) {
       console.log("🔗 [GLOBAL WATCH] Подписываемся на сокет родителя (iframe)");
-      parentWin.socket.on('arena_redirect_to_battle', (data) => {
-        if (data && data.roomId) {
-          forceRedirectToBattle(data.roomId);
-        }
-      });
+      
+      // 🔥 Снимаем ТОЛЬКО свой прошлый обработчик (если был)
+      parentWin.socket.off('arena_redirect_to_battle', onArenaRedirect);
+      parentWin.socket.on('arena_redirect_to_battle', onArenaRedirect);
+      
       return true;
     }
     return false;
   }
 
-  // Случай 2: Мы на отдельной странице (shop.html, tower.html)
-  // — ждём, когда локальный сокет будет создан страницей, и вешаем слушатель
+  // ============================================================================
+  // ОЖИДАНИЕ ЛОКАЛЬНОГО СОКЕТА (для shop.html, tower.html)
+  // ============================================================================
   let attempts = 0;
   const waitForSocket = setInterval(() => {
     attempts++;
@@ -72,25 +87,24 @@
       return;
     }
 
-    // Если это самостоятельная страница — ищем свой сокет
-    // (shop_client.js / tower_client.js создают window.shopSocket / towerSocket)
+    // Ищем локальный сокет страницы
     const localSocket = window.shopSocket || window.towerSocket || window.socket;
     
     if (localSocket && localSocket.connected) {
       console.log("🔗 [GLOBAL WATCH] Подписываемся на локальный сокет страницы");
       
-      // Снимаем старый обработчик, чтобы не было дублей
-      localSocket.off('arena_redirect_to_battle');
+      // 🔥 Снимаем ТОЛЬКО свой прошлый обработчик — не трогаем чужие!
+      localSocket.off('arena_redirect_to_battle', onArenaRedirect);
+      localSocket.on('arena_redirect_to_battle', onArenaRedirect);
       
-      localSocket.on('arena_redirect_to_battle', (data) => {
-        if (data && data.roomId) {
-          forceRedirectToBattle(data.roomId);
-        }
-      });
-      
-      // Дополнительно: проверяем при возврате фокуса на вкладку
-      // (на случай, если игрок сидел с фоном)
-      document.addEventListener('visibilitychange', () => {
+      // 🔥 ФИКС УТЕЧКИ: снимаем старый visibilitychange, если был
+      if (window.__globalBattleVisibilityHandler) {
+        document.removeEventListener('visibilitychange', window.__globalBattleVisibilityHandler);
+        console.log("🧹 [GLOBAL WATCH] Снят старый visibilitychange handler");
+      }
+
+      // Создаём новый обработчик с актуальной ссылкой на localSocket
+      window.__globalBattleVisibilityHandler = () => {
         if (!document.hidden && localSocket.connected) {
           localSocket.emit('check_active_battle', { 
             userId: (window.player && window.player.id) 
@@ -98,7 +112,9 @@
                  || 0 
           });
         }
-      });
+      };
+
+      document.addEventListener('visibilitychange', window.__globalBattleVisibilityHandler);
       
       clearInterval(waitForSocket);
       return;
@@ -111,7 +127,9 @@
     }
   }, 100);
 
-  // Также слушаем сообщения от iframe (на случай, если редирект придёт через postMessage)
+  // ============================================================================
+  // СЛУШАТЕЛЬ ПОСТ-СООБЩЕНИЙ (на случай, если редирект придёт через postMessage)
+  // ============================================================================
   window.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'FORCE_BATTLE_REDIRECT' && event.data.roomId) {
       forceRedirectToBattle(event.data.roomId);
