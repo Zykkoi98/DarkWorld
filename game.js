@@ -156,7 +156,7 @@ function render() {
   }
 
   if (document.getElementById('player-name')) document.getElementById('player-name').textContent = window.player.name;
-  if (document.getElementById('player-lvl-badge')) document.getElementById('player-lvl-badge').textContent = `Lv. ${window.player.level}`;
+  if (document.getElementById('player-lvl-text')) document.getElementById('player-lvl-text').textContent = `Lv. ${window.player.level}`;
   
   const mainHpText = document.getElementById('player-hp-text') || document.getElementById('player-hp');
   if (mainHpText) {

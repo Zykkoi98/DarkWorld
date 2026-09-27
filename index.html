@@ -16,13 +16,13 @@
   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
 
   <!-- 3. Стили игры -->
-  <link rel="stylesheet" href="style.css?v=777">
+  <link rel="stylesheet" href="style.css?v=77">
 
   <!-- 4. Игровые скрипты СТРОГО с параметром defer -->
-  <script src="config.js?v=777" defer></script>
-  <script src="equipment.js?v=777" defer></script>
-  <script src="game.js?v=777" defer></script>
-  <script src="telegram.js?v=777" defer></script>
+  <script src="config.js?v=77" defer></script>
+  <script src="equipment.js?v=77" defer></script>
+  <script src="game.js?v=77" defer></script>
+  <script src="telegram.js?v=77" defer></script>
   <script src="shop/shop_items_config.js"></script>
   <script>
   // 🔥 ЭКСПРЕСС-ДЕТЕКТОР С УДЕРЖАНИЕМ ЖЕСТКОЙ ШТОРКИ GAME-LOADER-SCREEN
@@ -137,14 +137,13 @@
          ===== 🏰 ГЛАВНЫЙ ЭКРАН ИГРЫ (ИНТЕРФЕЙС ГОРОДА) =====
          ============================================================================ -->
     
-    <!-- Шапка персонажа на главном экране -->
+     <!-- Шапка персонажа на главном экране -->
     <div class="player-header card">
-      <!-- Слот аватарки игрока с плашкой уровня и HP-баром -->
+      <!-- Слот аватарки игрока с HP-баром внизу -->
       <div class="player-avatar-slot" id="player-avatar-slot">
         <img id="player-avatar" src="assets/avatars/hero1.png" alt="Аватар">
-        <div class="lvl-badge" id="player-lvl-badge">Lv. 1</div>
         
-        <!-- 🔥 HP-оверлей поверх аватарки -->
+        <!-- 🔥 HP-полоска внизу аватарки -->
         <div class="hp-overlay">
           <div class="hp-overlay-bar">
             <div class="hp-overlay-fill" id="player-hp-fill"></div>
@@ -153,9 +152,12 @@
         </div>
       </div>
       
-      <!-- Мета-данные игрока -->
+      <!-- Мета-данные игрока (ник + уровень рядом) -->
       <div class="player-meta">
-        <div class="player-meta-name" id="player-name">Загрузка...</div>
+        <div class="player-meta-name-row">
+          <span class="player-meta-name" id="player-name">Загрузка...</span>
+          <span class="player-meta-level" id="player-lvl-text">Lv. 1</span>
+        </div>
         <div class="player-meta-title">Искатель приключений</div>
       </div>
       
