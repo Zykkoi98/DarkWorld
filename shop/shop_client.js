@@ -10,13 +10,40 @@ let localPlayer = null;
 let activeMainMode = 'ammo';       // 'ammo' (Амуниция), 'consumables' (Расходники), 'sell' (Продажа)
 let activeAmmoClass = 'dodger';     // 'dodger' (Плут), 'critter' (Варвар), 'tank' (Танк)
 
-// 🔥 Функция вывода лога последней операции прямо в шапку кошелька
-function updateWalletStatusLog(text, isError = false) {
-  const logEl = document.getElementById('wallet-status-log');
-  if (!logEl) return;
+// ============================================================================
+// 🔥 ФИКС: универсальное обновление HP в шапке Магазина
+// ============================================================================
+function updateShopHpDisplay() {
+  const hpEl = document.getElementById('shop-hero-hp');
+  if (!hpEl || !localPlayer) return;
   
-  logEl.textContent = text;
-  logEl.style.color = isError ? '#e74c3c' : '#2ecc71'; // Красный текст при ошибке, зеленый при успехе
+  const currentHp = Number(localPlayer.hp || 0);
+  const baseEndurance = Number(localPlayer.stats?.endurance || localPlayer.endurance || 1);
+  
+  let gearEndurance = 0;
+  let flatHpBonus = 0;
+  
+  if (localPlayer.equipped) {
+    const slots = ['head', 'body', 'legs', 'gloves', 'neck', 'mainHand', 'offHand', 'extra'];
+    
+    const processItem = (itemId) => {
+      if (!itemId || !window.getItemData) return;
+      const itemData = window.getItemData(itemId);
+      if (itemData?.bonus) {
+        if (itemData.bonus.endurance) gearEndurance += itemData.bonus.endurance;
+        if (itemData.bonus.stats?.endurance) gearEndurance += itemData.bonus.stats.endurance;
+        if (itemData.bonus.hp) flatHpBonus += itemData.bonus.hp;
+      }
+    };
+    
+    slots.forEach(slot => processItem(localPlayer.equipped[slot]));
+    if (Array.isArray(localPlayer.equipped.rings)) {
+      localPlayer.equipped.rings.forEach(itemId => processItem(itemId));
+    }
+  }
+  
+  const maxHp = ((baseEndurance + gearEndurance) * 10) + flatHpBonus;
+  hpEl.textContent = `❤️ ${currentHp} / ${maxHp}`;
 }
 
 function initShopPage() {
@@ -44,6 +71,9 @@ function initShopPage() {
   
   window.shopSocket = shopSocket;
 
+  // 🔥 ФИКС: сразу показываем HP из кэша
+  updateShopHpDisplay();
+
   // 🔥 Слушатели
   shopSocket.off('shop_buy_success');
   shopSocket.on('shop_buy_success', (data) => {
@@ -61,8 +91,10 @@ function initShopPage() {
   shopSocket.on('town_hp_regen_update', (data) => {
     if (!localPlayer) return;
     localPlayer.hp = data.currentHp;
-    const hpEl = document.getElementById('shop-hero-hp');
-    if (hpEl) hpEl.textContent = `❤️ ${data.currentHp} / ${data.maxHp}`;
+    
+    // 🔥 Используем единую функцию обновления
+    updateShopHpDisplay();
+    
     localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
   });
 
@@ -103,6 +135,9 @@ window.updateShopUi = function() {
 
   const goldValEl = document.getElementById('wallet-gold-value');
   if (goldValEl) goldValEl.textContent = `💰 Золото: ${localPlayer.gold} монет`;
+
+  // 🔥 ФИКС: всегда обновляем HP при рендере
+  updateShopHpDisplay();
 
   ['ammo', 'consumables', 'sell'].forEach(mode => {
     const btn = document.getElementById(`main-nav-${mode}`);

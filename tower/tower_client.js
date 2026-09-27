@@ -6,7 +6,7 @@ let towerSocket = null;
 let localPlayer = null;
 let currentActiveMode = 'floor'; // 'floor' или 'shop'
 let activeCooldownEnd = null; // Храним время окончания КД
-let isCooldownDataLoaded = false; // 🔥 [ДОБАВЛЕНО]: Предохранитель загрузки данных КД
+let isCooldownDataLoaded = false; // 🔥 Предохранитель загрузки данных КД
 
 const FRONT_TOWER_SHOP_DATABASE = {
   'tower_elixir_big':  { price: 20,  icon: '🧪', name: "Эликсир Инквизитора", desc: "Концентрированный хил Башни. +50 HP." },
@@ -21,7 +21,50 @@ function updateTowerLog(text, isError = false) {
   logEl.style.color = isError ? '#e74c3c' : '#2ecc71';
 }
 
+// ============================================================================
+// 🔥 ФИКС: универсальное обновление HP в шапке Башни (с бонусами экипировки)
+// ============================================================================
+function updateTowerHpDisplay() {
+  const hpEl = document.getElementById('tower-hero-hp');
+  if (!hpEl || !localPlayer) return;
+  
+  const currentHp = Number(localPlayer.hp || 0);
+  
+  // 🔥 Считаем maxHp с бонусами экипировки (формула из db_helper.getServerMaxHp)
+  const baseEndurance = Number(localPlayer.stats?.endurance || localPlayer.endurance || 1);
+  
+  let gearEndurance = 0;
+  let flatHpBonus = 0;
+  
+  if (localPlayer.equipped) {
+    const slots = ['head', 'body', 'legs', 'gloves', 'neck', 'mainHand', 'offHand', 'extra'];
+    
+    const processItem = (itemId) => {
+      if (!itemId || !window.getItemData) return;
+      const itemData = window.getItemData(itemId);
+      if (itemData?.bonus) {
+        if (itemData.bonus.endurance) gearEndurance += itemData.bonus.endurance;
+        if (itemData.bonus.stats?.endurance) gearEndurance += itemData.bonus.stats.endurance;
+        if (itemData.bonus.hp) flatHpBonus += itemData.bonus.hp;
+      }
+    };
+    
+    slots.forEach(slot => processItem(localPlayer.equipped[slot]));
+    
+    // Кольца
+    if (Array.isArray(localPlayer.equipped.rings)) {
+      localPlayer.equipped.rings.forEach(itemId => processItem(itemId));
+    }
+  }
+  
+  const maxHp = ((baseEndurance + gearEndurance) * 10) + flatHpBonus;
+  
+  hpEl.textContent = `❤️ ${currentHp} / ${maxHp}`;
+}
+
 function initTowerPage() {
+  console.log("🎬 [СТАРТ] Инициализация страницы Башни...");
+  
   const localSave = localStorage.getItem('rpg_save');
   if (localSave) {
     try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }
@@ -32,19 +75,42 @@ function initTowerPage() {
     return;
   }
 
-  console.log("📡 [БАШНЯ] Подключаемся к сокету родителя...");
+  console.log("📡 [БАШНЯ] Подключаемся к сокету...");
   
-  // 🔥 Всегда берём сокет у родителя
-  if (window.parent && window.parent !== window && window.parent.socket) {
+  // 🔥 ГИБРИДНЫЙ РЕЖИМ: сначала пробуем родителя, потом создаём свой сокет
+  if (window.parent && window.parent !== window && window.parent.socket && window.parent.socket.connected) {
     towerSocket = window.parent.socket;
     console.log("✅ [БАШНЯ] Привязан к сокету родителя (города)");
+  } else if (typeof io !== 'undefined') {
+    // 🔥 Родителя нет — создаём свой сокет (для прямого захода или fallback)
+    let handshakeUserId = localPlayer?.id || null;
+    console.log(`⚠️ [БАШНЯ] Родителя нет — создаём свой сокет (userId: ${handshakeUserId})`);
+    
+    towerSocket = io('https://darkworld-server.onrender.com', {
+      transports: ['websocket'],
+      forceNew: false,
+      auth: { userId: handshakeUserId }
+    });
+    
+    towerSocket.on('connect', () => {
+      console.log(`✅ [БАШНЯ] Свой сокет подключен: ${towerSocket.id}`);
+      towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
+      towerSocket.emit('check_tower_cooldown_request', { userId: localPlayer.id });
+    });
+    
+    towerSocket.on('connect_error', (err) => {
+      console.error("🚨 [БАШНЯ] Ошибка подключения:", err.message);
+    });
   } else {
-    console.error("🚨 [БАШНЯ] Родительский сокет не найден!");
-    alert("Ошибка соединения. Вернитесь в город.");
+    setTimeout(initTowerPage, 200);
     return;
   }
   
   window.towerSocket = towerSocket;
+  towerSocket.userId = localPlayer.id;
+
+  // 🔥 ФИКС: сразу показываем HP из кэша
+  updateTowerHpDisplay();
 
   // 🔥 Слушатели Башни
   towerSocket.off('tower_load_game_success');
@@ -52,6 +118,10 @@ function initTowerPage() {
     if (data && data.player) {
       localPlayer = data.player;
       localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+      
+      // 🔥 Обновляем HP после загрузки свежего профиля
+      updateTowerHpDisplay();
+      
       renderTowerInterface();
     }
   });
@@ -87,17 +157,22 @@ function initTowerPage() {
   });
 
   // 🔥 HP регенерирует — обновляем визуально
+  towerSocket.off('town_hp_regen_update');
   towerSocket.on('town_hp_regen_update', (data) => {
     if (!localPlayer) return;
     localPlayer.hp = data.currentHp;
-    const hpEl = document.getElementById('tower-hero-hp');
-    if (hpEl) hpEl.textContent = `❤️ ${data.currentHp} / ${data.maxHp}`;
+    
+    // 🔥 Используем единую функцию обновления
+    updateTowerHpDisplay();
+    
     localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
   });
 
+  // 🔥 Авторизуемся на сервере Башни
   towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
   towerSocket.emit('check_tower_cooldown_request', { userId: localPlayer.id });
 }
+
 window.exitTower = function() {
   // 🔥 НЕ отключаем сокет — он принадлежит родителю!
   if (window.parent && window.parent !== window) {
@@ -106,6 +181,7 @@ window.exitTower = function() {
     window.location.replace('../index.html');
   }
 };
+
 // ============================================================================
 // 🎨 ФУНКЦИЯ ОТРИСОВКИ ЭТАЖЕЙ И ЛАВКИ
 // ============================================================================
@@ -115,7 +191,9 @@ function renderTowerInterface() {
   const goldEl = document.getElementById('tower-wallet-gold');
   if (goldEl) goldEl.textContent = `💰 ${localPlayer.gold} монет`;
 
-  // Считываем этаж. Если колонки еще нет — ставим 1 этаж
+  // 🔥 ФИКС: всегда обновляем HP при рендере
+  updateTowerHpDisplay();
+
   const currentFloor = Number(localPlayer.tower_floor || 1);
 
   // 1. Отрисовка лифта этажей
@@ -141,7 +219,6 @@ function renderTowerInterface() {
         card.style.borderColor = 'rgba(108, 92, 231, 0.5)';
         innerHtml += `<span style="color:#a29bfe; font-size:12px;">⚔️ Текущий вызов</span></div>`;
         
-        // Если тикает КД — кнопка штурма блокируется
         const isBanned = !isCooldownDataLoaded || (activeCooldownEnd && (new Date(activeCooldownEnd) > new Date()));
         innerHtml += `<button onclick="triggerTowerFight(this, ${f})" ${isBanned ? 'disabled' : ''} style="padding:8px 16px; background:${isBanned ? '#222' : '#6c5ce7'}; color:${isBanned ? '#555' : '#fff'}; border:none; border-radius:6px; font-weight:bold; cursor:${isBanned ? 'default' : 'pointer'}; box-shadow:${isBanned ? 'none' : '0 0 10px rgba(108,92,231,0.4)'};">В БОЙ</button>`;
       } 
@@ -183,7 +260,7 @@ function renderTowerInterface() {
   }
 }
 
-// 🔥 [НОВОЕ] ИЗОЛИРОВАННЫЙ КЛИЕНТСКИЙ ТАЙМЕР
+// 🔥 ИЗОЛИРОВАННЫЙ КЛИЕНТСКИЙ ТАЙМЕР
 function runCooldownTimer() {
   const banner = document.getElementById('tower-cooldown-banner');
   const timerText = document.getElementById('cooldown-timer-text');
@@ -223,25 +300,21 @@ window.triggerTowerFight = function(btnElement, floorNumber) {
   console.log(`==================================================`);
   console.log(`🎯 [КЛИК] Игрок инициировал штурм. Этаж: ${floorNumber}`);
   
-  // 1. МГНОВЕННЫЙ АНТИ-СПАМ БАРЬЕР:
-  // Если кнопка уже отключена или у неё статус ожидания — намертво блокируем выполнение!
   if (!btnElement || btnElement.disabled || btnElement.textContent === "⏳...") {
     console.log("🚫 [АНТИ-СПАМ] Повторный клик заблокирован на лету!");
     return;
   }
 
-  // Насильно отключаем кнопку в эту же микросекунду
   btnElement.disabled = true;
   btnElement.textContent = "⏳...";
   btnElement.style.background = "#222";
   btnElement.style.boxShadow = "none";
-  btnElement.style.pointerEvents = "none"; // Полностью отключаем реакцию на тапы смартфона
+  btnElement.style.pointerEvents = "none";
 
   if (!towerSocket || !towerSocket.connected) {
-    console.error("🚨 [КЛИК ОШИБКА] Нет активного сокет-соединения с сервером Башни!");
+    console.error("🚨 [КЛИК ОШИБКА] Нет активного сокет-соединения!");
     updateTowerLog("❌ Нет соединения с сервером!", true);
     
-    // Если сокета нет, возвращаем кнопку в исходное состояние
     btnElement.disabled = false;
     btnElement.textContent = "В БОЙ";
     btnElement.style.background = "#6c5ce7";
