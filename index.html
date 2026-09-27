@@ -139,10 +139,18 @@
     
     <!-- Шапка персонажа на главном экране -->
     <div class="player-header card">
-      <!-- Слот аватарки игрока с плашкой уровня -->
+      <!-- Слот аватарки игрока с плашкой уровня и HP-баром -->
       <div class="player-avatar-slot" id="player-avatar-slot">
         <img id="player-avatar" src="assets/avatars/hero1.png" alt="Аватар">
         <div class="lvl-badge" id="player-lvl-badge">Lv. 1</div>
+        
+        <!-- 🔥 HP-оверлей поверх аватарки -->
+        <div class="hp-overlay">
+          <div class="hp-overlay-bar">
+            <div class="hp-overlay-fill" id="player-hp-fill"></div>
+          </div>
+          <div class="hp-overlay-text" id="player-hp-badge">150 / 150</div>
+        </div>
       </div>
       
       <!-- Мета-данные игрока -->

@@ -163,6 +163,29 @@ function render() {
     mainHpText.textContent = `❤️ ${window.player.hp} / ${window.getMaxHp(window.player)}`;
   }
 
+  // 🔥 HP-бейдж поверх аватарки в городе
+  const hpBadge = document.getElementById('player-hp-badge');
+  const hpFill = document.getElementById('player-hp-fill');
+  const currentMaxHp = window.getMaxHp(window.player);
+  const currentHp = Number(window.player.hp || 0);
+
+  if (hpBadge) {
+    hpBadge.textContent = `${currentHp} / ${currentMaxHp}`;
+  }
+  if (hpFill) {
+    const percent = currentMaxHp > 0 ? (currentHp / currentMaxHp) * 100 : 0;
+    hpFill.style.width = `${percent}%`;
+    
+    // Меняем цвет по уровню HP
+    if (percent > 60) {
+      hpFill.style.background = 'linear-gradient(90deg, #2ecc71, #26de81)';
+    } else if (percent > 30) {
+      hpFill.style.background = 'linear-gradient(90deg, #f1c40f, #e67e22)';
+    } else {
+      hpFill.style.background = 'linear-gradient(90deg, #e74c3c, #c0392b)';
+    }
+  }
+
   // 🔥 ДОПОЛНИТЕЛЬНО: Если на главном экране города у вас есть плашки Атаки и Защиты,
   // этот код мгновенно запишет туда новые измененные шмотками параметры!
   const townAtkEl = document.getElementById('town-player-atk');

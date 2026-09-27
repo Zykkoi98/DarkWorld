@@ -222,6 +222,7 @@ socket.on('connect_error', () => {
     if (typeof callback === 'function') callback(null);
   });
   // 🔥 [ДОБАВЛЕНО] СЛУШАТЕЛЬ ЕЖЕСЕКУНДНОЙ АВТОРЕГЕНЕРАЦИИ ХП В ГОРОДЕ
+// 🔥 [ДОБАВЛЕНО] СЛУШАТЕЛЬ ЕЖЕСЕКУНДНОЙ АВТОРЕГЕНЕРАЦИИ ХП В ГОРОДЕ
   window.socket.on('town_hp_regen_update', (data) => {
     if (!window.player) return;
 
@@ -232,6 +233,26 @@ socket.on('connect_error', () => {
     const mainHpText = document.getElementById('player-hp-text') || document.getElementById('player-hp');
     if (mainHpText) {
       mainHpText.textContent = `❤️ ${data.currentHp} / ${data.maxHp}`;
+    }
+
+    // 🔥 HP-бейдж поверх аватарки в городе
+    const hpBadge = document.getElementById('player-hp-badge');
+    const hpFill = document.getElementById('player-hp-fill');
+
+    if (hpBadge) {
+      hpBadge.textContent = `${data.currentHp} / ${data.maxHp}`;
+    }
+    if (hpFill) {
+      const percent = data.maxHp > 0 ? (data.currentHp / data.maxHp) * 100 : 0;
+      hpFill.style.width = `${percent}%`;
+      
+      if (percent > 60) {
+        hpFill.style.background = 'linear-gradient(90deg, #2ecc71, #26de81)';
+      } else if (percent > 30) {
+        hpFill.style.background = 'linear-gradient(90deg, #f1c40f, #e67e22)';
+      } else {
+        hpFill.style.background = 'linear-gradient(90deg, #e74c3c, #c0392b)';
+      }
     }
 
     // Дополнительно: если на верстке города есть плашка-заливка бара ХП ( progress fill )
