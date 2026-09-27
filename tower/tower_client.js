@@ -149,13 +149,6 @@ function initTowerPage() {
     updateTowerLog(data.message || "🚨 Ошибка", true);
   });
 
-  towerSocket.off('arena_redirect_to_battle');
-  towerSocket.on('arena_redirect_to_battle', (data) => {
-    if (data && data.roomId) {
-      window.location.replace(`../battle/battle.html?roomId=${data.roomId}`);
-    }
-  });
-
   // 🔥 HP регенерирует — обновляем визуально
   towerSocket.off('town_hp_regen_update');
   towerSocket.on('town_hp_regen_update', (data) => {

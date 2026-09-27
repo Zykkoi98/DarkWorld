@@ -83,20 +83,23 @@ function setupSecureDataListeners(callback) {
   // 🔥 НАДЕЖНЫЙ ФИКС: Гарантированно сбрасываем старый боевой редирект
   window.socket.off('arena_redirect_to_battle');
 
-  // 🔥 ГЛОБАЛЬНЫЙ ПЕРЕХВАТЧИК PvP (В КОРНЕ ГОРОДА):
-  // Сокет гарантированно создан и активен. Поймает вызов из любой точки Mini App!
-  window.socket.on('arena_redirect_to_battle', (data) => {
-    console.log("⚔️ [ГЛОБАЛЬНЫЙ ПЕРЕХВАТ] Оппонент принял вызов! Мгновенный переход в бой...");
-    
-    // Очищаем iframe Арены на верхнем уровне, чтобы он не мешал
-    const wrapper = document.getElementById('arena-iframe-wrapper');
-    const frame = document.getElementById('arena-iframe-frame');
-    if (wrapper) wrapper.style.display = 'none';
-    if (frame) frame.src = 'about:blank';
+    window.socket.on('arena_redirect_to_battle', (data) => {
+      console.log("⚔️ [ГЛОБАЛЬНЫЙ ПЕРЕХВАТ] Оппонент принял вызов!");
+      
+      const wrapper = document.getElementById('arena-iframe-wrapper');
+      const frame = document.getElementById('arena-iframe-frame');
+      if (wrapper) wrapper.style.display = 'none';
+      if (frame) frame.src = 'about:blank';
 
-    // Совершаем чистый переход на боевой экран прямо из корня города
-    window.location.href = `battle/battle.html?roomId=${data.roomId}`;
-  });
+      // 🔥 ФИКС 404: абсолютный путь от корня проекта
+      const currentPath = window.location.pathname;
+      let projectRoot = currentPath.replace(/\/[^/]*$/, ''); // убираем имя файла
+      if (currentPath.includes('/shop/')) projectRoot = currentPath.split('/shop/')[0];
+      else if (currentPath.includes('/tower/')) projectRoot = currentPath.split('/tower/')[0];
+      else if (currentPath.includes('/battle/')) projectRoot = currentPath.split('/battle/')[0];
+      
+      window.location.href = `${projectRoot}/battle/battle.html?roomId=${data.roomId}`;
+    });
   // Перехват ошибок распределения характеристик
   window.socket.on('stat_distribution_error', (msg) => {
     alert(`❌ Ошибка сохранения: ${msg}`);

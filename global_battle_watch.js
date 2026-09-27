@@ -32,16 +32,28 @@
       m.style.display = 'none';
     });
 
-    // 3. Определяем правильный путь до battle.html
+    // 🔥 ФИКС 404: определяем корень проекта (папка DarkWorld) и строим путь от него
+    // Это работает в любом окружении: GitHub Pages, localhost, iframe, прямая ссылка
     const currentPath = window.location.pathname;
-    const inSubfolder = currentPath.includes('/shop/') 
-                     || currentPath.includes('/tower/') 
-                     || currentPath.includes('/battle/');
-    
-    const battlePath = inSubfolder ? '../battle/battle.html' : 'battle/battle.html';
-    
-    // 4. Мгновенный редирект
-    window.location.replace(`${battlePath}?roomId=${roomId}`);
+
+    // Ищем корень проекта: до первой известной подпапки (shop/tower/battle) или до конца
+    let projectRoot;
+    if (currentPath.includes('/shop/')) {
+      projectRoot = currentPath.split('/shop/')[0];
+    } else if (currentPath.includes('/tower/')) {
+      projectRoot = currentPath.split('/tower/')[0];
+    } else if (currentPath.includes('/battle/')) {
+      projectRoot = currentPath.split('/battle/')[0];
+    } else {
+      // Мы в корне (index.html)
+      projectRoot = currentPath.replace(/\/[^/]*$/, '');
+    }
+
+    // projectRoot для GitHub Pages = /DarkWorld (или '' если репо в корне домена)
+    const battleUrl = `${projectRoot}/battle/battle.html?roomId=${roomId}`;
+
+    console.log(`🌐 [GLOBAL WATCH] Абсолютный путь до боя: ${battleUrl}`);
+    window.location.replace(battleUrl);
   }
 
   // Экспортируем в глобальный объект — доступно с любой страницы
