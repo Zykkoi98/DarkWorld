@@ -1057,15 +1057,26 @@ function startGame() {
       if (frame) frame.src = 'about:blank'; 
       if (typeof window.render === 'function') window.render();
     }
-        // 🔥 Закрытие Карты мира
+// 🔥 Закрытие Карты мира (ФИКС P0-2: чистим iframe перед выгрузкой)
     if (event.data.type === 'CLOSE_WORLD_OVERLAY') {
       const wrapper = document.getElementById('world-iframe-wrapper');
       const frame = document.getElementById('world-iframe-frame');
+      
+      // 🔥 Сначала просим iframe освободить ресурсы
+      if (frame && frame.contentWindow) {
+        try {
+          frame.contentWindow.postMessage({ type: 'WORLD_WILL_UNLOAD' }, '*');
+        } catch(e) { console.warn("Не удалось послать сигнал выгрузки:", e); }
+      }
+      
       if (wrapper) wrapper.style.display = 'none';
-      if (frame) frame.src = 'about:blank'; 
-      if (typeof window.render === 'function') window.render();
+      
+      // Небольшая задержка, чтобы iframe успел обработать postMessage
+      setTimeout(() => {
+        if (frame) frame.src = 'about:blank';
+        if (typeof window.render === 'function') window.render();
+      }, 100);
     }
-  });
 
   // 🔥 ГЛОБАЛЬНЫЙ ПЕРЕХВАТЧИК PvP (ГЛАВНОЕ ОКНО ИГРЫ):
   // Этот сокет всегда активен. Он поймает вызов, даже если Арена полностью скрыта!

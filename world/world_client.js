@@ -1,6 +1,6 @@
 // ============================================================================
-// ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) =====
-// ===== СО СТРАХОВКОЙ МОДАЛКИ ПЕРЕХОДА =====
+// ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) — v2 =====
+// ===== ФИКСЫ P0: обновление карты + чистка при закрытии =====
 // ============================================================================
 
 let worldSocket = null;
@@ -13,6 +13,9 @@ let moveTimerInterval = null;
 let moveEndsAt = null;
 
 const VIEW_RADIUS = 3;
+
+// 🔥 Именованные обработчики — чтобы можно было точечно снимать
+const handlers = {};
 
 // --- ИНИЦИАЛИЗАЦИЯ ---
 function initWorld() {
@@ -29,105 +32,138 @@ function initWorld() {
     return;
   }
 
-  // 🔥 Помечаем, что игрок на карте
   localStorage.setItem('world_active', 'true');
 
-  // 🔥 ВСЕГДА берём сокет РОДИТЕЛЯ (города). Не создаём свой!
-  if (window.parent && window.parent !== window && window.parent.socket && window.parent.socket.connected) {
-    worldSocket = window.parent.socket;
-    console.log("✅ [МИР] Привязан к сокету родителя (города)");
-  } else {
-    // Резервный вариант — если родителя нет (открыто напрямую)
-    if (typeof io === 'undefined') {
-      alert("Ошибка: Socket.io не загружен!");
-      return;
+  // 🔥 ФИКС: ждём родительский сокет, НЕ создаём свой
+  const parentWin = window.parent;
+  const tryBind = () => {
+    if (parentWin && parentWin !== window && parentWin.socket && parentWin.socket.connected) {
+      worldSocket = parentWin.socket;
+      console.log("✅ [МИР] Привязан к сокету родителя (города)");
+      return true;
     }
-    console.log("⚠️ [МИР] Родителя нет — создаём свой сокет");
-    worldSocket = io('https://darkworld-server.onrender.com', {
-      transports: ['websocket'],
-      forceNew: false,
-      auth: { userId: localPlayer.id }
-    });
-  }
+    return false;
+  };
 
+  if (tryBind()) {
+    startWorldAfterSocket();
+  } else {
+    console.log("⏳ [МИР] Ждём родительский сокет...");
+    let attempts = 0;
+    const waitTimer = setInterval(() => {
+      attempts++;
+      if (tryBind()) {
+        clearInterval(waitTimer);
+        console.log("✅ [МИР] Родительский сокет найден");
+        startWorldAfterSocket();
+      }
+      if (attempts > 100) {
+        clearInterval(waitTimer);
+        console.error("🚨 [МИР] Родительский сокет не найден за 10 сек");
+        alert("❌ Ошибка соединения с городом. Вернитесь в город и попробуйте снова.");
+      }
+    }, 100);
+  }
+}
+
+// --- ОСНОВНАЯ ЛОГИКА ПОСЛЕ ПРИВЯЗКИ К СОКЕТУ ---
+function startWorldAfterSocket() {
   window.worldSocket = worldSocket;
   worldSocket.userId = localPlayer.id;
 
-  // --- СЛУШАТЕЛИ ---
-  worldSocket.off('world_map_data');
-  worldSocket.on('world_map_data', (data) => {
+  // --- СЛУШАТЕЛИ (именованные, чтобы можно было снять) ---
+
+  handlers.world_map_data = (data) => {
     console.log("🎉 [МИР] world_map_data пришёл от сервера!");
     onMapData(data);
-  });
+  };
+  worldSocket.off('world_map_data', handlers.world_map_data);
+  worldSocket.on('world_map_data', handlers.world_map_data);
 
-  worldSocket.off('world_move_started');
-  worldSocket.on('world_move_started', (data) => {
+  handlers.world_move_started = (data) => {
     console.log("🚶 [МИР] Начат переход:", data);
     isMoving = true;
     moveEndsAt = data.endsAt;
     showMoveProgress(data.durationMs);
     blockControls(true);
-  });
+  };
+  worldSocket.off('world_move_started', handlers.world_move_started);
+  worldSocket.on('world_move_started', handlers.world_move_started);
 
-  worldSocket.off('world_move_completed');
-  worldSocket.on('world_move_completed', (data) => {
-    console.log("✅ [МИР] Переход завершён");
+  handlers.world_move_completed = (data) => {
+    console.log("✅ [МИР] Переход завершён, запрашиваем свежую карту");
     isMoving = false;
     moveEndsAt = null;
     hideMoveProgress();
     blockControls(false);
-  });
+    // 🔥 ФИКС P0-1: явно запрашиваем свежую карту
+    if (worldSocket && worldSocket.connected) {
+      worldSocket.emit('world_get_map', { userId: localPlayer.id });
+    }
+  };
+  worldSocket.off('world_move_completed', handlers.world_move_completed);
+  worldSocket.on('world_move_completed', handlers.world_move_completed);
 
-  worldSocket.off('world_move_cancelled');
-  worldSocket.on('world_move_cancelled', () => {
+  handlers.world_move_cancelled = () => {
     console.log("🚫 [МИР] Переход отменён");
     isMoving = false;
     moveEndsAt = null;
     hideMoveProgress();
     blockControls(false);
-  });
+  };
+  worldSocket.off('world_move_cancelled', handlers.world_move_cancelled);
+  worldSocket.on('world_move_cancelled', handlers.world_move_cancelled);
 
-  worldSocket.off('world_move_blocked');
-  worldSocket.on('world_move_blocked', (data) => {
+  handlers.world_move_blocked = (data) => {
     showToast(`🚫 ${data.reason}`, 'error');
     isMoving = false;
     hideMoveProgress();
     blockControls(false);
-  });
+  };
+  worldSocket.off('world_move_blocked', handlers.world_move_blocked);
+  worldSocket.on('world_move_blocked', handlers.world_move_blocked);
 
-  worldSocket.off('world_player_moved');
-  worldSocket.on('world_player_moved', () => {
+  handlers.world_player_moved = () => {
     worldSocket.emit('world_get_map', { userId: localPlayer.id });
-  });
+  };
+  worldSocket.off('world_player_moved', handlers.world_player_moved);
+  worldSocket.on('world_player_moved', handlers.world_player_moved);
 
-  worldSocket.off('world_gathered');
-  worldSocket.on('world_gathered', (data) => {
+  handlers.world_gathered = (data) => {
     showToast(`✅ Собрано: ${data.resourceIcon} ${data.resourceName}`, 'success');
-  });
+  };
+  worldSocket.off('world_gathered', handlers.world_gathered);
+  worldSocket.on('world_gathered', handlers.world_gathered);
 
-  worldSocket.off('world_teleported');
-  worldSocket.on('world_teleported', (data) => {
+  handlers.world_teleported = (data) => {
     showToast(`🌀 Телепорт: ${data.mapName}`, 'info');
-  });
+  };
+  worldSocket.off('world_teleported', handlers.world_teleported);
+  worldSocket.on('world_teleported', handlers.world_teleported);
 
-  worldSocket.off('world_portal_found');
-  worldSocket.on('world_portal_found', () => {
+  handlers.world_portal_found = () => {
     showToast(`🌀 Здесь портал!`, 'info');
-  });
+  };
+  worldSocket.off('world_portal_found', handlers.world_portal_found);
+  worldSocket.on('world_portal_found', handlers.world_portal_found);
 
-  worldSocket.off('world_monster_data');
-  worldSocket.on('world_monster_data', (data) => {
+  handlers.world_monster_data = (data) => {
     console.log("⚔️ Данные моба:", data);
     alert(`⚔️ ${data.monster.name}\nУровень: ${data.monster.level}\n\nБой подключим позже.`);
-  });
+  };
+  worldSocket.off('world_monster_data', handlers.world_monster_data);
+  worldSocket.on('world_monster_data', handlers.world_monster_data);
 
-  worldSocket.off('error');
-  worldSocket.on('error', (msg) => {
+  handlers.error = (msg) => {
     showToast(`🚨 ${msg}`, 'error');
-  });
+  };
+  worldSocket.off('error', handlers.error);
+  worldSocket.on('error', handlers.error);
 
+  // Первый запрос карты
   worldSocket.emit('world_get_map', { userId: localPlayer.id });
 
+  // Скрываем лоадер
   setTimeout(() => {
     const loader = document.getElementById('world-loader');
     if (loader) loader.style.display = 'none';
@@ -148,7 +184,7 @@ function onMapData(data) {
   else if (data.mapId === 'dragonhold_main') document.getElementById('map-name').textContent = 'Драгонхолд';
   else if (data.mapId === 'mine_1') document.getElementById('map-name').textContent = 'Шахта';
 
-  // Восстановление активного перехода
+  // Восстановление активного перехода (для F5)
   if (data.activeMove && data.activeMove.endsAt) {
     const remainingMs = Math.max(0, data.activeMove.endsAt - Date.now());
     if (remainingMs > 0) {
@@ -322,7 +358,6 @@ window.cancelMove = function() {
 
 // --- ВЫХОД ---
 window.exitWorld = function() {
-  // 🔥 Снимаем флаг
   localStorage.removeItem('world_active');
 
   if (window.parent && window.parent !== window) {
@@ -381,17 +416,8 @@ function showMoveProgress(durationMs) {
     if (remaining <= 0) {
       clearInterval(moveTimerInterval);
       moveTimerInterval = null;
-
-      // 🔥 СТРАХОВКА: если через 1.5 сек после окончания модалка ещё висит — скрываем принудительно
-      setTimeout(() => {
-        const modal = document.getElementById('move-progress');
-        if (modal) {
-          console.warn("🔥 [МИР] Принудительное скрытие модалки (страховка)");
-          hideMoveProgress();
-          isMoving = false;
-          blockControls(false);
-        }
-      }, 1500);
+      // ❌ УБРАНО: принудительное скрытие через 1.5 сек
+      // Теперь модалка закроется сама, когда придёт world_move_completed
     }
   }, 100);
 }
@@ -444,5 +470,30 @@ function showToast(message, type = 'info') {
 
   setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
 }
+
+// ============================================================================
+// 🔥 ФИКС P0-2: очистка подписок при закрытии iframe
+// ============================================================================
+window.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'WORLD_WILL_UNLOAD') {
+    console.log("🧹 [МИР] Получен сигнал выгрузки, чистим подписки");
+    if (worldSocket) {
+      // Снимаем ВСЕ именованные обработчики
+      Object.keys(handlers).forEach(eventName => {
+        try {
+          worldSocket.off(eventName, handlers[eventName]);
+        } catch (e) {}
+      });
+      // НЕ отключаем сам сокет — он родительский!
+      console.log("✅ [МИР] Все подписки сняты, сокет родителя сохранён");
+    }
+    // Очищаем таймеры
+    if (moveTimerInterval) {
+      clearInterval(moveTimerInterval);
+      moveTimerInterval = null;
+    }
+    localStorage.removeItem('world_active');
+  }
+});
 
 document.addEventListener('DOMContentLoaded', initWorld);
