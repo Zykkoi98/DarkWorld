@@ -1,6 +1,6 @@
 // ============================================================================
 // ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) =====
-// ===== С ЗАДЕРЖКОЙ ПЕРЕХОДА 15 СЕКУНД + МГНОВЕННОЙ БЛОКИРОВКОЙ КНОПОК =====
+// ===== СО СТРАХОВКОЙ МОДАЛКИ ПЕРЕХОДА =====
 // ============================================================================
 
 let worldSocket = null;
@@ -29,19 +29,25 @@ function initWorld() {
     return;
   }
 
+  // 🔥 Помечаем, что игрок на карте
+  localStorage.setItem('world_active', 'true');
+
+  // 🔥 ВСЕГДА берём сокет РОДИТЕЛЯ (города). Не создаём свой!
   if (window.parent && window.parent !== window && window.parent.socket && window.parent.socket.connected) {
     worldSocket = window.parent.socket;
     console.log("✅ [МИР] Привязан к сокету родителя (города)");
-  } else if (typeof io !== 'undefined') {
+  } else {
+    // Резервный вариант — если родителя нет (открыто напрямую)
+    if (typeof io === 'undefined') {
+      alert("Ошибка: Socket.io не загружен!");
+      return;
+    }
+    console.log("⚠️ [МИР] Родителя нет — создаём свой сокет");
     worldSocket = io('https://darkworld-server.onrender.com', {
       transports: ['websocket'],
       forceNew: false,
       auth: { userId: localPlayer.id }
     });
-    console.log("⚠️ [МИР] Создан свой сокет");
-  } else {
-    alert("Ошибка: Socket.io не загружен!");
-    return;
   }
 
   window.worldSocket = worldSocket;
@@ -106,7 +112,7 @@ function initWorld() {
 
   worldSocket.off('world_portal_found');
   worldSocket.on('world_portal_found', () => {
-    showToast(`🌀 Здесь портал! Нажми «Войти»`, 'info');
+    showToast(`🌀 Здесь портал!`, 'info');
   });
 
   worldSocket.off('world_monster_data');
@@ -142,6 +148,7 @@ function onMapData(data) {
   else if (data.mapId === 'dragonhold_main') document.getElementById('map-name').textContent = 'Драгонхолд';
   else if (data.mapId === 'mine_1') document.getElementById('map-name').textContent = 'Шахта';
 
+  // Восстановление активного перехода
   if (data.activeMove && data.activeMove.endsAt) {
     const remainingMs = Math.max(0, data.activeMove.endsAt - Date.now());
     if (remainingMs > 0) {
@@ -297,7 +304,6 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
 window.moveWorld = function(dx, dy) {
   if (!worldSocket || !localPlayer) return;
 
-  // 🔥 МГНОВЕННАЯ БЛОКИРОВКА (до ответа сервера!)
   if (isMoving) {
     showToast('🚫 Вы уже в пути!', 'error');
     return;
@@ -316,6 +322,9 @@ window.cancelMove = function() {
 
 // --- ВЫХОД ---
 window.exitWorld = function() {
+  // 🔥 Снимаем флаг
+  localStorage.removeItem('world_active');
+
   if (window.parent && window.parent !== window) {
     window.parent.postMessage({ type: 'CLOSE_WORLD_OVERLAY' }, '*');
   } else {
@@ -372,6 +381,17 @@ function showMoveProgress(durationMs) {
     if (remaining <= 0) {
       clearInterval(moveTimerInterval);
       moveTimerInterval = null;
+
+      // 🔥 СТРАХОВКА: если через 1.5 сек после окончания модалка ещё висит — скрываем принудительно
+      setTimeout(() => {
+        const modal = document.getElementById('move-progress');
+        if (modal) {
+          console.warn("🔥 [МИР] Принудительное скрытие модалки (страховка)");
+          hideMoveProgress();
+          isMoving = false;
+          blockControls(false);
+        }
+      }, 1500);
     }
   }, 100);
 }
