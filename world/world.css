@@ -37,7 +37,7 @@ body {
   max-width: 460px;
   aspect-ratio: 1 / 1;
   /* 🔥 Фон карты с большим масштабом — будем двигать */
-  background-image: url('../assets/maps/world_ashenval_background.png');
+  background-image: url('../assets/maps/world_ashenval_background.jpg');
   background-size: 714% 714%; /* 50 / 7 * 100 = 714% */
   background-position: 50% 50%; /* центр по умолчанию */
   background-repeat: no-repeat;
