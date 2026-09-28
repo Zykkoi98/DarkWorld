@@ -1,5 +1,6 @@
 // ============================================================================
 // ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) =====
+// ===== С ЗАДЕРЖКОЙ ПЕРЕХОДА 15 СЕКУНД =====
 // ============================================================================
 
 let worldSocket = null;
@@ -7,10 +8,14 @@ let localPlayer = null;
 let currentMapData = null;
 let selectedTile = null;
 
+let isMoving = false;
+let moveTimerInterval = null;
+let moveEndsAt = null;
+
 const VIEW_RADIUS = 3;
 const GRID_SIZE = 7;
 
-// --- 1. ИНИЦИАЛИЗАЦИЯ ---
+// --- ИНИЦИАЛИЗАЦИЯ ---
 function initWorld() {
   console.log("🗺️ [МИР] Запуск клиента карты...");
 
@@ -25,7 +30,6 @@ function initWorld() {
     return;
   }
 
-  // Сокет города (родителя) или свой
   if (window.parent && window.parent !== window && window.parent.socket && window.parent.socket.connected) {
     worldSocket = window.parent.socket;
     console.log("✅ [МИР] Привязан к сокету родителя (города)");
@@ -44,18 +48,47 @@ function initWorld() {
   window.worldSocket = worldSocket;
   worldSocket.userId = localPlayer.id;
 
-  // Слушатели
+  // --- СЛУШАТЕЛИ ---
   worldSocket.off('world_map_data');
   worldSocket.on('world_map_data', onMapData);
 
+  worldSocket.off('world_move_started');
+  worldSocket.on('world_move_started', (data) => {
+    console.log("🚶 [МИР] Начат переход:", data);
+    isMoving = true;
+    moveEndsAt = data.endsAt;
+    showMoveProgress(data.durationMs);
+    blockControls(true);
+  });
+
+  worldSocket.off('world_move_completed');
+  worldSocket.on('world_move_completed', (data) => {
+    console.log("✅ [МИР] Переход завершён");
+    isMoving = false;
+    moveEndsAt = null;
+    hideMoveProgress();
+    blockControls(false);
+  });
+
+  worldSocket.off('world_move_cancelled');
+  worldSocket.on('world_move_cancelled', () => {
+    console.log("🚫 [МИР] Переход отменён");
+    isMoving = false;
+    moveEndsAt = null;
+    hideMoveProgress();
+    blockControls(false);
+  });
+
   worldSocket.off('world_move_blocked');
   worldSocket.on('world_move_blocked', (data) => {
-    console.log("🚫 [МИР] Движение заблокировано:", data.reason);
+    showToast(`🚫 ${data.reason}`, 'error');
+    isMoving = false;
+    hideMoveProgress();
+    blockControls(false);
   });
 
   worldSocket.off('world_player_moved');
   worldSocket.on('world_player_moved', () => {
-    // Просто обновляем карту — другой игрок сдвинулся
     worldSocket.emit('world_get_map', { userId: localPlayer.id });
   });
 
@@ -70,14 +103,14 @@ function initWorld() {
   });
 
   worldSocket.off('world_portal_found');
-  worldSocket.on('world_portal_found', (data) => {
+  worldSocket.on('world_portal_found', () => {
     showToast(`🌀 Здесь портал! Нажми «Войти»`, 'info');
   });
 
   worldSocket.off('world_monster_data');
   worldSocket.on('world_monster_data', (data) => {
     console.log("⚔️ Данные моба:", data);
-    alert(`⚔️ ${data.monster.name}\nHP: неизвестно\nУровень: ${data.monster.level}\n\nБой подключим позже.`);
+    alert(`⚔️ ${data.monster.name}\nУровень: ${data.monster.level}\n\nБой подключим позже.`);
   });
 
   worldSocket.off('error');
@@ -85,36 +118,43 @@ function initWorld() {
     showToast(`🚨 ${msg}`, 'error');
   });
 
-  // Запрашиваем карту
   worldSocket.emit('world_get_map', { userId: localPlayer.id });
 
-  // Скрываем лоадер через 1 сек (на случай медленной загрузки)
   setTimeout(() => {
     const loader = document.getElementById('world-loader');
     if (loader) loader.style.display = 'none';
   }, 1500);
 }
 
-// --- 2. ОБРАБОТКА ДАННЫХ КАРТЫ ---
+// --- ОБРАБОТКА ДАННЫХ КАРТЫ ---
 function onMapData(data) {
   console.log("🗺️ [МИР] Карта получена:", data);
   currentMapData = data;
 
-  // Скрываем лоадер
   const loader = document.getElementById('world-loader');
   if (loader) loader.style.display = 'none';
 
-  // Обновляем шапку
   document.getElementById('pos-x').textContent = data.myX;
   document.getElementById('pos-y').textContent = data.myY;
   if (data.mapId === 'ashenvale_main') document.getElementById('map-name').textContent = 'Ашенваль';
   else if (data.mapId === 'dragonhold_main') document.getElementById('map-name').textContent = 'Драгонхолд';
   else if (data.mapId === 'mine_1') document.getElementById('map-name').textContent = 'Шахта';
 
+  // Если был активный переход (после F5) — восстанавливаем таймер
+  if (data.activeMove && data.activeMove.endsAt) {
+    const remainingMs = Math.max(0, data.activeMove.endsAt - Date.now());
+    if (remainingMs > 0) {
+      isMoving = true;
+      moveEndsAt = data.activeMove.endsAt;
+      showMoveProgress(remainingMs);
+      blockControls(true);
+    }
+  }
+
   renderMap(data);
 }
 
-// --- 3. РЕНДЕР СЕТКИ 7×7 ---
+// --- РЕНДЕР СЕТКИ ---
 function renderMap(data) {
   const grid = document.getElementById('world-map-grid');
   if (!grid) return;
@@ -123,7 +163,6 @@ function renderMap(data) {
 
   const { myX, myY, tiles, resources, monsters, players, resourcesDB, regionsDB, buildingsDB } = data;
 
-  // Индексация по координатам
   const tileMap = {};
   tiles.forEach(t => { tileMap[`${t.x}_${t.y}`] = t; });
 
@@ -136,7 +175,6 @@ function renderMap(data) {
   const playerMap = {};
   players.forEach(p => { playerMap[`${p.x}_${p.y}`] = p; });
 
-  // Отрисовка сетки
   for (let dy = -VIEW_RADIUS; dy <= VIEW_RADIUS; dy++) {
     for (let dx = -VIEW_RADIUS; dx <= VIEW_RADIUS; dx++) {
       const x = myX + dx;
@@ -152,43 +190,35 @@ function renderMap(data) {
       cell.dataset.x = x;
       cell.dataset.y = y;
 
-      // Регион (фон)
       if (tile && tile.region) {
         cell.classList.add(`region-${tile.region}`);
       }
 
-      // Центральная клетка — игрок
       if (dx === 0 && dy === 0) {
         cell.classList.add('center-tile');
         cell.innerHTML = '<span class="player-icon">👤</span>';
       }
-      // Другой игрок
       else if (otherPlayer) {
         cell.innerHTML = `<span class="other-player">🟢</span>`;
         cell.title = otherPlayer.name;
       }
-      // Моб
       else if (monster && monster.monster_id) {
         cell.innerHTML = `<span class="monster-icon">👹</span>`;
         cell.title = `Моб ${monster.level} ур.`;
       }
-      // Ресурс
       else if (resource && resource.resource_id) {
         const rData = resourcesDB[resource.resource_id];
         cell.innerHTML = `<span class="resource-icon">${rData ? rData.icon : '🌿'}</span>`;
       }
-      // Строение
       else if (tile && tile.building) {
         const bData = buildingsDB[tile.building];
         cell.innerHTML = `<span class="building-icon">${bData ? bData.icon : '🏛️'}</span>`;
       }
-      // Регион (эмодзи региона)
       else if (tile && tile.region) {
         const rData = regionsDB[tile.region];
         cell.innerHTML = `<span style="opacity: 0.4; font-size: 18px;">${rData ? rData.icon : ''}</span>`;
       }
 
-      // Клик по клетке
       cell.onclick = () => onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy);
 
       grid.appendChild(cell);
@@ -196,7 +226,7 @@ function renderMap(data) {
   }
 }
 
-// --- 4. КЛИК ПО КЛЕТКЕ ---
+// --- КЛИК ПО КЛЕТКЕ ---
 function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
   selectedTile = { x, y, tile, resource, monster, otherPlayer, dx, dy };
 
@@ -206,10 +236,22 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
 
   if (dx === 0 && dy === 0) {
     infoDiv.innerHTML = '<div style="color: #f1c40f; font-weight: bold;">📍 Вы здесь</div>';
+
+    // Сбор ресурса под ногами
+    if (resource && resource.resource_id) {
+      const rData = currentMapData.resourcesDB[resource.resource_id];
+      infoDiv.innerHTML += `<div style="color: #2ecc71; font-size: 12px; margin-top: 4px;">${rData.icon} ${rData.name}</div>`;
+      const btn = document.createElement('button');
+      btn.className = 'action-btn gather';
+      btn.textContent = '🌿 Собрать';
+      btn.onclick = () => {
+        worldSocket.emit('world_gather', { userId: localPlayer.id });
+      };
+      actionsDiv.appendChild(btn);
+    }
     return;
   }
 
-  // Формируем описание клетки
   let infoHtml = '';
   if (tile && tile.region) {
     const rData = currentMapData.regionsDB[tile.region];
@@ -231,8 +273,6 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
   }
   infoDiv.innerHTML = infoHtml || '<div style="color: #9aa0b5; font-size: 12px;">Пустая клетка</div>';
 
-  // Кнопки действий
-  // Атака моба
   if (monster) {
     const btn = document.createElement('button');
     btn.className = 'action-btn attack';
@@ -243,27 +283,32 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
     actionsDiv.appendChild(btn);
   }
 
-  // Если соседняя — движение
   const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
   if (isAdjacent) {
     const moveBtn = document.createElement('button');
     moveBtn.className = 'action-btn move';
-    moveBtn.textContent = '🚶 Перейти';
+    moveBtn.textContent = '🚶 Перейти (15с)';
     moveBtn.onclick = () => moveWorld(dx, dy);
     actionsDiv.appendChild(moveBtn);
   }
-
-  // Сбор ресурса (только на своей клетке — но её уже обработали выше)
-  // Порталы и строения — на клетке, где игрок
 }
 
-// --- 5. ДВИЖЕНИЕ ---
+// --- ДВИЖЕНИЕ ---
 window.moveWorld = function(dx, dy) {
   if (!worldSocket || !localPlayer) return;
-  worldSocket.emit('world_move', { userId: localPlayer.id, dx, dy });
+  if (isMoving) {
+    showToast('🚫 Вы уже в пути!', 'error');
+    return;
+  }
+  worldSocket.emit('world_move_start', { userId: localPlayer.id, dx, dy });
 };
 
-// --- 6. ВЫХОД ---
+window.cancelMove = function() {
+  if (!worldSocket || !localPlayer) return;
+  worldSocket.emit('world_move_cancel', { userId: localPlayer.id });
+};
+
+// --- ВЫХОД ---
 window.exitWorld = function() {
   if (window.parent && window.parent !== window) {
     window.parent.postMessage({ type: 'CLOSE_WORLD_OVERLAY' }, '*');
@@ -272,7 +317,80 @@ window.exitWorld = function() {
   }
 };
 
-// --- 7. ТОСТ УВЕДОМЛЕНИЯ ---
+// --- ПРОГРЕСС ПЕРЕХОДА ---
+function showMoveProgress(durationMs) {
+  const old = document.getElementById('move-progress');
+  if (old) old.remove();
+
+  const container = document.createElement('div');
+  container.id = 'move-progress';
+  container.style.cssText = `
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    border: 2px solid #6c5ce7;
+    border-radius: 16px;
+    padding: 20px 30px;
+    z-index: 9999;
+    text-align: center;
+    min-width: 220px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  `;
+
+  container.innerHTML = `
+    <div style="font-size: 32px; margin-bottom: 8px;">🚶‍♂️</div>
+    <div style="font-weight: bold; color: #fff; margin-bottom: 12px;">Переход в пути...</div>
+    <div style="background: rgba(255,255,255,0.1); border-radius: 6px; height: 8px; overflow: hidden; margin-bottom: 8px;">
+      <div id="move-progress-fill" style="height: 100%; width: 0%; background: linear-gradient(90deg, #6c5ce7, #a29bfe); transition: width 0.1s linear;"></div>
+    </div>
+    <div id="move-progress-time" style="font-size: 18px; font-weight: bold; color: #f1c40f; font-family: monospace;">15.0с</div>
+    <button onclick="window.cancelMove()" style="margin-top: 12px; background: #e74c3c; border: none; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer;">Отменить</button>
+  `;
+
+  document.body.appendChild(container);
+
+  const fill = document.getElementById('move-progress-fill');
+  const timeEl = document.getElementById('move-progress-time');
+  const startTime = Date.now();
+  const totalDuration = durationMs;
+
+  if (moveTimerInterval) clearInterval(moveTimerInterval);
+  moveTimerInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const percent = Math.min(100, (elapsed / totalDuration) * 100);
+    const remaining = Math.max(0, (totalDuration - elapsed) / 1000);
+
+    if (fill) fill.style.width = `${percent}%`;
+    if (timeEl) timeEl.textContent = `${remaining.toFixed(1)}с`;
+
+    if (remaining <= 0) {
+      clearInterval(moveTimerInterval);
+      moveTimerInterval = null;
+    }
+  }, 100);
+}
+
+function hideMoveProgress() {
+  if (moveTimerInterval) {
+    clearInterval(moveTimerInterval);
+    moveTimerInterval = null;
+  }
+  const el = document.getElementById('move-progress');
+  if (el) el.remove();
+}
+
+function blockControls(blocked) {
+  ['btn-up', 'btn-down', 'btn-left', 'btn-right'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.disabled = blocked;
+      btn.style.opacity = blocked ? '0.3' : '1';
+      btn.style.pointerEvents = blocked ? 'none' : 'auto';
+    }
+  });
+}
+
+// --- ТОСТ ---
 function showToast(message, type = 'info') {
   const old = document.getElementById('world-toast');
   if (old) old.remove();
@@ -294,7 +412,6 @@ function showToast(message, type = 'info') {
     box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     z-index: 99999; text-align: center;
     max-width: 320px; font-family: sans-serif;
-    animation: toastFade 0.3s ease;
   `;
   toast.textContent = message;
   document.body.appendChild(toast);
@@ -302,5 +419,4 @@ function showToast(message, type = 'info') {
   setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
 }
 
-// --- 8. СТАРТ ---
 document.addEventListener('DOMContentLoaded', initWorld);
