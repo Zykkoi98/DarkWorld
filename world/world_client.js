@@ -1,6 +1,6 @@
 // ============================================================================
 // ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) =====
-// ===== С ЗАДЕРЖКОЙ ПЕРЕХОДА 15 СЕКУНД =====
+// ===== С ЗАДЕРЖКОЙ ПЕРЕХОДА 15 СЕКУНД + МГНОВЕННОЙ БЛОКИРОВКОЙ КНОПОК =====
 // ============================================================================
 
 let worldSocket = null;
@@ -13,7 +13,6 @@ let moveTimerInterval = null;
 let moveEndsAt = null;
 
 const VIEW_RADIUS = 3;
-const GRID_SIZE = 7;
 
 // --- ИНИЦИАЛИЗАЦИЯ ---
 function initWorld() {
@@ -30,26 +29,28 @@ function initWorld() {
     return;
   }
 
- // 🔥 ВСЕГДА создаём свой сокет для карты мира
-  if (typeof io === 'undefined') {
+  if (window.parent && window.parent !== window && window.parent.socket && window.parent.socket.connected) {
+    worldSocket = window.parent.socket;
+    console.log("✅ [МИР] Привязан к сокету родителя (города)");
+  } else if (typeof io !== 'undefined') {
+    worldSocket = io('https://darkworld-server.onrender.com', {
+      transports: ['websocket'],
+      forceNew: false,
+      auth: { userId: localPlayer.id }
+    });
+    console.log("⚠️ [МИР] Создан свой сокет");
+  } else {
     alert("Ошибка: Socket.io не загружен!");
     return;
   }
-
-  worldSocket = io('https://darkworld-server.onrender.com', {
-    transports: ['websocket'],
-    forceNew: false,
-    auth: { userId: localPlayer.id }
-  });
-  console.log("✅ [МИР] Создан свой сокет для карты мира");
 
   window.worldSocket = worldSocket;
   worldSocket.userId = localPlayer.id;
 
   // --- СЛУШАТЕЛИ ---
- worldSocket.off('world_map_data');
+  worldSocket.off('world_map_data');
   worldSocket.on('world_map_data', (data) => {
-    console.log("🎉 [МИР] world_map_data пришёл от сервера!", data);
+    console.log("🎉 [МИР] world_map_data пришёл от сервера!");
     onMapData(data);
   });
 
@@ -119,29 +120,12 @@ function initWorld() {
     showToast(`🚨 ${msg}`, 'error');
   });
 
- // 🔥 Ждём подключения, регистрируемся и запрашиваем карту
-  worldSocket.on('connect', () => {
-    console.log("✅ [МИР] Свой сокет подключён:", worldSocket.id);
-
-    // Регистрируемся в регене (чтобы сервер знал про игрока)
-    worldSocket.emit('load_game_secure', {
-      userId: localPlayer.id,
-      username: localPlayer.name
-    });
-
-    // Запрашиваем карту
-    worldSocket.emit('world_get_map', { userId: localPlayer.id });
-    console.log("📤 [МИР] Отправили world_get_map для userId:", localPlayer.id);
-  });
-
-  worldSocket.on('connect_error', (err) => {
-    console.error("🚨 [МИР] Ошибка подключения сокета:", err.message);
-  });
+  worldSocket.emit('world_get_map', { userId: localPlayer.id });
 
   setTimeout(() => {
     const loader = document.getElementById('world-loader');
     if (loader) loader.style.display = 'none';
-  }, 2000);
+  }, 1500);
 }
 
 // --- ОБРАБОТКА ДАННЫХ КАРТЫ ---
@@ -158,7 +142,6 @@ function onMapData(data) {
   else if (data.mapId === 'dragonhold_main') document.getElementById('map-name').textContent = 'Драгонхолд';
   else if (data.mapId === 'mine_1') document.getElementById('map-name').textContent = 'Шахта';
 
-  // Если был активный переход (после F5) — восстанавливаем таймер
   if (data.activeMove && data.activeMove.endsAt) {
     const remainingMs = Math.max(0, data.activeMove.endsAt - Date.now());
     if (remainingMs > 0) {
@@ -255,7 +238,6 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
   if (dx === 0 && dy === 0) {
     infoDiv.innerHTML = '<div style="color: #f1c40f; font-weight: bold;">📍 Вы здесь</div>';
 
-    // Сбор ресурса под ногами
     if (resource && resource.resource_id) {
       const rData = currentMapData.resourcesDB[resource.resource_id];
       infoDiv.innerHTML += `<div style="color: #2ecc71; font-size: 12px; margin-top: 4px;">${rData.icon} ${rData.name}</div>`;
@@ -314,10 +296,16 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
 // --- ДВИЖЕНИЕ ---
 window.moveWorld = function(dx, dy) {
   if (!worldSocket || !localPlayer) return;
+
+  // 🔥 МГНОВЕННАЯ БЛОКИРОВКА (до ответа сервера!)
   if (isMoving) {
     showToast('🚫 Вы уже в пути!', 'error');
     return;
   }
+  isMoving = true;
+  blockControls(true);
+  showMoveProgress(15000);
+
   worldSocket.emit('world_move_start', { userId: localPlayer.id, dx, dy });
 };
 
