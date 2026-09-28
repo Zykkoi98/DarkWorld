@@ -1,6 +1,6 @@
 // ============================================================================
-// ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) — v2 =====
-// ===== ФИКСЫ P0: обновление карты + чистка при закрытии =====
+// ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) — v3 =====
+// ===== ФИКСЫ: таймер без прыжка, клик по клетке, инфо-панель, защита =====
 // ============================================================================
 
 let worldSocket = null;
@@ -14,7 +14,7 @@ let moveEndsAt = null;
 
 const VIEW_RADIUS = 3;
 
-// 🔥 Именованные обработчики — чтобы можно было точечно снимать
+// 🔥 Именованные обработчики
 const handlers = {};
 
 // --- ИНИЦИАЛИЗАЦИЯ ---
@@ -34,7 +34,6 @@ function initWorld() {
 
   localStorage.setItem('world_active', 'true');
 
-  // 🔥 ФИКС: ждём родительский сокет, НЕ создаём свой
   const parentWin = window.parent;
   const tryBind = () => {
     if (parentWin && parentWin !== window && parentWin.socket && parentWin.socket.connected) {
@@ -66,12 +65,12 @@ function initWorld() {
   }
 }
 
-// --- ОСНОВНАЯ ЛОГИКА ПОСЛЕ ПРИВЯЗКИ К СОКЕТУ ---
+// --- ОСНОВНАЯ ЛОГИКА ---
 function startWorldAfterSocket() {
   window.worldSocket = worldSocket;
   worldSocket.userId = localPlayer.id;
 
-  // --- СЛУШАТЕЛИ (именованные, чтобы можно было снять) ---
+  // --- СЛУШАТЕЛИ ---
 
   handlers.world_map_data = (data) => {
     console.log("🎉 [МИР] world_map_data пришёл от сервера!");
@@ -80,10 +79,12 @@ function startWorldAfterSocket() {
   worldSocket.off('world_map_data', handlers.world_map_data);
   worldSocket.on('world_map_data', handlers.world_map_data);
 
+  // 🔥 ФИКС: таймер стартует ТОЛЬКО здесь, а не при клике
   handlers.world_move_started = (data) => {
     console.log("🚶 [МИР] Начат переход:", data);
     isMoving = true;
     moveEndsAt = data.endsAt;
+    // Запускаем визуальный таймер ровно на durationMs (клиент уже ждал до этого)
     showMoveProgress(data.durationMs);
     blockControls(true);
   };
@@ -96,7 +97,6 @@ function startWorldAfterSocket() {
     moveEndsAt = null;
     hideMoveProgress();
     blockControls(false);
-    // 🔥 ФИКС P0-1: явно запрашиваем свежую карту
     if (worldSocket && worldSocket.connected) {
       worldSocket.emit('world_get_map', { userId: localPlayer.id });
     }
@@ -160,10 +160,8 @@ function startWorldAfterSocket() {
   worldSocket.off('error', handlers.error);
   worldSocket.on('error', handlers.error);
 
-  // Первый запрос карты
   worldSocket.emit('world_get_map', { userId: localPlayer.id });
 
-  // Скрываем лоадер
   setTimeout(() => {
     const loader = document.getElementById('world-loader');
     if (loader) loader.style.display = 'none';
@@ -193,6 +191,10 @@ function onMapData(data) {
       showMoveProgress(remainingMs);
       blockControls(true);
     }
+  } else {
+    // Если перехода нет — разблокируем управление (могло остаться с прошлого раза)
+    isMoving = false;
+    blockControls(false);
   }
 
   renderMap(data);
@@ -238,6 +240,12 @@ function renderMap(data) {
         cell.classList.add(`region-${tile.region}`);
       }
 
+      // 🔥 ФИКС: подсветка соседних клеток (можно перейти)
+      const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
+      if (isAdjacent) {
+        cell.classList.add('adjacent');
+      }
+
       if (dx === 0 && dy === 0) {
         cell.classList.add('center-tile');
         cell.innerHTML = '<span class="player-icon">👤</span>';
@@ -268,6 +276,61 @@ function renderMap(data) {
       grid.appendChild(cell);
     }
   }
+
+  // 🔥 Автоматически показываем инфо своей клетки при загрузке
+  const myTile = tileMap[`${myX}_${myY}`];
+  const myResource = resourceMap[`${myX}_${myY}`];
+  const myMonster = monsterMap[`${myX}_${myY}`];
+  showMyCellInfo(myTile, myResource, myMonster);
+}
+
+// --- ИНФО-ПАНЕЛЬ СВОЕЙ КЛЕТКИ (внизу) ---
+function showMyCellInfo(tile, resource, monster) {
+  const infoDiv = document.getElementById('tile-info');
+  const actionsDiv = document.getElementById('tile-actions');
+  if (!infoDiv || !actionsDiv) return;
+
+  actionsDiv.innerHTML = '';
+
+  let html = '<div style="color: #f1c40f; font-weight: bold;">📍 Вы здесь</div>';
+
+  if (tile && tile.region) {
+    const rData = currentMapData.regionsDB[tile.region];
+    html += `<div style="font-size: 12px; color: #c8d6e5; margin-top: 4px;">${rData ? rData.icon + ' ' + rData.name : tile.region}</div>`;
+  }
+  if (resource && resource.resource_id) {
+    const rData = currentMapData.resourcesDB[resource.resource_id];
+    if (rData) {
+      html += `<div style="color: #2ecc71; font-size: 12px; margin-top: 2px;">${rData.icon} ${rData.name}</div>`;
+
+      // Кнопка «Собрать»
+      const btn = document.createElement('button');
+      btn.className = 'action-btn gather';
+      btn.textContent = '🌿 Собрать';
+      btn.onclick = () => {
+        worldSocket.emit('world_gather', { userId: localPlayer.id });
+      };
+      actionsDiv.appendChild(btn);
+    }
+  }
+  if (monster && monster.monster_id) {
+    html += `<div style="color: #e74c3c; font-size: 12px; margin-top: 2px;">👹 Моб ${monster.level} ур.</div>`;
+
+    // 🔥 ФИКС: кнопка «Напасть» только если моб на МОЕЙ клетке
+    const btn = document.createElement('button');
+    btn.className = 'action-btn attack';
+    btn.textContent = '⚔️ Напасть';
+    btn.onclick = () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = '⏳...';
+      worldSocket.emit('world_attack', { userId: localPlayer.id, monsterId: monster.id });
+      setTimeout(() => { btn.disabled = false; btn.textContent = '⚔️ Напасть'; }, 2000);
+    };
+    actionsDiv.appendChild(btn);
+  }
+
+  infoDiv.innerHTML = html;
 }
 
 // --- КЛИК ПО КЛЕТКЕ ---
@@ -278,23 +341,13 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
   const actionsDiv = document.getElementById('tile-actions');
   actionsDiv.innerHTML = '';
 
+  // 🔥 Клик по СВОЕЙ клетке — показываем инфо о ней
   if (dx === 0 && dy === 0) {
-    infoDiv.innerHTML = '<div style="color: #f1c40f; font-weight: bold;">📍 Вы здесь</div>';
-
-    if (resource && resource.resource_id) {
-      const rData = currentMapData.resourcesDB[resource.resource_id];
-      infoDiv.innerHTML += `<div style="color: #2ecc71; font-size: 12px; margin-top: 4px;">${rData.icon} ${rData.name}</div>`;
-      const btn = document.createElement('button');
-      btn.className = 'action-btn gather';
-      btn.textContent = '🌿 Собрать';
-      btn.onclick = () => {
-        worldSocket.emit('world_gather', { userId: localPlayer.id });
-      };
-      actionsDiv.appendChild(btn);
-    }
+    showMyCellInfo(tile, resource, monster);
     return;
   }
 
+  // Клик по чужой клетке — показываем инфо о ней + кнопка «Перейти» если соседняя
   let infoHtml = '';
   if (tile && tile.region) {
     const rData = currentMapData.regionsDB[tile.region];
@@ -316,16 +369,7 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
   }
   infoDiv.innerHTML = infoHtml || '<div style="color: #9aa0b5; font-size: 12px;">Пустая клетка</div>';
 
-  if (monster) {
-    const btn = document.createElement('button');
-    btn.className = 'action-btn attack';
-    btn.textContent = '⚔️ Напасть';
-    btn.onclick = () => {
-      worldSocket.emit('world_attack', { userId: localPlayer.id, monsterId: monster.id });
-    };
-    actionsDiv.appendChild(btn);
-  }
-
+  // 🔥 Кнопка «Перейти» только для соседних клеток
   const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
   if (isAdjacent) {
     const moveBtn = document.createElement('button');
@@ -344,9 +388,11 @@ window.moveWorld = function(dx, dy) {
     showToast('🚫 Вы уже в пути!', 'error');
     return;
   }
+
+  // 🔥 ФИКС: НЕ запускаем таймер тут — только помечаем, что переход начался.
+  // Таймер стартует в обработчике world_move_started (когда сервер подтвердит).
   isMoving = true;
   blockControls(true);
-  showMoveProgress(15000);
 
   worldSocket.emit('world_move_start', { userId: localPlayer.id, dx, dy });
 };
@@ -411,13 +457,16 @@ function showMoveProgress(durationMs) {
     const remaining = Math.max(0, (totalDuration - elapsed) / 1000);
 
     if (fill) fill.style.width = `${percent}%`;
-    if (timeEl) timeEl.textContent = `${remaining.toFixed(1)}с`;
 
-    if (remaining <= 0) {
-      clearInterval(moveTimerInterval);
-      moveTimerInterval = null;
-      // ❌ УБРАНО: принудительное скрытие через 1.5 сек
-      // Теперь модалка закроется сама, когда придёт world_move_completed
+    if (remaining > 0) {
+      if (timeEl) timeEl.textContent = `${remaining.toFixed(1)}с`;
+    } else {
+      // 🔥 ФИКС: таймер дошёл до 0, но world_move_completed ещё не пришёл
+      if (timeEl) {
+        timeEl.textContent = 'Синхронизация...';
+        timeEl.style.color = '#3498db';
+        timeEl.style.fontSize = '14px';
+      }
     }
   }, 100);
 }
@@ -432,14 +481,7 @@ function hideMoveProgress() {
 }
 
 function blockControls(blocked) {
-  ['btn-up', 'btn-down', 'btn-left', 'btn-right'].forEach(id => {
-    const btn = document.getElementById(id);
-    if (btn) {
-      btn.disabled = blocked;
-      btn.style.opacity = blocked ? '0.3' : '1';
-      btn.style.pointerEvents = blocked ? 'none' : 'auto';
-    }
-  });
+  // Кнопки стрелок убраны, но функция остаётся для совместимости (ничего не делает)
 }
 
 // --- ТОСТ ---
@@ -471,23 +513,18 @@ function showToast(message, type = 'info') {
   setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
 }
 
-// ============================================================================
-// 🔥 ФИКС P0-2: очистка подписок при закрытии iframe
-// ============================================================================
+// --- ОЧИСТКА ПРИ ЗАКРЫТИИ ---
 window.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'WORLD_WILL_UNLOAD') {
     console.log("🧹 [МИР] Получен сигнал выгрузки, чистим подписки");
     if (worldSocket) {
-      // Снимаем ВСЕ именованные обработчики
       Object.keys(handlers).forEach(eventName => {
         try {
           worldSocket.off(eventName, handlers[eventName]);
         } catch (e) {}
       });
-      // НЕ отключаем сам сокет — он родительский!
       console.log("✅ [МИР] Все подписки сняты, сокет родителя сохранён");
     }
-    // Очищаем таймеры
     if (moveTimerInterval) {
       clearInterval(moveTimerInterval);
       moveTimerInterval = null;

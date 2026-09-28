@@ -171,3 +171,25 @@ body {
 .action-btn.move    { background: #6c5ce7; }
 .action-btn.portal  { background: #9b59b6; }
 .action-btn.enter   { background: #f1c40f; color: #000; }
+/* ============================================================================
+   ===== ✨ ПОДСВЕТКА СОСЕДНИХ КЛЕТОК (для перехода) =====
+   ============================================================================ */
+
+.tile.adjacent {
+  box-shadow: inset 0 0 0 2px rgba(108, 92, 231, 0.7);
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.1s;
+}
+
+.tile.adjacent:hover {
+  box-shadow: inset 0 0 0 2px #a29bfe, 0 0 12px rgba(108, 92, 231, 0.6);
+}
+
+.tile.adjacent:active {
+  transform: scale(0.95);
+}
+
+/* Убираем подсветку со своей клетки */
+.tile.center-tile.adjacent {
+  box-shadow: inset 0 0 12px rgba(241, 196, 15, 0.5);
+}
