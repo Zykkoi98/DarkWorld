@@ -38,12 +38,21 @@
     <div id="world-map-grid"></div>
   </div>
 
-  <!-- ======================= ИНФО-ПАНЕЛЬ ======================= -->
+<!-- ======================= ИНФО-ПАНЕЛЬ (2 КОЛОНКИ) ======================= -->
   <div id="world-info-panel">
-    <div id="tile-info">
-      <div style="color: #9aa0b5; font-size: 12px;">Нажми на клетку рядом с собой</div>
+    <!-- Левая: текущая локация (всегда) -->
+    <div class="info-column" id="my-cell-panel">
+      <div class="info-column-title">📍 Вы здесь</div>
+      <div id="my-cell-info"></div>
+      <div id="my-cell-actions"></div>
     </div>
-    <div id="tile-actions"></div>
+
+    <!-- Правая: выбранная клетка (если не своя) -->
+    <div class="info-column hidden" id="selected-cell-panel">
+      <div class="info-column-title">🔍 Выбрано</div>
+      <div id="selected-cell-info"></div>
+      <div id="selected-cell-actions"></div>
+    </div>
   </div>
 
   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>

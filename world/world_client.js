@@ -129,9 +129,13 @@ function startWorldAfterSocket() {
   worldSocket.off('world_player_moved', handlers.world_player_moved);
   worldSocket.on('world_player_moved', handlers.world_player_moved);
 
-  handlers.world_gathered = (data) => {
-    showToast(`✅ Собрано: ${data.resourceIcon} ${data.resourceName}`, 'success');
-  };
+ handlers.world_gathered = (data) => {
+  showToast(`✅ Собрано: ${data.resourceIcon} ${data.resourceName}`, 'success');
+  // 🔥 ФИКС: явно запрашиваем свежую карту, чтобы ресурс исчез
+  if (worldSocket && worldSocket.connected) {
+    worldSocket.emit('world_get_map', { userId: localPlayer.id });
+  }
+};
   worldSocket.off('world_gathered', handlers.world_gathered);
   worldSocket.on('world_gathered', handlers.world_gathered);
 
@@ -220,7 +224,10 @@ function renderMap(data) {
 
   const playerMap = {};
   players.forEach(p => { playerMap[`${p.x}_${p.y}`] = p; });
-
+        // 🔥 Сохраняем ссылки на карты для onTileClick
+    window.currentTileMap = tileMap;
+    window.currentResourceMap = resourceMap;
+    window.currentMonsterMap = monsterMap;
   for (let dy = -VIEW_RADIUS; dy <= VIEW_RADIUS; dy++) {
     for (let dx = -VIEW_RADIUS; dx <= VIEW_RADIUS; dx++) {
       const x = myX + dx;
@@ -277,46 +284,60 @@ function renderMap(data) {
     }
   }
 
-  // 🔥 Автоматически показываем инфо своей клетки при загрузке
+ // 🔥 Автоматически показываем инфо своей клетки при загрузке
   const myTile = tileMap[`${myX}_${myY}`];
   const myResource = resourceMap[`${myX}_${myY}`];
   const myMonster = monsterMap[`${myX}_${myY}`];
   showMyCellInfo(myTile, myResource, myMonster);
+
+  // 🔥 Правая колонка по умолчанию скрыта
+  const selectedPanel = document.getElementById('selected-cell-panel');
+  if (selectedPanel) selectedPanel.classList.add('hidden');
 }
 
-// --- ИНФО-ПАНЕЛЬ СВОЕЙ КЛЕТКИ (внизу) ---
+// --- ИНФО-ПАНЕЛЬ СВОЕЙ КЛЕТКИ (левая колонка) ---
 function showMyCellInfo(tile, resource, monster) {
-  const infoDiv = document.getElementById('tile-info');
-  const actionsDiv = document.getElementById('tile-actions');
-  if (!infoDiv || !actionsDiv) return;
+  const myInfo = document.getElementById('my-cell-info');
+  const myActions = document.getElementById('my-cell-actions');
+  if (!myInfo || !myActions) return;
 
-  actionsDiv.innerHTML = '';
+  myActions.innerHTML = '';
 
-  let html = '<div style="color: #f1c40f; font-weight: bold;">📍 Вы здесь</div>';
-
+  let html = '';
   if (tile && tile.region) {
     const rData = currentMapData.regionsDB[tile.region];
-    html += `<div style="font-size: 12px; color: #c8d6e5; margin-top: 4px;">${rData ? rData.icon + ' ' + rData.name : tile.region}</div>`;
+    html += `<div>${rData ? rData.icon + ' ' + rData.name : tile.region}</div>`;
   }
   if (resource && resource.resource_id) {
     const rData = currentMapData.resourcesDB[resource.resource_id];
-    if (rData) {
-      html += `<div style="color: #2ecc71; font-size: 12px; margin-top: 2px;">${rData.icon} ${rData.name}</div>`;
+    if (rData) html += `<div style="color: #2ecc71;">${rData.icon} ${rData.name}</div>`;
+  }
+  if (monster && monster.monster_id) {
+    html += `<div style="color: #e74c3c;">👹 Моб ${monster.level} ур.</div>`;
+  }
+  if (!html) html = '<div style="color: #9aa0b5;">Пусто</div>';
 
-      // Кнопка «Собрать»
+  myInfo.innerHTML = html;
+
+  // Кнопки действий для своей клетки
+  if (resource && resource.resource_id) {
+    const rData = currentMapData.resourcesDB[resource.resource_id];
+    if (rData) {
       const btn = document.createElement('button');
       btn.className = 'action-btn gather';
       btn.textContent = '🌿 Собрать';
       btn.onclick = () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.textContent = '⏳...';
         worldSocket.emit('world_gather', { userId: localPlayer.id });
+        setTimeout(() => { btn.disabled = false; btn.textContent = '🌿 Собрать'; }, 2000);
       };
-      actionsDiv.appendChild(btn);
+      myActions.appendChild(btn);
     }
   }
-  if (monster && monster.monster_id) {
-    html += `<div style="color: #e74c3c; font-size: 12px; margin-top: 2px;">👹 Моб ${monster.level} ур.</div>`;
 
-    // 🔥 ФИКС: кнопка «Напасть» только если моб на МОЕЙ клетке
+  if (monster && monster.monster_id) {
     const btn = document.createElement('button');
     btn.className = 'action-btn attack';
     btn.textContent = '⚔️ Напасть';
@@ -327,57 +348,74 @@ function showMyCellInfo(tile, resource, monster) {
       worldSocket.emit('world_attack', { userId: localPlayer.id, monsterId: monster.id });
       setTimeout(() => { btn.disabled = false; btn.textContent = '⚔️ Напасть'; }, 2000);
     };
-    actionsDiv.appendChild(btn);
+    myActions.appendChild(btn);
   }
-
-  infoDiv.innerHTML = html;
 }
 
-// --- КЛИК ПО КЛЕТКЕ ---
-function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
-  selectedTile = { x, y, tile, resource, monster, otherPlayer, dx, dy };
+// --- ИНФО-ПАНЕЛЬ ВЫБРАННОЙ КЛЕТКИ (правая колонка) ---
+function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy) {
+  const panel = document.getElementById('selected-cell-panel');
+  const selInfo = document.getElementById('selected-cell-info');
+  const selActions = document.getElementById('selected-cell-actions');
+  if (!panel || !selInfo || !selActions) return;
 
-  const infoDiv = document.getElementById('tile-info');
-  const actionsDiv = document.getElementById('tile-actions');
-  actionsDiv.innerHTML = '';
-
-  // 🔥 Клик по СВОЕЙ клетке — показываем инфо о ней
+  // Если это своя клетка — скрываем правую колонку
   if (dx === 0 && dy === 0) {
-    showMyCellInfo(tile, resource, monster);
+    panel.classList.add('hidden');
     return;
   }
 
-  // Клик по чужой клетке — показываем инфо о ней + кнопка «Перейти» если соседняя
-  let infoHtml = '';
+  panel.classList.remove('hidden');
+  selActions.innerHTML = '';
+
+  let html = '';
   if (tile && tile.region) {
     const rData = currentMapData.regionsDB[tile.region];
-    infoHtml += `<div style="font-weight: bold; font-size: 14px;">${rData ? rData.icon : ''} ${rData ? rData.name : tile.region}</div>`;
+    html += `<div style="font-weight: bold;">${rData ? rData.icon + ' ' + rData.name : tile.region}</div>`;
   }
   if (monster) {
-    infoHtml += `<div style="color: #e74c3c; font-size: 12px;">👹 Моб ${monster.level} ур.</div>`;
+    html += `<div style="color: #e74c3c;">👹 Моб ${monster.level} ур.</div>`;
   }
   if (resource && resource.resource_id) {
     const rData = currentMapData.resourcesDB[resource.resource_id];
-    infoHtml += `<div style="color: #2ecc71; font-size: 12px;">${rData ? rData.icon : ''} ${rData ? rData.name : 'Ресурс'}</div>`;
+    html += `<div style="color: #2ecc71;">${rData ? rData.icon + ' ' + rData.name : 'Ресурс'}</div>`;
   }
   if (otherPlayer) {
-    infoHtml += `<div style="color: #2ecc71; font-size: 12px;">🟢 ${otherPlayer.name}</div>`;
+    html += `<div style="color: #2ecc71;">🟢 ${otherPlayer.name}</div>`;
   }
   if (tile && tile.building) {
     const bData = currentMapData.buildingsDB[tile.building];
-    infoHtml += `<div style="color: #f1c40f; font-size: 12px;">${bData ? bData.icon : '🏛️'} ${bData ? bData.name : tile.building}</div>`;
+    html += `<div style="color: #f1c40f;">${bData ? bData.icon + ' ' + bData.name : tile.building}</div>`;
   }
-  infoDiv.innerHTML = infoHtml || '<div style="color: #9aa0b5; font-size: 12px;">Пустая клетка</div>';
+  if (!html) html = '<div style="color: #9aa0b5;">Пустая клетка</div>';
 
-  // 🔥 Кнопка «Перейти» только для соседних клеток
+  selInfo.innerHTML = html;
+
+  // Кнопка «Перейти» если соседняя
   const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
   if (isAdjacent) {
     const moveBtn = document.createElement('button');
     moveBtn.className = 'action-btn move';
     moveBtn.textContent = '🚶 Перейти (15с)';
     moveBtn.onclick = () => moveWorld(dx, dy);
-    actionsDiv.appendChild(moveBtn);
+    selActions.appendChild(moveBtn);
   }
+}
+
+// --- КЛИК ПО КЛЕТКЕ ---
+function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
+  selectedTile = { x, y, tile, resource, monster, otherPlayer, dx, dy };
+
+  // 🔥 Левая колонка ВСЕГДА показывает свою клетку — обновляем её при клике
+  if (window.currentTileMap) {
+    const myTile = window.currentTileMap[`${currentMapData.myX}_${currentMapData.myY}`];
+    const myResource = window.currentResourceMap[`${currentMapData.myX}_${currentMapData.myY}`];
+    const myMonster = window.currentMonsterMap[`${currentMapData.myX}_${currentMapData.myY}`];
+    showMyCellInfo(myTile, myResource, myMonster);
+  }
+
+  // 🔥 Правая колонка показывает выбранную клетку (если не своя — иначе скроется сама)
+  showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy);
 }
 
 // --- ДВИЖЕНИЕ ---
