@@ -30,27 +30,28 @@ function initWorld() {
     return;
   }
 
-  if (window.parent && window.parent !== window && window.parent.socket && window.parent.socket.connected) {
-    worldSocket = window.parent.socket;
-    console.log("✅ [МИР] Привязан к сокету родителя (города)");
-  } else if (typeof io !== 'undefined') {
-    worldSocket = io('https://darkworld-server.onrender.com', {
-      transports: ['websocket'],
-      forceNew: false,
-      auth: { userId: localPlayer.id }
-    });
-    console.log("⚠️ [МИР] Создан свой сокет");
-  } else {
+ // 🔥 ВСЕГДА создаём свой сокет для карты мира
+  if (typeof io === 'undefined') {
     alert("Ошибка: Socket.io не загружен!");
     return;
   }
+
+  worldSocket = io('https://darkworld-server.onrender.com', {
+    transports: ['websocket'],
+    forceNew: false,
+    auth: { userId: localPlayer.id }
+  });
+  console.log("✅ [МИР] Создан свой сокет для карты мира");
 
   window.worldSocket = worldSocket;
   worldSocket.userId = localPlayer.id;
 
   // --- СЛУШАТЕЛИ ---
-  worldSocket.off('world_map_data');
-  worldSocket.on('world_map_data', onMapData);
+ worldSocket.off('world_map_data');
+  worldSocket.on('world_map_data', (data) => {
+    console.log("🎉 [МИР] world_map_data пришёл от сервера!", data);
+    onMapData(data);
+  });
 
   worldSocket.off('world_move_started');
   worldSocket.on('world_move_started', (data) => {
@@ -118,12 +119,29 @@ function initWorld() {
     showToast(`🚨 ${msg}`, 'error');
   });
 
-  worldSocket.emit('world_get_map', { userId: localPlayer.id });
+ // 🔥 Ждём подключения, регистрируемся и запрашиваем карту
+  worldSocket.on('connect', () => {
+    console.log("✅ [МИР] Свой сокет подключён:", worldSocket.id);
+
+    // Регистрируемся в регене (чтобы сервер знал про игрока)
+    worldSocket.emit('load_game_secure', {
+      userId: localPlayer.id,
+      username: localPlayer.name
+    });
+
+    // Запрашиваем карту
+    worldSocket.emit('world_get_map', { userId: localPlayer.id });
+    console.log("📤 [МИР] Отправили world_get_map для userId:", localPlayer.id);
+  });
+
+  worldSocket.on('connect_error', (err) => {
+    console.error("🚨 [МИР] Ошибка подключения сокета:", err.message);
+  });
 
   setTimeout(() => {
     const loader = document.getElementById('world-loader');
     if (loader) loader.style.display = 'none';
-  }, 1500);
+  }, 2000);
 }
 
 // --- ОБРАБОТКА ДАННЫХ КАРТЫ ---
