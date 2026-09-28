@@ -91,16 +91,21 @@ function startWorldAfterSocket() {
   worldSocket.off('world_move_started', handlers.world_move_started);
   worldSocket.on('world_move_started', handlers.world_move_started);
 
-  handlers.world_move_completed = (data) => {
+    handlers.world_move_completed = (data) => {
     console.log("✅ [МИР] Переход завершён, запрашиваем свежую карту");
+    // 🔥 Отменяем защитный таймаут
+    if (window.__moveSafetyTimeout) {
+        clearTimeout(window.__moveSafetyTimeout);
+        window.__moveSafetyTimeout = null;
+    }
     isMoving = false;
     moveEndsAt = null;
     hideMoveProgress();
     blockControls(false);
     if (worldSocket && worldSocket.connected) {
-      worldSocket.emit('world_get_map', { userId: localPlayer.id });
+        worldSocket.emit('world_get_map', { userId: localPlayer.id });
     }
-  };
+    };
   worldSocket.off('world_move_completed', handlers.world_move_completed);
   worldSocket.on('world_move_completed', handlers.world_move_completed);
 
@@ -186,6 +191,9 @@ function onMapData(data) {
   else if (data.mapId === 'dragonhold_main') document.getElementById('map-name').textContent = 'Драгонхолд';
   else if (data.mapId === 'mine_1') document.getElementById('map-name').textContent = 'Шахта';
 
+  // 🔥 ФИКС Б1: сдвигаем фон карты в зависимости от позиции игрока
+  updateMapBackground(data.myX, data.myY);
+
   // Восстановление активного перехода (для F5)
   if (data.activeMove && data.activeMove.endsAt) {
     const remainingMs = Math.max(0, data.activeMove.endsAt - Date.now());
@@ -202,6 +210,24 @@ function onMapData(data) {
   }
 
   renderMap(data);
+}
+
+// 🔥 Функция: сдвиг фона карты в зависимости от позиции игрока
+function updateMapBackground(myX, myY) {
+  const container = document.getElementById('world-map-container');
+  if (!container) return;
+
+  // Размер карты (по умолчанию 50×50 для Ашенваля)
+  const mapSize = 50;
+
+  // Процент позиции игрока (0..100)
+  const xPercent = (myX / (mapSize - 1)) * 100;
+  const yPercent = (myY / (mapSize - 1)) * 100;
+
+  // 🔥 Сдвигаем фон
+  container.style.backgroundPosition = `${xPercent}% ${yPercent}%`;
+
+  console.log(`🎨 [МИР] Фон сдвинут: ${xPercent.toFixed(1)}% ${yPercent.toFixed(1)}% (игрок на ${myX},${myY})`);
 }
 
 // --- РЕНДЕР СЕТКИ ---
@@ -503,6 +529,22 @@ function showMoveProgress(durationMs) {
       }
     }
   }, 100);
+    // 🔥 ФИКС: защитный таймаут — если через 5 сек после конца модалка всё ещё висит, закрываем
+  const safetyTimeout = setTimeout(() => {
+    const modal = document.getElementById('move-progress');
+    if (modal) {
+      console.warn("🔥 [МИР] Принудительное закрытие модалки (сервер не ответил)");
+      hideMoveProgress();
+      isMoving = false;
+      // Запрашиваем карту, чтобы увидеть актуальную позицию
+      if (worldSocket && worldSocket.connected) {
+        worldSocket.emit('world_get_map', { userId: localPlayer.id });
+      }
+    }
+  }, totalDuration + 5000); // длительность + 5 сек буфер
+
+  // Сохраняем ID таймаута, чтобы отменить при получении world_move_completed
+  window.__moveSafetyTimeout = safetyTimeout;
 }
 
 function hideMoveProgress() {
