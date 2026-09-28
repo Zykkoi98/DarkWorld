@@ -228,33 +228,19 @@ function renderTown() {
       }
 
     btn.addEventListener('click', function() {
-      // 🌲 ТВОЙ РОДНОЙ КЛИК: ВЫХОД НА ПРИРОДУ (ЛЕС)
-      if (loc.name === "Выход на природу") {
-        if (!window.player || window.player.hp <= 0) {
-          return alert("❌ Вы слишком слабы для боя! Восстановите здоровье в Таверне.");
-        }
-        if (window.player.in_battle) {
-          window.location.href = `battle/battle.html`;
-          return;
-        }
-
-        let targetMonster = 'wild_wolf';
-        let minCount = 1; let maxCount = 1;
-
-        if (window.player.level >= 3 && window.player.level < 5) {
-          targetMonster = 'goblin'; minCount = 1; maxCount = 2;
-        } else if (window.player.level >= 5) {
-          targetMonster = 'stone_golem'; minCount = 1; maxCount = 3;
-        }
-
-        const finalCount = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
-
-        if (window.socket) {
-          try { window.socket.disconnect(); } catch(e) {}
-        }
-        for (let i = 1; i < 100; i++) { window.clearInterval(i); window.clearTimeout(i); }
-        window.location.href = `battle/battle.html?monster=${targetMonster}&count=${finalCount}`;
-      } 
+    // 🗺️ НОВЫЙ КЛИК: КАРТА МИРА
+          if (loc.name === "Карта мира") {
+            if (!window.player || window.player.hp <= 0) {
+              return alert("❌ Вы слишком слабы для путешествия! Восстановите здоровье в Таверне.");
+            }
+            console.log("🗺️ Открываем карту мира в iframe...");
+            const wrapper = document.getElementById('world-iframe-wrapper');
+            const frame = document.getElementById('world-iframe-frame');
+            if (wrapper && frame) {
+              frame.src = 'world/world.html';
+              wrapper.style.display = 'flex';
+            }
+      }
     // 🏪 МАГАЗИН — теперь через iframe
       else if (loc.name === "Магазин") {
         console.log("🏪 Открываем магазин в iframe...");
@@ -1067,6 +1053,14 @@ function startGame() {
     if (event.data.type === 'CLOSE_TOWER_OVERLAY') {
       const wrapper = document.getElementById('tower-iframe-wrapper');
       const frame = document.getElementById('tower-iframe-frame');
+      if (wrapper) wrapper.style.display = 'none';
+      if (frame) frame.src = 'about:blank'; 
+      if (typeof window.render === 'function') window.render();
+    }
+        // 🔥 Закрытие Карты мира
+    if (event.data.type === 'CLOSE_WORLD_OVERLAY') {
+      const wrapper = document.getElementById('world-iframe-wrapper');
+      const frame = document.getElementById('world-iframe-frame');
       if (wrapper) wrapper.style.display = 'none';
       if (frame) frame.src = 'about:blank'; 
       if (typeof window.render === 'function') window.render();
