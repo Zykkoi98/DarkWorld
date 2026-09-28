@@ -242,11 +242,7 @@ function renderMap(data) {
       cell.className = 'tile';
       cell.dataset.x = x;
       cell.dataset.y = y;
-
-      if (tile && tile.region) {
-        cell.classList.add(`region-${tile.region}`);
-      }
-
+      
       // 🔥 ФИКС: подсветка соседних клеток (можно перейти)
       const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
       if (isAdjacent) {

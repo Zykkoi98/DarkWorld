@@ -36,12 +36,13 @@ body {
   width: 100%;
   max-width: 460px;
   aspect-ratio: 1 / 1;
-  background: #13141f;
+  background: url('../assets/maps/world_ashenval_background.jpg') center/cover no-repeat;
   border: 2px solid #2f3640;
   border-radius: 14px;
   overflow: hidden;
   margin-bottom: 10px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  position: relative;
 }
 
 #world-map-grid {
@@ -51,31 +52,23 @@ body {
   grid-template-columns: repeat(7, 1fr);
   grid-template-rows: repeat(7, 1fr);
   gap: 1px;
-  background: #1a1a2e;
+  background: transparent; /* было #1a1a2e — теперь прозрачный, чтобы фон просвечивал */
 }
 
 /* ===== КЛЕТКИ ===== */
 .tile {
-  background: #1e1f2e;
+  background: rgba(0, 0, 0, 0.25); /* 🔥 полупрозрачный — фон просвечивает */
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 22px;
   position: relative;
   cursor: pointer;
-  transition: transform 0.1s;
+  transition: transform 0.1s, background 0.2s;
   user-select: none;
 }
 .tile:active { transform: scale(0.92); }
 
-.tile.region-forest   { background: #1a3a1a; }
-.tile.region-meadow   { background: #2a3a1a; }
-.tile.region-mountain { background: #3a3a3a; }
-.tile.region-water    { background: #1a2a4a; }
-.tile.region-swamp    { background: #2a2a1a; }
-.tile.region-river    { background: #1a3a4a; }
-.tile.region-desert   { background: #4a3a1a; }
-.tile.region-ice      { background: #2a3a4a; }
 
 .tile.center-tile {
   border: 2px solid #f1c40f;
