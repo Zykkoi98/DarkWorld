@@ -34,35 +34,42 @@ function initWorld() {
 
   localStorage.setItem('world_active', 'true');
 
-  const parentWin = window.parent;
-  const tryBind = () => {
-    if (parentWin && parentWin !== window && parentWin.socket && parentWin.socket.connected) {
-      worldSocket = parentWin.socket;
-      console.log("✅ [МИР] Привязан к сокету родителя (города)");
-      return true;
-    }
-    return false;
-  };
+  // 🔥 ЭТАП 1: карта теперь отдельная страница — создаём свой сокет
+  console.log("📡 [МИР] Создаём свой сокет (отдельная страница)...");
 
-  if (tryBind()) {
-    startWorldAfterSocket();
-  } else {
-    console.log("⏳ [МИР] Ждём родительский сокет...");
-    let attempts = 0;
-    const waitTimer = setInterval(() => {
-      attempts++;
-      if (tryBind()) {
-        clearInterval(waitTimer);
-        console.log("✅ [МИР] Родительский сокет найден");
-        startWorldAfterSocket();
-      }
-      if (attempts > 100) {
-        clearInterval(waitTimer);
-        console.error("🚨 [МИР] Родительский сокет не найден за 10 сек");
-        alert("❌ Ошибка соединения с городом. Вернитесь в город и попробуйте снова.");
-      }
-    }, 100);
+  if (typeof io === 'undefined') {
+    console.error("❌ [МИР] Socket.io не подключён!");
+    return;
   }
+
+  // 🔥 Проверка: если сокет уже есть (защита от дубля)
+  if (window.socket && window.socket.connected) {
+    console.log("♻️ [МИР] Сокет уже есть, переиспользуем");
+    worldSocket = window.socket;
+    startWorldAfterSocket();
+    return;
+  }
+
+  // 🔥 Создаём новый сокет
+  worldSocket = io('https://darkworld-server.onrender.com', {
+    transports: ['websocket'],
+    forceNew: false,
+    upgrade: false,
+    auth: { userId: localPlayer.id }
+  });
+
+  window.socket = worldSocket; // сохраняем для переиспользования
+  window.worldSocket = worldSocket;
+
+  worldSocket.on('connect', () => {
+    console.log(`✅ [МИР] Сокет подключён: ${worldSocket.id}`);
+    startWorldAfterSocket();
+  });
+
+  worldSocket.on('connect_error', (err) => {
+    console.error("🚨 [МИР] Ошибка подключения:", err.message);
+    alert("❌ Не удалось подключиться к серверу. Попробуйте позже.");
+  });
 }
 
 // --- ОСНОВНАЯ ЛОГИКА ---
@@ -686,5 +693,11 @@ window.addEventListener('message', (event) => {
     localStorage.removeItem('world_active');
   }
 });
-
+// 🔥 Чистим сокет при закрытии страницы
+window.addEventListener('beforeunload', () => {
+  if (worldSocket) {
+    console.log("🧹 [МИР] Закрываем сокет при выходе");
+    try { worldSocket.disconnect(); } catch(e) {}
+  }
+});
 document.addEventListener('DOMContentLoaded', initWorld);
