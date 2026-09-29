@@ -228,19 +228,14 @@ function renderTown() {
       }
 
     btn.addEventListener('click', function() {
-    // 🗺️ НОВЫЙ КЛИК: КАРТА МИРА
-          if (loc.name === "Карта мира") {
-            if (!window.player || window.player.hp <= 0) {
-              return alert("❌ Вы слишком слабы для путешествия! Восстановите здоровье в Таверне.");
-            }
-            console.log("🗺️ Открываем карту мира в iframe...");
-            const wrapper = document.getElementById('world-iframe-wrapper');
-            const frame = document.getElementById('world-iframe-frame');
-            if (wrapper && frame) {
-              frame.src = 'world/world.html';
-              wrapper.style.display = 'flex';
-            }
-      }
+        // 🗺️ НОВЫЙ КЛИК: КАРТА МИРА (Этап 1 — отдельная страница)
+        if (loc.name === "Карта мира") {
+          if (!window.player || window.player.hp <= 0) {
+            return alert("❌ Вы слишком слабы для путешествия! Восстановите здоровье в Таверне.");
+          }
+          console.log("🗺️ Переходим на карту мира (отдельная страница)...");
+          window.location.href = 'world/world.html';
+        }
     // 🏪 МАГАЗИН — теперь через iframe
       else if (loc.name === "Магазин") {
         console.log("🏪 Открываем магазин в iframe...");
@@ -1057,25 +1052,10 @@ function startGame() {
       if (frame) frame.src = 'about:blank'; 
       if (typeof window.render === 'function') window.render();
     }
-    // 🔥 Закрытие Карты мира (ФИКС P0-2: чистим iframe перед выгрузкой)
+    // 🔥 Этап 1: карта мира — отдельная страница, CLOSE_WORLD_OVERLAY не нужен
+    // (обработчик оставлен для совместимости, но ничего не делает)
     if (event.data.type === 'CLOSE_WORLD_OVERLAY') {
-      const wrapper = document.getElementById('world-iframe-wrapper');
-      const frame = document.getElementById('world-iframe-frame');
-      
-      // 🔥 Сначала просим iframe освободить ресурсы
-      if (frame && frame.contentWindow) {
-        try {
-          frame.contentWindow.postMessage({ type: 'WORLD_WILL_UNLOAD' }, '*');
-        } catch(e) { console.warn("Не удалось послать сигнал выгрузки:", e); }
-      }
-      
-      if (wrapper) wrapper.style.display = 'none';
-      
-      // Небольшая задержка, чтобы iframe успел обработать postMessage
-      setTimeout(() => {
-        if (frame) frame.src = 'about:blank';
-        if (typeof window.render === 'function') window.render();
-      }, 100);
+      console.log("ℹ️ [ГОРОД] CLOSE_WORLD_OVERLAY получен, но карта теперь отдельная страница");
     }
   });
 

@@ -233,6 +233,8 @@ function onMapData(data) {
 
   // 🔥 ФИКС Б1: сдвигаем фон карты в зависимости от позиции игрока
   updateMapBackground(data.myX, data.myY);
+  // 🔥 ЭТАП 1: показываем кнопку «Войти в город» только на клетке замка
+    updateCityButton(data.myX, data.myY);
 
   // Восстановление активного перехода (для F5)
   if (data.activeMove && data.activeMove.endsAt) {
@@ -263,6 +265,21 @@ function updateMapBackground(myX, myY) {
   container.style.backgroundPosition = `${xPercent}% ${yPercent}%`;
 
   console.log(`🎨 [МИР] Фон сдвинут: ${xPercent.toFixed(1)}% ${yPercent.toFixed(1)}% (игрок на ${myX},${myY})`);
+}
+// 🔥 Показ/скрытие кнопки «Войти в город» (только на клетке замка 37,14)
+function updateCityButton(myX, myY) {
+  const btn = document.getElementById('enter-city-btn');
+  if (!btn) return;
+
+  const CITY_X = 37;
+  const CITY_Y = 14;
+
+  if (myX === CITY_X && myY === CITY_Y) {
+    btn.style.display = 'block';
+    console.log("🏰 [МИР] Игрок на клетке замка — кнопка «Войти в город» показана");
+  } else {
+    btn.style.display = 'none';
+  }
 }
 
 // --- РЕНДЕР СЕТКИ ---
@@ -488,15 +505,17 @@ window.cancelMove = function() {
   worldSocket.emit('world_move_cancel', { userId: localPlayer.id });
 };
 
-// --- ВЫХОД ---
-window.exitWorld = function() {
+// --- ВХОД В ГОРОД (только с клетки замка) ---
+window.enterCity = function() {
+  console.log("🏰 [МИР] Игрок входит в город");
   localStorage.removeItem('world_active');
+  window.location.href = '../index.html';
+};
 
-  if (window.parent && window.parent !== window) {
-    window.parent.postMessage({ type: 'CLOSE_WORLD_OVERLAY' }, '*');
-  } else {
-    window.location.replace('../index.html');
-  }
+// --- СТАРЫЙ ВЫХОД (оставляем для совместимости, но не используется) ---
+window.exitWorld = function() {
+  console.log("⚠️ [МИР] exitWorld устарел — используй enterCity");
+  window.enterCity();
 };
 
 // --- ПРОГРЕСС ПЕРЕХОДА ---
