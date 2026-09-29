@@ -353,10 +353,6 @@ body {
    ===== 🔥 ОПТИМИЗАЦИЯ DRAG =====
    ============================================================================ */
 
-/* При drag — отключаем тяжёлые эффекты на клетках */
-#world-map-container.dragging .tile {
-  pointer-events: none;
-}
 
 #world-map-container.dragging .tile-coords {
   background: transparent;
