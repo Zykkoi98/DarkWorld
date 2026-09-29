@@ -158,7 +158,7 @@ function startWorldAfterSocket() {
     if (loader) loader.style.display = 'none';
   }, 1500);
 
-  // 🔥 НАДЁЖНЫЙ ФИКС: каждые 3 сек проверяем, не сменился ли родительский сокет
+ // 🔥 НАДЁЖНЫЙ ФИКС v2: каждые 10 сек проверяем, не сменился ли родительский сокет
   if (window.__worldSocketCheckInterval) {
     clearInterval(window.__worldSocketCheckInterval);
   }
@@ -166,13 +166,14 @@ function startWorldAfterSocket() {
     if (!window.parent || window.parent === window) return;
     const parentSock = window.parent.socket;
 
-    if (parentSock && parentSock.connected && parentSock.id !== worldSocket?.id) {
+    // 🔥 Сравниваем по объекту И по id — если оба разные, переподключаемся
+    if (parentSock && parentSock.connected && parentSock !== worldSocket && parentSock.id !== worldSocket?.id) {
       console.warn(`⚠️ [МИР] Родительский сокет сменился: ${worldSocket?.id} → ${parentSock.id}`);
       worldSocket = parentSock;
       window.worldSocket = parentSock;
       rebindHandlersToNewSocket();
     }
-  }, 3000);
+  }, 10000); // 🔥 10 сек вместо 3
 }
 
 // --- ПОДПИСКА ВСЕХ ОБРАБОТЧИКОВ ---
