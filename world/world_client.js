@@ -518,27 +518,51 @@ function updateGridContent(data) {
       cell.classList.add('adjacent');
     }
 
-    // Приоритет: игрок > моб > ресурс > строение > регион
+ // 🔥 НОВОЕ: рисуем ВСЁ, что есть на клетке — фон + координаты + иконки
+
+    // 1. Фон клетки — иконка биома в углу
+    if (tile && tile.region) {
+      const rData = regionsDB[tile.region];
+      if (rData && rData.icon) {
+        const biomeIcon = document.createElement('span');
+        biomeIcon.className = 'biome-icon';
+        biomeIcon.textContent = rData.icon;
+        biomeIcon.title = rData.name;
+        cell.appendChild(biomeIcon);
+      }
+    }
+
+    // 2. Центральная иконка — моб ИЛИ ресурс ИЛИ игрок
+    let centerHtml = '';
     if (otherPlayer) {
-      cell.innerHTML = `<span class="other-player">🟢</span>`;
+      centerHtml = `<span class="other-player">🟢</span>`;
       cell.title = otherPlayer.name;
     }
     else if (monster && monster.monster_id) {
-      cell.innerHTML = `<span class="monster-icon">👹</span>`;
+      centerHtml = `<span class="monster-icon">👹</span>`;
       cell.title = `Моб ${monster.level} ур.`;
     }
     else if (resource && resource.resource_id) {
       const rData = resourcesDB[resource.resource_id];
-      cell.innerHTML = `<span class="resource-icon">${rData ? rData.icon : '🌿'}</span>`;
+      centerHtml = `<span class="resource-icon-center">${rData ? rData.icon : '🌿'}</span>`;
     }
     else if (tile && tile.building) {
       const bData = buildingsDB[tile.building];
-      cell.innerHTML = `<span class="building-icon">${bData ? bData.icon : '🏛️'}</span>`;
+      centerHtml = `<span class="building-icon">${bData ? bData.icon : '🏛️'}</span>`;
     }
-    else if (tile && tile.region) {
-      const rData = regionsDB[tile.region];
-      cell.innerHTML = `<span style="opacity: 0.4; font-size: 18px;">${rData ? rData.icon : ''}</span>`;
+
+    if (centerHtml) {
+      const centerSpan = document.createElement('span');
+      centerSpan.className = 'center-content';
+      centerSpan.innerHTML = centerHtml;
+      cell.appendChild(centerSpan);
     }
+
+    // 3. Координаты внизу — мелко
+    const coordsEl = document.createElement('span');
+    coordsEl.className = 'tile-coords';
+    coordsEl.textContent = `${x},${y}`;
+    cell.appendChild(coordsEl);
 
     // 🔥 Клик
     cell.onclick = () => onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy);
