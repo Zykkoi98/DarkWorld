@@ -1,5 +1,6 @@
 /* ============================================================================
-   ===== 🗺️ СТИЛИ КАРТЫ МИРА (WORLD.CSS) =====
+   ===== 🗺️ СТИЛИ КАРТЫ МИРА (WORLD.CSS) — v3 =====
+   ===== Фон и сетка двигаются вместе через #world-map-inner =====
    ============================================================================ */
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -31,7 +32,7 @@ body {
   margin-bottom: 10px;
 }
 
-/* ===== КАРТА ===== */
+/* ===== КОНТЕЙНЕР КАРТЫ ===== */
 #world-map-container {
   width: 100%;
   max-width: 460px;
@@ -44,46 +45,58 @@ body {
   position: relative;
   background: #13141f;
   cursor: grab;
-  touch-action: none;
+  touch-action: none; /* 🔥 отключаем браузерные жесты */
 }
 
 #world-map-container.dragging {
   cursor: grabbing;
 }
 
-/* 🔥 Фон карты — img, двигается через transform */
+/* ===== ВНУТРЕННЯЯ ОБЁРТКА (двигается через transform) ===== */
+#world-map-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 714%;         /* 50 / 7 = 7.14 → 714% */
+  height: 714%;
+  transform-origin: 0 0;
+  transition: transform 0.4s ease;
+  will-change: transform;
+}
+
+/* При drag — убираем transition, чтобы плавно двигалось за пальцем */
+#world-map-container.dragging #world-map-inner {
+  transition: none;
+}
+
+/* ===== ФОН — img на всю обёртку ===== */
 #world-map-img {
   position: absolute;
   top: 0;
   left: 0;
-  width: 714%;
-  height: 714%;
-  transform-origin: 0 0;
-  transition: transform 0.4s ease;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
   image-rendering: -webkit-optimize-contrast;
-  will-change: transform;
 }
 
-#world-map-container.dragging #world-map-img {
-  transition: none;
-}
-
+/* ===== СЕТКА 50×50 — поверх фона, внутри inner ===== */
 #world-map-grid {
-  position: relative;
-  z-index: 2;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(7, 1fr);
+  grid-template-columns: repeat(50, 1fr);
+  grid-template-rows: repeat(50, 1fr);
   gap: 0;
   background: transparent;
 }
 
-/* ===== КНОПКА «ЦЕНТР» ===== */
+/* ===== КНОПКА «ЦЕНТР» — вне inner, всегда в углу контейнера ===== */
 #center-map-btn {
   position: absolute;
   bottom: 8px;
@@ -163,7 +176,7 @@ body {
   filter: drop-shadow(0 0 4px #f1c40f);
 }
 
-/* ===== УПРАВЛЕНИЕ ===== */
+/* ===== УПРАВЛЕНИЕ (скрыто) ===== */
 #world-controls {
   width: 100%;
   max-width: 460px;

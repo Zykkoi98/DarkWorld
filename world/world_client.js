@@ -249,19 +249,19 @@ function onMapData(data) {
 
 // 🔥 Применить offset
 function applyMapOffset(offsetX, offsetY, animate = true) {
-  const img = document.getElementById('world-map-img');
-  if (!img) return;
+  const inner = document.getElementById('world-map-inner');
+  if (!inner) return;
 
   currentOffsetX = offsetX;
   currentOffsetY = offsetY;
 
   if (!animate) {
-    img.style.transition = 'none';
+    inner.style.transition = 'none';
   } else {
-    img.style.transition = 'transform 0.4s ease';
+    inner.style.transition = 'transform 0.4s ease';
   }
 
-  img.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+  inner.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
 }
 
 // 🔥 Сдвиг фона карты
@@ -410,12 +410,43 @@ function updateCityButton(myX, myY) {
   }
 }
 
-// --- РЕНДЕР СЕТКИ ---
+// --- РЕНДЕР СЕТКИ 50×50 ---
 function renderMap(data) {
   const grid = document.getElementById('world-map-grid');
   if (!grid) return;
 
+  // 🔥 Перерисовываем редко (для производительности)
+  if (grid.children.length === 0) {
+    buildFullGrid();
+  }
+
+  updateGridContent(data);
+}
+
+// 🔥 Построить 50×50 сетку (один раз)
+function buildFullGrid() {
+  const grid = document.getElementById('world-map-grid');
+  if (!grid) return;
+  
   grid.innerHTML = '';
+  
+  for (let y = 0; y < 50; y++) {
+    for (let x = 0; x < 50; x++) {
+      const cell = document.createElement('div');
+      cell.className = 'tile';
+      cell.dataset.x = x;
+      cell.dataset.y = y;
+      grid.appendChild(cell);
+    }
+  }
+  
+  console.log("🎨 [МИР] Полная сетка 50×50 построена");
+}
+
+// 🔥 Обновить содержимое клеток
+function updateGridContent(data) {
+  const grid = document.getElementById('world-map-grid');
+  if (!grid) return;
 
   const { myX, myY, tiles, resources, monsters, players, resourcesDB, regionsDB, buildingsDB } = data;
 
@@ -435,55 +466,63 @@ function renderMap(data) {
   window.currentResourceMap = resourceMap;
   window.currentMonsterMap = monsterMap;
 
-  for (let dy = -VIEW_RADIUS; dy <= VIEW_RADIUS; dy++) {
-    for (let dx = -VIEW_RADIUS; dx <= VIEW_RADIUS; dx++) {
-      const x = myX + dx;
-      const y = myY + dy;
+  // 🔥 Обновляем каждую клетку
+  const cells = grid.children;
+  for (let i = 0; i < cells.length; i++) {
+    const cell = cells[i];
+    const x = Number(cell.dataset.x);
+    const y = Number(cell.dataset.y);
 
-      const tile = tileMap[`${x}_${y}`];
-      const resource = resourceMap[`${x}_${y}`];
-      const monster = monsterMap[`${x}_${y}`];
-      const otherPlayer = playerMap[`${x}_${y}`];
+    const tile = tileMap[`${x}_${y}`];
+    const resource = resourceMap[`${x}_${y}`];
+    const monster = monsterMap[`${x}_${y}`];
+    const otherPlayer = playerMap[`${x}_${y}`];
 
-      const cell = document.createElement('div');
-      cell.className = 'tile';
-      cell.dataset.x = x;
-      cell.dataset.y = y;
+    // Сброс
+    cell.className = 'tile';
+    cell.innerHTML = '';
 
-      const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
-      if (isAdjacent) cell.classList.add('adjacent');
-
-      if (dx === 0 && dy === 0) {
-        cell.classList.add('center-tile');
-        cell.innerHTML = '<span class="player-icon">👤</span>';
-      }
-      else if (otherPlayer) {
-        cell.innerHTML = `<span class="other-player">🟢</span>`;
-        cell.title = otherPlayer.name;
-      }
-      else if (monster && monster.monster_id) {
-        cell.innerHTML = `<span class="monster-icon">👹</span>`;
-        cell.title = `Моб ${monster.level} ур.`;
-      }
-      else if (resource && resource.resource_id) {
-        const rData = resourcesDB[resource.resource_id];
-        cell.innerHTML = `<span class="resource-icon">${rData ? rData.icon : '🌿'}</span>`;
-      }
-      else if (tile && tile.building) {
-        const bData = buildingsDB[tile.building];
-        cell.innerHTML = `<span class="building-icon">${bData ? bData.icon : '🏛️'}</span>`;
-      }
-      else if (tile && tile.region) {
-        const rData = regionsDB[tile.region];
-        cell.innerHTML = `<span style="opacity: 0.4; font-size: 18px;">${rData ? rData.icon : ''}</span>`;
-      }
-
-      cell.onclick = () => onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy);
-
-      grid.appendChild(cell);
+    // Своя клетка
+    if (x === myX && y === myY) {
+      cell.classList.add('center-tile');
+      cell.innerHTML = '<span class="player-icon">👤</span>';
+      continue;
     }
+
+    // Соседняя
+    const dx = x - myX;
+    const dy = y - myY;
+    if (Math.abs(dx) + Math.abs(dy) === 1) {
+      cell.classList.add('adjacent');
+    }
+
+    // Дальше приоритет: игрок > моб > ресурс > строение > регион
+    if (otherPlayer) {
+      cell.innerHTML = `<span class="other-player">🟢</span>`;
+      cell.title = otherPlayer.name;
+    }
+    else if (monster && monster.monster_id) {
+      cell.innerHTML = `<span class="monster-icon">👹</span>`;
+      cell.title = `Моб ${monster.level} ур.`;
+    }
+    else if (resource && resource.resource_id) {
+      const rData = resourcesDB[resource.resource_id];
+      cell.innerHTML = `<span class="resource-icon">${rData ? rData.icon : '🌿'}</span>`;
+    }
+    else if (tile && tile.building) {
+      const bData = buildingsDB[tile.building];
+      cell.innerHTML = `<span class="building-icon">${bData ? bData.icon : '🏛️'}</span>`;
+    }
+    else if (tile && tile.region) {
+      const rData = regionsDB[tile.region];
+      cell.innerHTML = `<span style="opacity: 0.4; font-size: 18px;">${rData ? rData.icon : ''}</span>`;
+    }
+
+    // 🔥 Клик
+    cell.onclick = () => onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy);
   }
 
+  // Инфо-панель
   const myTile = tileMap[`${myX}_${myY}`];
   const myResource = resourceMap[`${myX}_${myY}`];
   const myMonster = monsterMap[`${myX}_${myY}`];
