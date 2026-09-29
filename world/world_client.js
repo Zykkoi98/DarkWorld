@@ -260,18 +260,33 @@ function onMapData(data) {
   renderMap(data);
 }
 
-// 🔥 Функция: сдвиг фона карты в зависимости от позиции игрока
+// 🔥 Функция: сдвиг фона карты через transform (точная формула)
 function updateMapBackground(myX, myY) {
+  const img = document.getElementById('world-map-img');
   const container = document.getElementById('world-map-container');
-  if (!container) return;
+  if (!img || !container) return;
 
   const mapSize = 50;
-  const xPercent = (myX / (mapSize - 1)) * 100;
-  const yPercent = (myY / (mapSize - 1)) * 100;
+  const containerSize = container.offsetWidth; // размер контейнера в px
 
-  container.style.backgroundPosition = `${xPercent}% ${yPercent}%`;
+  // 🔥 Размер всей карты в px (714% от контейнера)
+  const fullMapSize = containerSize * 7.14;
 
-  console.log(`🎨 [МИР] Фон сдвинут: ${xPercent.toFixed(1)}% ${yPercent.toFixed(1)}% (игрок на ${myX},${myY})`);
+  // 🔥 Размер 1 клетки карты в px
+  const cellSize = fullMapSize / mapSize;
+
+  // 🔥 Центр клетки игрока (в px)
+  const playerCenterX = myX * cellSize + cellSize / 2;
+  const playerCenterY = myY * cellSize + cellSize / 2;
+
+  // 🔥 Смещение, чтобы центр клетки игрока попал в центр контейнера
+  const offsetX = containerSize / 2 - playerCenterX;
+  const offsetY = containerSize / 2 - playerCenterY;
+
+  // 🔥 Применяем через transform
+  img.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+
+  console.log(`🎨 [МИР] Фон сдвинут: offset(${offsetX.toFixed(1)}, ${offsetY.toFixed(1)}) для (${myX}, ${myY})`);
 }
 // 🔥 Показ/скрытие кнопки «Войти в город» (только на клетке замка 37,14)
 function updateCityButton(myX, myY) {
