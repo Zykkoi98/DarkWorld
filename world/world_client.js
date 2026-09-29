@@ -16,6 +16,10 @@ const VIEW_RADIUS = 3;
 
 // 🔥 Именованные обработчики
 const handlers = {};
+// 🔥 Автонавигатор
+let navTarget = null;       // {x, y}
+let navPath = [];           // очередь шагов [{dx, dy}, ...]
+let isNavigating = false;
 
 // 🔥 Глобальные переменные для drag
 let currentOffsetX = 0;
@@ -111,7 +115,13 @@ function startWorldAfterSocket() {
     moveEndsAt = null;
     hideMoveProgress();
     blockControls(false);
-
+        // 🔥 Автонавигатор: идём к следующему шагу
+    if (isNavigating) {
+      // Небольшая задержка, чтобы карта обновилась
+      setTimeout(() => {
+        navigateNextStep();
+      }, 500);
+    }
     if (!window.__moveSyncRequested) {
       console.log("📤 [МИР] Запрашиваем карту (после world_move_completed)");
       if (worldSocket && worldSocket.connected) {
@@ -171,6 +181,7 @@ function startWorldAfterSocket() {
 
   worldSocket.emit('world_get_map', { userId: localPlayer.id });
   initMapDrag();
+  initNavigationButtons();
 
   setTimeout(() => {
     const loader = document.getElementById('world-loader');
@@ -635,7 +646,7 @@ function showMyCellInfo(tile, resource, monster) {
 }
 
 // --- ИНФО-ПАНЕЛЬ ВЫБРАННОЙ КЛЕТКИ ---
-function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy) {
+function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y) {
   const panel = document.getElementById('selected-cell-panel');
   const selInfo = document.getElementById('selected-cell-info');
   const selActions = document.getElementById('selected-cell-actions');
@@ -672,14 +683,52 @@ function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy) {
 
   selInfo.innerHTML = html;
 
-  const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
+const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
   if (isAdjacent) {
+    // Соседняя — кнопка «Перейти»
     const moveBtn = document.createElement('button');
     moveBtn.className = 'action-btn move';
     moveBtn.textContent = '🚶 Перейти (15с)';
     moveBtn.onclick = () => moveWorld(dx, dy);
     selActions.appendChild(moveBtn);
+  } else {
+    // 🔥 Дальняя — показать панель навигатора
+    showNavPanel(x, y);
   }
+}
+// 🔥 Показать панель навигатора
+function showNavPanel(x, y) {
+  const panel = document.getElementById('navigation-panel');
+  if (!panel) return;
+
+  navTarget = { x, y };
+
+  const coordsEl = document.getElementById('nav-target-coords');
+  coordsEl.textContent = `(${x}, ${y})`;
+
+  // Биом
+  const tile = window.tileCache?.[`${x}_${y}`];
+  const biomeEl = document.getElementById('nav-target-biome');
+  if (tile && tile.region) {
+    const rData = currentMapData.regionsDB[tile.region];
+    biomeEl.textContent = rData ? `${rData.icon} ${rData.name}` : tile.region;
+  } else {
+    biomeEl.textContent = '❔ Неизвестно';
+  }
+
+  // Кнопки
+  const startBtn = document.getElementById('nav-start-btn');
+  const cancelBtn = document.getElementById('nav-cancel-btn');
+  startBtn.style.display = 'block';
+  cancelBtn.style.display = 'none';
+
+  panel.style.display = 'block';
+}
+
+// 🔥 Скрыть панель навигатора
+function hideNavPanel() {
+  const panel = document.getElementById('navigation-panel');
+  if (panel) panel.style.display = 'none';
 }
 
 // --- КЛИК ПО КЛЕТКЕ ---
@@ -692,8 +741,7 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
     const myMonster = window.currentMonsterMap[`${currentMapData.myX}_${currentMapData.myY}`];
     showMyCellInfo(myTile, myResource, myMonster);
   }
-
-  showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy);
+    showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y);
 }
 
 // --- ДВИЖЕНИЕ ---
@@ -727,7 +775,87 @@ window.exitWorld = function() {
   console.log("⚠️ [МИР] exitWorld устарел — используй enterCity");
   window.enterCity();
 };
+// 🔥 Построить путь от игрока к цели (жадный, по прямой)
+function buildPath(fromX, fromY, toX, toY) {
+  const path = [];
+  let cx = fromX;
+  let cy = fromY;
 
+  // Идём по X, потом по Y (жадный алгоритм)
+  while (cx !== toX) {
+    const dx = toX > cx ? 1 : -1;
+    path.push({ dx, dy: 0 });
+    cx += dx;
+  }
+  while (cy !== toY) {
+    const dy = toY > cy ? 1 : -1;
+    path.push({ dx: 0, dy });
+    cy += dy;
+  }
+
+  return path;
+}
+// 🔥 Инициализация кнопок навигатора
+function initNavigationButtons() {
+  const startBtn = document.getElementById('nav-start-btn');
+  const cancelBtn = document.getElementById('nav-cancel-btn');
+
+  if (startBtn) {
+    startBtn.addEventListener('click', () => {
+      if (!navTarget || !currentMapData) return;
+
+      console.log(`🚶 [НАВ] Старт: (${currentMapData.myX}, ${currentMapData.myY}) → (${navTarget.x}, ${navTarget.y})`);
+
+      navPath = buildPath(currentMapData.myX, currentMapData.myY, navTarget.x, navTarget.y);
+      isNavigating = true;
+
+      startBtn.style.display = 'none';
+      cancelBtn.style.display = 'block';
+
+      // Запускаем первый шаг
+      navigateNextStep();
+    });
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      console.log("❌ [НАВ] Отмена навигации");
+      isNavigating = false;
+      navPath = [];
+      navTarget = null;
+
+      hideNavPanel();
+
+      // Отменяем текущий переход
+      if (isMoving) {
+        window.cancelMove();
+      }
+    });
+  }
+}
+
+// 🔥 Следующий шаг навигации
+function navigateNextStep() {
+  if (!isNavigating || navPath.length === 0) {
+    // 🔥 Пришли
+    console.log("🎉 [НАВ] Дошли до цели!");
+    isNavigating = false;
+    navPath = [];
+    navTarget = null;
+    hideNavPanel();
+    return;
+  }
+
+  if (isMoving) {
+    // Ещё идём — подождём
+    return;
+  }
+
+  const step = navPath.shift();
+  console.log(`🚶 [НАВ] Шаг: dx=${step.dx}, dy=${step.dy}, осталось ${navPath.length}`);
+
+  moveWorld(step.dx, step.dy);
+}
 // --- ПРОГРЕСС ПЕРЕХОДА ---
 function showMoveProgress(durationMs) {
   window.__moveSyncRequested = false;
@@ -896,5 +1024,6 @@ window.addEventListener('beforeunload', () => {
     try { worldSocket.disconnect(); } catch(e) {}
   }
 });
+
 
 document.addEventListener('DOMContentLoaded', initWorld);
