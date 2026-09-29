@@ -293,8 +293,8 @@ function updateCityButton(myX, myY) {
   const btn = document.getElementById('enter-city-btn');
   if (!btn) return;
 
-  const CITY_X = 39;
-  const CITY_Y = 13;
+  const CITY_X = 37;
+  const CITY_Y = 14;
 
   if (myX === CITY_X && myY === CITY_Y) {
     btn.style.display = 'block';
