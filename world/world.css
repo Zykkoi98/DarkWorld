@@ -43,13 +43,20 @@ body {
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   position: relative;
   background: #13141f;
+  cursor: grab;
+  touch-action: none;
 }
+
+#world-map-container.dragging {
+  cursor: grabbing;
+}
+
 /* 🔥 Фон карты — img, двигается через transform */
 #world-map-img {
   position: absolute;
   top: 0;
   left: 0;
-  width: 714%;         /* 50/7 = 7.14 → 714% */
+  width: 714%;
   height: 714%;
   transform-origin: 0 0;
   transition: transform 0.4s ease;
@@ -57,8 +64,12 @@ body {
   user-select: none;
   -webkit-user-drag: none;
   image-rendering: -webkit-optimize-contrast;
+  will-change: transform;
 }
 
+#world-map-container.dragging #world-map-img {
+  transition: none;
+}
 
 #world-map-grid {
   position: relative;
@@ -68,8 +79,36 @@ body {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   grid-template-rows: repeat(7, 1fr);
-  gap: 0;  /* 🔥 УБИРАЕМ GAP — иначе расхождение */
+  gap: 0;
   background: transparent;
+}
+
+/* ===== КНОПКА «ЦЕНТР» ===== */
+#center-map-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(108, 92, 231, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+  touch-action: manipulation;
+  transition: transform 0.1s, background 0.2s;
+}
+
+#center-map-btn:active {
+  transform: scale(0.9);
+  background: rgba(108, 92, 231, 1);
 }
 
 /* ===== КЛЕТКИ ===== */
@@ -83,13 +122,12 @@ body {
   cursor: pointer;
   transition: transform 0.1s, background 0.2s;
   user-select: none;
-  
+
   /* 🔥 Тонкая рамка каждой клетки */
   outline: 0.5px solid rgba(255, 255, 255, 0.15);
   outline-offset: -0.5px;
 }
 .tile:active { transform: scale(0.92); }
-
 
 .tile.center-tile {
   border: 2px solid #f1c40f;
@@ -153,65 +191,6 @@ body {
 
 /* ===== ИНФО-ПАНЕЛЬ ===== */
 #world-info-panel {
-  width: 100%;
-  max-width: 460px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid #2f3640;
-  border-radius: 12px;
-  padding: 12px;
-  min-height: 80px;
-}
-
-#tile-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-}
-
-.action-btn {
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: none;
-  font-weight: bold;
-  font-size: 13px;
-  cursor: pointer;
-  color: #fff;
-  transition: transform 0.1s;
-}
-.action-btn:active { transform: scale(0.95); }
-.action-btn.attack  { background: #e74c3c; }
-.action-btn.gather  { background: #2ecc71; }
-.action-btn.move    { background: #6c5ce7; }
-.action-btn.portal  { background: #9b59b6; }
-.action-btn.enter   { background: #f1c40f; color: #000; }
-/* ============================================================================
-   ===== ✨ ПОДСВЕТКА СОСЕДНИХ КЛЕТОК (для перехода) =====
-   ============================================================================ */
-
-.tile.adjacent {
-  box-shadow: inset 0 0 0 2px rgba(108, 92, 231, 0.7);
-  cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.1s;
-}
-
-.tile.adjacent:hover {
-  box-shadow: inset 0 0 0 2px #a29bfe, 0 0 12px rgba(108, 92, 231, 0.6);
-}
-
-.tile.adjacent:active {
-  transform: scale(0.95);
-}
-
-/* Убираем подсветку со своей клетки */
-.tile.center-tile.adjacent {
-  box-shadow: inset 0 0 12px rgba(241, 196, 15, 0.5);
-}
-/* ============================================================================
-   ===== 📋 ИНФО-ПАНЕЛЬ В 2 КОЛОНКИ =====
-   ============================================================================ */
-
-#world-info-panel {
   display: flex !important;
   gap: 8px;
   width: 100%;
@@ -228,7 +207,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 0; /* чтобы текст не расширял колонку */
+  min-width: 0;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 8px;
@@ -239,7 +218,6 @@ body {
   display: none;
 }
 
-/* Если показана только одна колонка — занимает всю ширину */
 .info-column:only-child,
 #world-info-panel.single-column .info-column {
   max-width: 100%;
@@ -272,21 +250,43 @@ body {
   padding: 6px 10px;
   font-size: 12px;
 }
-/* 🔥 Drag карты */
-#world-map-container {
-  cursor: grab;
-  touch-action: none; /* Отключаем браузерные жесты */
+
+/* ===== КНОПКИ ДЕЙСТВИЙ ===== */
+.action-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  font-weight: bold;
+  font-size: 13px;
+  cursor: pointer;
+  color: #fff;
+  transition: transform 0.1s;
+}
+.action-btn:active { transform: scale(0.95); }
+.action-btn.attack  { background: #e74c3c; }
+.action-btn.gather  { background: #2ecc71; }
+.action-btn.move    { background: #6c5ce7; }
+.action-btn.portal  { background: #9b59b6; }
+.action-btn.enter   { background: #f1c40f; color: #000; }
+
+/* ============================================================================
+   ===== ✨ ПОДСВЕТКА СОСЕДНИХ КЛЕТОК =====
+   ============================================================================ */
+
+.tile.adjacent {
+  box-shadow: inset 0 0 0 2px rgba(108, 92, 231, 0.7);
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.1s;
 }
 
-#world-map-container.dragging {
-  cursor: grabbing;
+.tile.adjacent:hover {
+  box-shadow: inset 0 0 0 2px #a29bfe, 0 0 12px rgba(108, 92, 231, 0.6);
 }
 
-#world-map-img {
-  will-change: transform; /* Плавнее анимация */
+.tile.adjacent:active {
+  transform: scale(0.95);
 }
 
-/* При drag — убрать transition, чтобы плавно двигалось за пальцем */
-#world-map-container.dragging #world-map-img {
-  transition: none;
+.tile.center-tile.adjacent {
+  box-shadow: inset 0 0 12px rgba(241, 196, 15, 0.5);
 }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Карта мира — Dark World</title>
-  <link rel="stylesheet" href="world.css?v=1">
+  <link rel="stylesheet" href="world.css?v=2">
 </head>
 <body>
 
@@ -34,40 +34,19 @@
   </div>
 
   <!-- ======================= КАРТА ======================= -->
- <div id="world-map-container">
-  <img id="world-map-img" src="../assets/maps/world_ashenval_background.jpg" alt="">
-  <div id="world-map-grid"></div>
-   <!-- 🔥 Кнопка возврата к игроку -->
-  <button id="center-map-btn" style="
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: rgba(108, 92, 231, 0.85);
-    border: 2px solid rgba(255,255,255,0.2);
-    color: #fff;
-    font-size: 18px;
-    cursor: pointer;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  ">🎯</button>
-</div>
+  <div id="world-map-container">
+    <img id="world-map-img" src="../assets/maps/world_ashenval_background.jpg" alt="">
+    <div id="world-map-grid"></div>
+    <button id="center-map-btn">🎯</button>
+  </div>
 
-<!-- ======================= ИНФО-ПАНЕЛЬ (2 КОЛОНКИ) ======================= -->
+  <!-- ======================= ИНФО-ПАНЕЛЬ (2 КОЛОНКИ) ======================= -->
   <div id="world-info-panel">
-    <!-- Левая: текущая локация (всегда) -->
     <div class="info-column" id="my-cell-panel">
       <div class="info-column-title">📍 Вы здесь</div>
       <div id="my-cell-info"></div>
       <div id="my-cell-actions"></div>
     </div>
-
-    <!-- Правая: выбранная клетка (если не своя) -->
     <div class="info-column hidden" id="selected-cell-panel">
       <div class="info-column-title">🔍 Выбрано</div>
       <div id="selected-cell-info"></div>
@@ -76,6 +55,6 @@
   </div>
 
   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-  <script src="world_client.js?v=5"></script>
+  <script src="world_client.js?v=6"></script>
 </body>
 </html>
