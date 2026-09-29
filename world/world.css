@@ -150,17 +150,17 @@ body {
 
 .tile .player-icon {
   font-size: 26px;
-  filter: drop-shadow(0 0 4px #6c5ce7);
+  /* ❌ НЕТ filter */
 }
 
 .tile .other-player {
   font-size: 24px;
-  filter: drop-shadow(0 0 4px #2ecc71);
+  /* ❌ НЕТ filter */
 }
 
 .tile .monster-icon {
   font-size: 22px;
-  filter: drop-shadow(0 0 3px #e74c3c);
+  /* ❌ НЕТ filter */
 }
 
 .tile .resource-icon {
@@ -173,7 +173,7 @@ body {
 
 .tile .building-icon {
   font-size: 24px;
-  filter: drop-shadow(0 0 4px #f1c40f);
+  /* ❌ НЕТ filter */
 }
 
 /* ===== УПРАВЛЕНИЕ (скрыто) ===== */
@@ -307,7 +307,7 @@ body {
    ===== 🔤 КООРДИНАТЫ, БИОМ, ЦЕНТР — НА КАЖДОЙ КЛЕТКЕ =====
    ============================================================================ */
 
-/* 🔥 Иконка биома — в левом верхнем углу */
+/* 🔥 Иконка биома без фильтра */
 .tile .biome-icon {
   position: absolute;
   top: 1px;
@@ -316,7 +316,7 @@ body {
   opacity: 0.85;
   pointer-events: none;
   z-index: 1;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+  /* ❌ НЕТ filter */
 }
 
 /* 🔥 Центральная иконка (моб/ресурс/строение) */
@@ -327,7 +327,7 @@ body {
 
 .tile .resource-icon-center {
   font-size: 22px;
-  filter: drop-shadow(0 0 3px #2ecc71);
+  /* ❌ НЕТ filter */
 }
 
 /* 🔥 Координаты внизу клетки — мелко */
@@ -337,21 +337,18 @@ body {
   left: 50%;
   transform: translateX(-50%);
   font-size: 9px;
-  color: #ffffff;
+  color: rgba(255, 255, 255, 0.75);
   font-family: monospace;
   font-weight: bold;
   pointer-events: none;
   white-space: nowrap;
-  text-shadow: 
-    0 0 3px rgba(0, 0, 0, 1),
-    0 0 3px rgba(0, 0, 0, 1),
-    0 1px 2px rgba(0, 0, 0, 1);
-  background: rgba(0, 0, 0, 0.55);
-  padding: 0px 3px;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 0 3px;
   border-radius: 3px;
   letter-spacing: 0.3px;
   z-index: 1;
   line-height: 1.1;
+  /* ❌ НЕТ text-shadow */
 }
 
 /* 🔥 Убираем конфликт со старой иконкой ресурса в углу */
@@ -362,4 +359,5 @@ body {
   right: 2px;
   opacity: 0.9;
   z-index: 1;
+  /* ❌ НЕТ filter */
 }
