@@ -600,6 +600,7 @@ function showMyCellInfo(tile, resource, monster) {
 }
 
 function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y) {
+  console.log("📋 [SELECTED] dx:", dx, "dy:", dy);
   const panel = document.getElementById('selected-cell-panel');
   const selInfo = document.getElementById('selected-cell-info');
   const selActions = document.getElementById('selected-cell-actions');
@@ -648,6 +649,7 @@ function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y
 }
 
 function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
+  console.log("🖱️ [КЛИК]", { x, y, dx, dy, tile: !!tile, resource: !!resource, monster: !!monster });
   selectedTile = { x, y, tile, resource, monster, otherPlayer, dx, dy };
 
   if (window.currentTileMap) {
@@ -658,6 +660,7 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
   }
 
   showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y);
+  console.log("✅ [КЛИК] Панель обновлена");
 }
 
 // --- АВТОНАВИГАТОР ---
