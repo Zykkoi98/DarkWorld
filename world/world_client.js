@@ -492,6 +492,7 @@ window.exitWorld = function() {
 
 // --- ПРОГРЕСС ПЕРЕХОДА ---
 function showMoveProgress(durationMs) {
+    window.__moveSyncRequested = false;
   const old = document.getElementById('move-progress');
   if (old) old.remove();
 
@@ -562,10 +563,6 @@ function showMoveProgress(durationMs) {
             rebindHandlersToNewSocket();
           }
         }
-
-        setTimeout(() => {
-          window.__moveSyncRequested = false;
-        }, 1500);
       }
     }
   }, 100);
@@ -577,6 +574,7 @@ function showMoveProgress(durationMs) {
       console.warn("🔥 [МИР] Принудительное закрытие модалки (сервер не ответил)");
       hideMoveProgress();
       isMoving = false;
+      window.__moveSyncRequested = false;  // 🔥 сброс
       if (worldSocket && worldSocket.connected) {
         worldSocket.emit('world_get_map', { userId: localPlayer.id });
       }
