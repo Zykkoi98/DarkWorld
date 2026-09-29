@@ -1,6 +1,7 @@
 /* ============================================================================
-   ===== 🗺️ СТИЛИ КАРТЫ МИРА (WORLD.CSS) — v3 =====
-   ===== Фон и сетка двигаются вместе через #world-map-inner =====
+   ===== 🗺️ СТИЛИ КАРТЫ МИРА (WORLD.CSS) — v4 =====
+   ===== Фон + сетка двигаются вместе через #world-map-inner =====
+   ===== Тонкие рамки, координаты, биом, drag, без тяжёлых фильтров =====
    ============================================================================ */
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -32,6 +33,13 @@ body {
   margin-bottom: 10px;
 }
 
+/* ===== ПАНЕЛЬ АВТОНАВИГАТОРА ===== */
+#navigation-panel {
+  width: 100%;
+  max-width: 460px;
+  margin-bottom: 10px;
+}
+
 /* ===== КОНТЕЙНЕР КАРТЫ ===== */
 #world-map-container {
   width: 100%;
@@ -45,7 +53,7 @@ body {
   position: relative;
   background: #13141f;
   cursor: grab;
-  touch-action: none; /* 🔥 отключаем браузерные жесты */
+  touch-action: none;
 }
 
 #world-map-container.dragging {
@@ -62,6 +70,7 @@ body {
   transform-origin: 0 0;
   transition: transform 0.4s ease;
   will-change: transform;
+  contain: layout style paint; /* 🔥 изоляция рендера */
 }
 
 /* При drag — убираем transition, чтобы плавно двигалось за пальцем */
@@ -140,6 +149,7 @@ body {
   outline: 0.5px solid rgba(255, 255, 255, 0.15);
   outline-offset: -0.5px;
 }
+
 .tile:active { transform: scale(0.92); }
 
 .tile.center-tile {
@@ -148,35 +158,74 @@ body {
   z-index: 2;
 }
 
+/* ===== ИКОНКИ В КЛЕТКАХ (без фильтров — для производительности) ===== */
 .tile .player-icon {
   font-size: 26px;
-  /* ❌ НЕТ filter */
 }
 
 .tile .other-player {
   font-size: 24px;
-  /* ❌ НЕТ filter */
 }
 
 .tile .monster-icon {
   font-size: 22px;
-  /* ❌ НЕТ filter */
 }
 
 .tile .resource-icon {
-  font-size: 18px;
+  font-size: 16px;
   position: absolute;
   top: 2px;
   right: 2px;
   opacity: 0.9;
+  z-index: 1;
+}
+
+.tile .resource-icon-center {
+  font-size: 22px;
 }
 
 .tile .building-icon {
   font-size: 24px;
-  /* ❌ НЕТ filter */
 }
 
-/* ===== УПРАВЛЕНИЕ (скрыто) ===== */
+/* ===== ЦЕНТРАЛЬНЫЙ КОНТЕНТ (моб/ресурс/строение) ===== */
+.tile .center-content {
+  position: relative;
+  z-index: 2;
+}
+
+/* ===== ИКОНКА БИОМА — В ЛЕВОМ ВЕРХНЕМ УГЛУ ===== */
+.tile .biome-icon {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  font-size: 12px;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ===== КООРДИНАТЫ ВНИЗУ КЛЕТКИ ===== */
+.tile .tile-coords {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: monospace;
+  font-weight: bold;
+  pointer-events: none;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 0 3px;
+  border-radius: 3px;
+  letter-spacing: 0.3px;
+  z-index: 1;
+  line-height: 1.1;
+}
+
+/* ===== УПРАВЛЕНИЕ (устаревшее, оставлено) ===== */
 #world-controls {
   width: 100%;
   max-width: 460px;
@@ -202,7 +251,7 @@ body {
   transform: scale(0.9);
 }
 
-/* ===== ИНФО-ПАНЕЛЬ ===== */
+/* ===== ИНФО-ПАНЕЛЬ (2 КОЛОНКИ) ===== */
 #world-info-panel {
   display: flex !important;
   gap: 8px;
@@ -292,10 +341,6 @@ body {
   transition: box-shadow 0.2s, transform 0.1s;
 }
 
-.tile.adjacent:hover {
-  box-shadow: inset 0 0 0 2px #a29bfe, 0 0 12px rgba(108, 92, 231, 0.6);
-}
-
 .tile.adjacent:active {
   transform: scale(0.95);
 }
@@ -303,61 +348,16 @@ body {
 .tile.center-tile.adjacent {
   box-shadow: inset 0 0 12px rgba(241, 196, 15, 0.5);
 }
+
 /* ============================================================================
-   ===== 🔤 КООРДИНАТЫ, БИОМ, ЦЕНТР — НА КАЖДОЙ КЛЕТКЕ =====
+   ===== 🔥 ОПТИМИЗАЦИЯ DRAG =====
    ============================================================================ */
 
-/* 🔥 Иконка биома без фильтра */
-.tile .biome-icon {
-  position: absolute;
-  top: 1px;
-  left: 2px;
-  font-size: 12px;
-  opacity: 0.85;
+/* При drag — отключаем тяжёлые эффекты на клетках */
+#world-map-container.dragging .tile {
   pointer-events: none;
-  z-index: 1;
-  /* ❌ НЕТ filter */
 }
 
-/* 🔥 Центральная иконка (моб/ресурс/строение) */
-.tile .center-content {
-  position: relative;
-  z-index: 2;
-}
-
-.tile .resource-icon-center {
-  font-size: 22px;
-  /* ❌ НЕТ filter */
-}
-
-/* 🔥 Координаты внизу клетки — мелко */
-.tile .tile-coords {
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 9px;
-  color: rgba(255, 255, 255, 0.75);
-  font-family: monospace;
-  font-weight: bold;
-  pointer-events: none;
-  white-space: nowrap;
-  background: rgba(0, 0, 0, 0.45);
-  padding: 0 3px;
-  border-radius: 3px;
-  letter-spacing: 0.3px;
-  z-index: 1;
-  line-height: 1.1;
-  /* ❌ НЕТ text-shadow */
-}
-
-/* 🔥 Убираем конфликт со старой иконкой ресурса в углу */
-.tile .resource-icon {
-  font-size: 16px;
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  opacity: 0.9;
-  z-index: 1;
-  /* ❌ НЕТ filter */
+#world-map-container.dragging .tile-coords {
+  background: transparent;
 }
