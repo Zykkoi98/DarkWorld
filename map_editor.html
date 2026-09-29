@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Map Editor — Dark World</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1a2e;
+      color: #fff;
+      font-family: sans-serif;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    #toolbar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.4);
+      padding: 8px 12px;
+      border-radius: 10px;
+      max-width: 900px;
+    }
+    .region-btn {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      font-weight: bold;
+      color: #fff;
+      font-size: 13px;
+      transition: 0.15s;
+    }
+    .region-btn.active {
+      border-color: #f1c40f;
+      box-shadow: 0 0 12px rgba(241,196,15,0.6);
+    }
+    .region-btn[data-region="forest"]   { background: #1e5e1e; }
+    .region-btn[data-region="meadow"]   { background: #6db84a; color: #000; }
+    .region-btn[data-region="mountain"] { background: #5a5a5a; }
+    .region-btn[data-region="water"]    { background: #2980b9; }
+    .region-btn[data-region="sand"]     { background: #d4a860; color: #000; }
+    .region-btn[data-region="erase"]    { background: #e74c3c; }
+
+    #mapContainer {
+      position: relative;
+      width: 800px;
+      height: 800px;
+      border: 2px solid #6c5ce7;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: crosshair;
+    }
+    #mapImg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      image-rendering: auto;
+    }
+    #paintCanvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.45;
+    }
+    #gridCanvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.3;
+    }
+    #coordDisplay {
+      position: fixed;
+      top: 10px; right: 10px;
+      background: rgba(0,0,0,0.8);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 14px;
+      color: #f1c40f;
+      z-index: 100;
+    }
+    .status {
+      font-size: 12px;
+      color: #9aa0b5;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="coordDisplay">Наведи на карту...</div>
+
+  <div id="toolbar">
+    <button class="region-btn active" data-region="forest">🌲 Лес</button>
+    <button class="region-btn" data-region="meadow">🌾 Луг</button>
+    <button class="region-btn" data-region="mountain">🏔️ Горы</button>
+    <button class="region-btn" data-region="water">💧 Вода</button>
+    <button class="region-btn" data-region="sand">🏜️ Песок</button>
+    <button class="region-btn" data-region="erase">❌ Ластик</button>
+    <button id="saveBtn" style="background:#2ecc71;padding:8px 14px;border-radius:6px;border:none;color:#fff;font-weight:bold;cursor:pointer;">💾 Сохранить JSON</button>
+    <button id="loadBtn" style="background:#3498db;padding:8px 14px;border-radius:6px;border:none;color:#fff;font-weight:bold;cursor:pointer;">📁 Загрузить JSON</button>
+    <input type="file" id="fileInput" accept=".json" style="display:none;">
+    <span class="status" id="statusInfo">Клетка: —</span>
+  </div>
+
+  <div id="mapContainer">
+    <img id="mapImg" src="assets/maps/world_ashenval_background.jpg" alt="Map">
+    <canvas id="paintCanvas" width="800" height="800"></canvas>
+    <canvas id="gridCanvas" width="800" height="800"></canvas>
+  </div>
+   
+  <script>
+    // ============================================================
+    // КОНФИГ
+    // ============================================================
+    const MAP_SIZE = 50;              // 50×50 клеток
+    const CANVAS_SIZE = 800;          // размер канваса в px
+    const CELL_SIZE = CANVAS_SIZE / MAP_SIZE; // 16px на клетку
+
+    const COLORS = {
+      forest:   'rgba(30, 94, 30, 1)',
+      meadow:   'rgba(109, 184, 74, 1)',
+      mountain: 'rgba(90, 90, 90, 1)',
+      water:    'rgba(41, 128, 185, 1)',
+      sand:     'rgba(212, 168, 96, 1)'
+    };
+
+    // ============================================================
+    // СОСТОЯНИЕ
+    // ============================================================
+    let currentRegion = 'forest';
+    let regions = {}; // "x_y": "forest"
+
+    // ============================================================
+    // ИНИЦИАЛИЗАЦИЯ
+    // ============================================================
+    const paintCanvas = document.getElementById('paintCanvas');
+    const paintCtx = paintCanvas.getContext('2d');
+    const gridCanvas = document.getElementById('gridCanvas');
+    const gridCtx = gridCanvas.getContext('2d');
+    const coordDisplay = document.getElementById('coordDisplay');
+    const statusInfo = document.getElementById('statusInfo');
+    const mapContainer = document.getElementById('mapContainer');
+
+    // Рисуем сетку 50×50
+    function drawGrid() {
+      gridCtx.strokeStyle = 'rgba(255,255,255,0.4)';
+      gridCtx.lineWidth = 0.5;
+
+      for (let i = 0; i <= MAP_SIZE; i++) {
+        const pos = i * CELL_SIZE;
+        // Вертикальные
+        gridCtx.beginPath();
+        gridCtx.moveTo(pos, 0);
+        gridCtx.lineTo(pos, CANVAS_SIZE);
+        gridCtx.stroke();
+        // Горизонтальные
+        gridCtx.beginPath();
+        gridCtx.moveTo(0, pos);
+        gridCtx.lineTo(CANVAS_SIZE, pos);
+        gridCtx.stroke();
+      }
+    }
+    drawGrid();
+
+    // Перерисовка всей карты регионов из объекта `regions`
+    function redrawAll() {
+      paintCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      for (const key in regions) {
+        const [x, y] = key.split('_').map(Number);
+        const color = COLORS[regions[key]];
+        if (color) {
+          paintCtx.fillStyle = color;
+          paintCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        }
+      }
+    }
+
+    // ============================================================
+    // ВЫБОР РЕГИОНА
+    // ============================================================
+    document.querySelectorAll('.region-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentRegion = btn.dataset.region;
+      });
+    });
+
+    // ============================================================
+    // КЛИКИ ПО КАРТЕ
+    // ============================================================
+    let isPainting = false;
+
+    mapContainer.addEventListener('mousedown', (e) => {
+      isPainting = true;
+      paintCell(e);
+    });
+
+    mapContainer.addEventListener('mousemove', (e) => {
+      updateCoordDisplay(e);
+      if (isPainting) paintCell(e);
+    });
+
+    mapContainer.addEventListener('mouseup', () => { isPainting = false; });
+    mapContainer.addEventListener('mouseleave', () => { isPainting = false; });
+
+    // Тач-события для мобильных
+    mapContainer.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      isPainting = true;
+      paintCell(e.touches[0]);
+    }, { passive: false });
+
+    mapContainer.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (isPainting) paintCell(e.touches[0]);
+      updateCoordDisplay(e.touches[0]);
+    }, { passive: false });
+
+    mapContainer.addEventListener('touchend', () => { isPainting = false; });
+
+    function paintCell(e) {
+      const rect = mapContainer.getBoundingClientRect();
+      const px = (e.clientX - rect.left) * (CANVAS_SIZE / rect.width);
+      const py = (e.clientY - rect.top) * (CANVAS_SIZE / rect.height);
+
+      const x = Math.floor(px / CELL_SIZE);
+      const y = Math.floor(py / CELL_SIZE);
+
+      if (x < 0 || x >= MAP_SIZE || y < 0 || y >= MAP_SIZE) return;
+
+      const key = `${x}_${y}`;
+
+      if (currentRegion === 'erase') {
+        delete regions[key];
+        // Стираем только эту клетку
+        paintCtx.clearRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+      } else {
+        regions[key] = currentRegion;
+        paintCtx.fillStyle = COLORS[currentRegion];
+        paintCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+      }
+
+      statusInfo.textContent = `Клетка: (${x}, ${y}) = ${currentRegion}`;
+    }
+
+    function updateCoordDisplay(e) {
+      const rect = mapContainer.getBoundingClientRect();
+      const px = (e.clientX - rect.left) * (CANVAS_SIZE / rect.width);
+      const py = (e.clientY - rect.top) * (CANVAS_SIZE / rect.height);
+      const x = Math.floor(px / CELL_SIZE);
+      const y = Math.floor(py / CELL_SIZE);
+      coordDisplay.textContent = `(${x}, ${y})`;
+    }
+
+    // ============================================================
+    // СОХРАНЕНИЕ / ЗАГРУЗКА JSON
+    // ============================================================
+    document.getElementById('saveBtn').addEventListener('click', () => {
+      const data = {
+        mapId: 'ashenvale_main',
+        size: MAP_SIZE,
+        regions: regions
+      };
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ashenvale_regions.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      alert(`✅ Сохранено! Всего клеток: ${Object.keys(regions).length}`);
+    });
+
+    document.getElementById('loadBtn').addEventListener('click', () => {
+      document.getElementById('fileInput').click();
+    });
+
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (data.regions) {
+            regions = data.regions;
+            redrawAll();
+            alert(`✅ Загружено! Всего клеток: ${Object.keys(regions).length}`);
+          }
+        } catch (err) {
+          alert('❌ Ошибка чтения JSON: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+  </script>
+</body>
+</html>

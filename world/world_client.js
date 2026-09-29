@@ -1,6 +1,6 @@
 // ============================================================================
-// ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) — v3 =====
-// ===== ФИКСЫ: таймер без прыжка, клик по клетке, инфо-панель, защита =====
+// ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) — v4 =====
+// ===== ФИКСЫ: таймер, сокет-миграция, переподписка, надёжность =====
 // ============================================================================
 
 let worldSocket = null;
@@ -70,44 +70,38 @@ function startWorldAfterSocket() {
   window.worldSocket = worldSocket;
   worldSocket.userId = localPlayer.id;
 
-  // --- СЛУШАТЕЛИ ---
+  // --- РЕГИСТРАЦИЯ ОБРАБОТЧИКОВ (один раз) ---
 
   handlers.world_map_data = (data) => {
     console.log("🎉 [МИР] world_map_data пришёл от сервера!");
     onMapData(data);
   };
-  worldSocket.off('world_map_data', handlers.world_map_data);
-  worldSocket.on('world_map_data', handlers.world_map_data);
 
-  // 🔥 ФИКС: таймер стартует ТОЛЬКО здесь, а не при клике
   handlers.world_move_started = (data) => {
     console.log("🚶 [МИР] Начат переход:", data);
     isMoving = true;
     moveEndsAt = data.endsAt;
-    // Запускаем визуальный таймер ровно на durationMs (клиент уже ждал до этого)
     showMoveProgress(data.durationMs);
     blockControls(true);
   };
-  worldSocket.off('world_move_started', handlers.world_move_started);
-  worldSocket.on('world_move_started', handlers.world_move_started);
 
-    handlers.world_move_completed = (data) => {
+  handlers.world_move_completed = (data) => {
     console.log("✅ [МИР] Переход завершён, запрашиваем свежую карту");
     // 🔥 Отменяем защитный таймаут
     if (window.__moveSafetyTimeout) {
-        clearTimeout(window.__moveSafetyTimeout);
-        window.__moveSafetyTimeout = null;
+      clearTimeout(window.__moveSafetyTimeout);
+      window.__moveSafetyTimeout = null;
     }
+    // 🔥 Сбрасываем флаг синхронизации
+    window.__moveSyncRequested = false;
     isMoving = false;
     moveEndsAt = null;
     hideMoveProgress();
     blockControls(false);
     if (worldSocket && worldSocket.connected) {
-        worldSocket.emit('world_get_map', { userId: localPlayer.id });
+      worldSocket.emit('world_get_map', { userId: localPlayer.id });
     }
-    };
-  worldSocket.off('world_move_completed', handlers.world_move_completed);
-  worldSocket.on('world_move_completed', handlers.world_move_completed);
+  };
 
   handlers.world_move_cancelled = () => {
     console.log("🚫 [МИР] Переход отменён");
@@ -116,8 +110,6 @@ function startWorldAfterSocket() {
     hideMoveProgress();
     blockControls(false);
   };
-  worldSocket.off('world_move_cancelled', handlers.world_move_cancelled);
-  worldSocket.on('world_move_cancelled', handlers.world_move_cancelled);
 
   handlers.world_move_blocked = (data) => {
     showToast(`🚫 ${data.reason}`, 'error');
@@ -125,56 +117,94 @@ function startWorldAfterSocket() {
     hideMoveProgress();
     blockControls(false);
   };
-  worldSocket.off('world_move_blocked', handlers.world_move_blocked);
-  worldSocket.on('world_move_blocked', handlers.world_move_blocked);
 
   handlers.world_player_moved = () => {
     worldSocket.emit('world_get_map', { userId: localPlayer.id });
   };
-  worldSocket.off('world_player_moved', handlers.world_player_moved);
-  worldSocket.on('world_player_moved', handlers.world_player_moved);
 
- handlers.world_gathered = (data) => {
-  showToast(`✅ Собрано: ${data.resourceIcon} ${data.resourceName}`, 'success');
-  // 🔥 ФИКС: явно запрашиваем свежую карту, чтобы ресурс исчез
-  if (worldSocket && worldSocket.connected) {
-    worldSocket.emit('world_get_map', { userId: localPlayer.id });
-  }
-};
-  worldSocket.off('world_gathered', handlers.world_gathered);
-  worldSocket.on('world_gathered', handlers.world_gathered);
+  handlers.world_gathered = (data) => {
+    showToast(`✅ Собрано: ${data.resourceIcon} ${data.resourceName}`, 'success');
+    if (worldSocket && worldSocket.connected) {
+      worldSocket.emit('world_get_map', { userId: localPlayer.id });
+    }
+  };
 
   handlers.world_teleported = (data) => {
     showToast(`🌀 Телепорт: ${data.mapName}`, 'info');
   };
-  worldSocket.off('world_teleported', handlers.world_teleported);
-  worldSocket.on('world_teleported', handlers.world_teleported);
 
   handlers.world_portal_found = () => {
     showToast(`🌀 Здесь портал!`, 'info');
   };
-  worldSocket.off('world_portal_found', handlers.world_portal_found);
-  worldSocket.on('world_portal_found', handlers.world_portal_found);
 
   handlers.world_monster_data = (data) => {
     console.log("⚔️ Данные моба:", data);
     alert(`⚔️ ${data.monster.name}\nУровень: ${data.monster.level}\n\nБой подключим позже.`);
   };
-  worldSocket.off('world_monster_data', handlers.world_monster_data);
-  worldSocket.on('world_monster_data', handlers.world_monster_data);
 
   handlers.error = (msg) => {
     showToast(`🚨 ${msg}`, 'error');
   };
-  worldSocket.off('error', handlers.error);
-  worldSocket.on('error', handlers.error);
 
+  // --- ПОДПИСКА НА ВСЕ ОБРАБОТЧИКИ ---
+  attachHandlers();
+
+  // Первый запрос карты
   worldSocket.emit('world_get_map', { userId: localPlayer.id });
 
+  // Скрываем лоадер
   setTimeout(() => {
     const loader = document.getElementById('world-loader');
     if (loader) loader.style.display = 'none';
   }, 1500);
+
+  // 🔥 НАДЁЖНЫЙ ФИКС: каждые 3 сек проверяем, не сменился ли родительский сокет
+  if (window.__worldSocketCheckInterval) {
+    clearInterval(window.__worldSocketCheckInterval);
+  }
+  window.__worldSocketCheckInterval = setInterval(() => {
+    if (!window.parent || window.parent === window) return;
+    const parentSock = window.parent.socket;
+
+    if (parentSock && parentSock.connected && parentSock.id !== worldSocket?.id) {
+      console.warn(`⚠️ [МИР] Родительский сокет сменился: ${worldSocket?.id} → ${parentSock.id}`);
+      worldSocket = parentSock;
+      window.worldSocket = parentSock;
+      rebindHandlersToNewSocket();
+    }
+  }, 3000);
+}
+
+// --- ПОДПИСКА ВСЕХ ОБРАБОТЧИКОВ ---
+function attachHandlers() {
+  if (!worldSocket) return;
+  Object.keys(handlers).forEach(eventName => {
+    try {
+      worldSocket.off(eventName, handlers[eventName]); // снять старые (если есть)
+      worldSocket.on(eventName, handlers[eventName]);  // подписать заново
+    } catch (e) {}
+  });
+}
+
+// --- ПЕРЕПОДПИСКА НА НОВЫЙ СОКЕТ ---
+function rebindHandlersToNewSocket() {
+  if (!worldSocket) return;
+
+  console.log("🔧 [МИР] Переподписка на новый сокет:", worldSocket.id);
+
+  // Снимаем ВСЕ обработчики (на случай, если остались)
+  Object.keys(handlers).forEach(eventName => {
+    try {
+      worldSocket.off(eventName, handlers[eventName]);
+    } catch (e) {}
+  });
+
+  // Подписываемся заново
+  attachHandlers();
+
+  // Запрашиваем актуальную карту
+  worldSocket.emit('world_get_map', { userId: localPlayer.id });
+  console.log("✅ [МИР] Переподписка завершена");
 }
 
 // --- ОБРАБОТКА ДАННЫХ КАРТЫ ---
@@ -204,7 +234,6 @@ function onMapData(data) {
       blockControls(true);
     }
   } else {
-    // Если перехода нет — разблокируем управление (могло остаться с прошлого раза)
     isMoving = false;
     blockControls(false);
   }
@@ -217,14 +246,10 @@ function updateMapBackground(myX, myY) {
   const container = document.getElementById('world-map-container');
   if (!container) return;
 
-  // Размер карты (по умолчанию 50×50 для Ашенваля)
   const mapSize = 50;
-
-  // Процент позиции игрока (0..100)
   const xPercent = (myX / (mapSize - 1)) * 100;
   const yPercent = (myY / (mapSize - 1)) * 100;
 
-  // 🔥 Сдвигаем фон
   container.style.backgroundPosition = `${xPercent}% ${yPercent}%`;
 
   console.log(`🎨 [МИР] Фон сдвинут: ${xPercent.toFixed(1)}% ${yPercent.toFixed(1)}% (игрок на ${myX},${myY})`);
@@ -250,10 +275,11 @@ function renderMap(data) {
 
   const playerMap = {};
   players.forEach(p => { playerMap[`${p.x}_${p.y}`] = p; });
-        // 🔥 Сохраняем ссылки на карты для onTileClick
-    window.currentTileMap = tileMap;
-    window.currentResourceMap = resourceMap;
-    window.currentMonsterMap = monsterMap;
+
+  window.currentTileMap = tileMap;
+  window.currentResourceMap = resourceMap;
+  window.currentMonsterMap = monsterMap;
+
   for (let dy = -VIEW_RADIUS; dy <= VIEW_RADIUS; dy++) {
     for (let dx = -VIEW_RADIUS; dx <= VIEW_RADIUS; dx++) {
       const x = myX + dx;
@@ -268,8 +294,7 @@ function renderMap(data) {
       cell.className = 'tile';
       cell.dataset.x = x;
       cell.dataset.y = y;
-      
-      // 🔥 ФИКС: подсветка соседних клеток (можно перейти)
+
       const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
       if (isAdjacent) {
         cell.classList.add('adjacent');
@@ -306,13 +331,11 @@ function renderMap(data) {
     }
   }
 
- // 🔥 Автоматически показываем инфо своей клетки при загрузке
   const myTile = tileMap[`${myX}_${myY}`];
   const myResource = resourceMap[`${myX}_${myY}`];
   const myMonster = monsterMap[`${myX}_${myY}`];
   showMyCellInfo(myTile, myResource, myMonster);
 
-  // 🔥 Правая колонка по умолчанию скрыта
   const selectedPanel = document.getElementById('selected-cell-panel');
   if (selectedPanel) selectedPanel.classList.add('hidden');
 }
@@ -341,7 +364,6 @@ function showMyCellInfo(tile, resource, monster) {
 
   myInfo.innerHTML = html;
 
-  // Кнопки действий для своей клетки
   if (resource && resource.resource_id) {
     const rData = currentMapData.resourcesDB[resource.resource_id];
     if (rData) {
@@ -381,7 +403,6 @@ function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy) {
   const selActions = document.getElementById('selected-cell-actions');
   if (!panel || !selInfo || !selActions) return;
 
-  // Если это своя клетка — скрываем правую колонку
   if (dx === 0 && dy === 0) {
     panel.classList.add('hidden');
     return;
@@ -413,7 +434,6 @@ function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy) {
 
   selInfo.innerHTML = html;
 
-  // Кнопка «Перейти» если соседняя
   const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
   if (isAdjacent) {
     const moveBtn = document.createElement('button');
@@ -428,7 +448,6 @@ function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy) {
 function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
   selectedTile = { x, y, tile, resource, monster, otherPlayer, dx, dy };
 
-  // 🔥 Левая колонка ВСЕГДА показывает свою клетку — обновляем её при клике
   if (window.currentTileMap) {
     const myTile = window.currentTileMap[`${currentMapData.myX}_${currentMapData.myY}`];
     const myResource = window.currentResourceMap[`${currentMapData.myX}_${currentMapData.myY}`];
@@ -436,7 +455,6 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
     showMyCellInfo(myTile, myResource, myMonster);
   }
 
-  // 🔥 Правая колонка показывает выбранную клетку (если не своя — иначе скроется сама)
   showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy);
 }
 
@@ -449,8 +467,6 @@ window.moveWorld = function(dx, dy) {
     return;
   }
 
-  // 🔥 ФИКС: НЕ запускаем таймер тут — только помечаем, что переход начался.
-  // Таймер стартует в обработчике world_move_started (когда сервер подтвердит).
   isMoving = true;
   blockControls(true);
 
@@ -521,29 +537,51 @@ function showMoveProgress(durationMs) {
     if (remaining > 0) {
       if (timeEl) timeEl.textContent = `${remaining.toFixed(1)}с`;
     } else {
-      // 🔥 ФИКС: таймер дошёл до 0, но world_move_completed ещё не пришёл
       if (timeEl) {
         timeEl.textContent = 'Синхронизация...';
         timeEl.style.color = '#3498db';
         timeEl.style.fontSize = '14px';
       }
+
+      // 🔥 НАДЁЖНЫЙ ФИКС: клиент САМ запрашивает карту через АКТУАЛЬНЫЙ сокет
+      if (!window.__moveSyncRequested) {
+        window.__moveSyncRequested = true;
+        console.log("🔄 [МИР] Клиент сам запрашивает карту через актуальный сокет");
+
+        const activeSocket = (window.parent && window.parent.socket && window.parent.socket.connected)
+          ? window.parent.socket
+          : worldSocket;
+
+        if (activeSocket && activeSocket.connected) {
+          activeSocket.emit('world_get_map', { userId: localPlayer.id });
+          if (activeSocket !== worldSocket) {
+            console.warn("⚠️ [МИР] Сокет сменился! Переподписываемся на новый");
+            worldSocket = activeSocket;
+            window.worldSocket = activeSocket;
+            rebindHandlersToNewSocket();
+          }
+        }
+
+        setTimeout(() => {
+          window.__moveSyncRequested = false;
+        }, 1500);
+      }
     }
   }, 100);
-    // 🔥 ФИКС: защитный таймаут — если через 5 сек после конца модалка всё ещё висит, закрываем
+
+  // 🔥 Защитный таймаут — если сервер не ответил через 5 сек после конца
   const safetyTimeout = setTimeout(() => {
     const modal = document.getElementById('move-progress');
     if (modal) {
       console.warn("🔥 [МИР] Принудительное закрытие модалки (сервер не ответил)");
       hideMoveProgress();
       isMoving = false;
-      // Запрашиваем карту, чтобы увидеть актуальную позицию
       if (worldSocket && worldSocket.connected) {
         worldSocket.emit('world_get_map', { userId: localPlayer.id });
       }
     }
-  }, totalDuration + 5000); // длительность + 5 сек буфер
+  }, totalDuration + 5000);
 
-  // Сохраняем ID таймаута, чтобы отменить при получении world_move_completed
   window.__moveSafetyTimeout = safetyTimeout;
 }
 
@@ -557,7 +595,7 @@ function hideMoveProgress() {
 }
 
 function blockControls(blocked) {
-  // Кнопки стрелок убраны, но функция остаётся для совместимости (ничего не делает)
+  // Кнопки стрелок убраны
 }
 
 // --- ТОСТ ---
@@ -593,6 +631,7 @@ function showToast(message, type = 'info') {
 window.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'WORLD_WILL_UNLOAD') {
     console.log("🧹 [МИР] Получен сигнал выгрузки, чистим подписки");
+
     if (worldSocket) {
       Object.keys(handlers).forEach(eventName => {
         try {
@@ -601,10 +640,22 @@ window.addEventListener('message', (event) => {
       });
       console.log("✅ [МИР] Все подписки сняты, сокет родителя сохранён");
     }
+
     if (moveTimerInterval) {
       clearInterval(moveTimerInterval);
       moveTimerInterval = null;
     }
+
+    if (window.__worldSocketCheckInterval) {
+      clearInterval(window.__worldSocketCheckInterval);
+      window.__worldSocketCheckInterval = null;
+    }
+
+    if (window.__moveSafetyTimeout) {
+      clearTimeout(window.__moveSafetyTimeout);
+      window.__moveSafetyTimeout = null;
+    }
+
     localStorage.removeItem('world_active');
   }
 });
