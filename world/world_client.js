@@ -485,15 +485,18 @@ function updateGridContent(data) {
     }
 
     // Своя клетка
-    if (x === myX && y === myY) {
+  // 🔥 Вычисляем dx, dy ВСЕГДА
+    const dx = x - myX;
+    const dy = y - myY;
+
+    // Своя клетка
+    if (dx === 0 && dy === 0) {
       cell.classList.add('center-tile');
       const centerSpan = document.createElement('span');
       centerSpan.className = 'center-content';
       centerSpan.innerHTML = '<span class="player-icon">👤</span>';
       cell.appendChild(centerSpan);
     } else {
-      const dx = x - myX;
-      const dy = y - myY;
       if (Math.abs(dx) + Math.abs(dy) === 1) {
         cell.classList.add('adjacent');
       }
@@ -527,7 +530,8 @@ function updateGridContent(data) {
     coordsEl.textContent = `${x},${y}`;
     cell.appendChild(coordsEl);
 
-    cell.onclick = () => onTileClick(x, y, tile, resource, monster, otherPlayer, dx || 0, dy || 0);
+    // 🔥 Клик — использует dx, dy, которые ТЕПЕРЬ всегда вычислены
+    cell.onclick = () => onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy);
   }
 
   const myTile = tileMap[`${myX}_${myY}`];
