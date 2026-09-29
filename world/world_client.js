@@ -1,6 +1,6 @@
 // ============================================================================
-// ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) — v5 =====
-// ===== ФИКСЫ: drag, кнопка центр, точная формула =====
+// ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) — v6 =====
+// ===== ФИКСЫ: drag, кэш, автонавигатор (A*) =====
 // ============================================================================
 
 let worldSocket = null;
@@ -14,14 +14,14 @@ let moveEndsAt = null;
 
 const VIEW_RADIUS = 3;
 
-// 🔥 Именованные обработчики
 const handlers = {};
+
 // 🔥 Автонавигатор
-let navTarget = null;       // {x, y}
-let navPath = [];           // очередь шагов [{dx, dy}, ...]
+let navTarget = null;
+let navPath = [];
 let isNavigating = false;
 
-// 🔥 Глобальные переменные для drag
+// 🔥 Drag
 let currentOffsetX = 0;
 let currentOffsetY = 0;
 let isDragging = false;
@@ -86,7 +86,8 @@ function initWorld() {
 function startWorldAfterSocket() {
   window.worldSocket = worldSocket;
   worldSocket.userId = localPlayer.id;
-    // 🔥 Глобальный кэш клеток — накапливается с переходами
+
+  // 🔥 Кэш
   window.tileCache = window.tileCache || {};
   window.resourceCache = window.resourceCache || {};
   window.monsterCache = window.monsterCache || {};
@@ -101,7 +102,6 @@ function startWorldAfterSocket() {
     isMoving = true;
     moveEndsAt = data.endsAt;
     showMoveProgress(data.durationMs);
-    blockControls(true);
   };
 
   handlers.world_move_completed = (data) => {
@@ -114,24 +114,22 @@ function startWorldAfterSocket() {
     isMoving = false;
     moveEndsAt = null;
     hideMoveProgress();
-    blockControls(false);
-        // 🔥 Автонавигатор: идём к следующему шагу
-    if (isNavigating) {
-      // Небольшая задержка, чтобы карта обновилась
-      setTimeout(() => {
-        navigateNextStep();
-      }, 500);
-    }
+
     if (!window.__moveSyncRequested) {
       console.log("📤 [МИР] Запрашиваем карту (после world_move_completed)");
       if (worldSocket && worldSocket.connected) {
         worldSocket.emit('world_get_map', { userId: localPlayer.id });
       }
-    } else {
-      console.log("⏭️ [МИР] Пропускаем запрос — safety timeout уже отправил");
     }
 
     window.__moveSyncRequested = false;
+
+    // 🔥 Автонавигатор
+    if (isNavigating) {
+      setTimeout(() => {
+        navigateNextStep();
+      }, 500);
+    }
   };
 
   handlers.world_move_cancelled = () => {
@@ -139,14 +137,12 @@ function startWorldAfterSocket() {
     isMoving = false;
     moveEndsAt = null;
     hideMoveProgress();
-    blockControls(false);
   };
 
   handlers.world_move_blocked = (data) => {
     showToast(`🚫 ${data.reason}`, 'error');
     isMoving = false;
     hideMoveProgress();
-    blockControls(false);
   };
 
   handlers.world_player_moved = () => {
@@ -188,13 +184,11 @@ function startWorldAfterSocket() {
     if (loader) loader.style.display = 'none';
   }, 1500);
 
-  if (window.__worldSocketCheckInterval) {
-    clearInterval(window.__worldSocketCheckInterval);
-  }
+  // 🔥 Проверка сокета
+  if (window.__worldSocketCheckInterval) clearInterval(window.__worldSocketCheckInterval);
   window.__worldSocketCheckInterval = setInterval(() => {
     if (!window.parent || window.parent === window) return;
     const parentSock = window.parent.socket;
-
     if (parentSock && parentSock.connected && parentSock !== worldSocket && parentSock.id !== worldSocket?.id) {
       console.warn(`⚠️ [МИР] Родительский сокет сменился: ${worldSocket?.id} → ${parentSock.id}`);
       worldSocket = parentSock;
@@ -204,7 +198,7 @@ function startWorldAfterSocket() {
   }, 10000);
 }
 
-// --- ПОДПИСКА ВСЕХ ОБРАБОТЧИКОВ ---
+// --- ПОДПИСКА ОБРАБОТЧИКОВ ---
 function attachHandlers() {
   if (!worldSocket) return;
   Object.keys(handlers).forEach(eventName => {
@@ -219,11 +213,9 @@ function attachHandlers() {
 function rebindHandlersToNewSocket() {
   if (!worldSocket) return;
   console.log("🔧 [МИР] Переподписка на новый сокет:", worldSocket.id);
-
   Object.keys(handlers).forEach(eventName => {
     try { worldSocket.off(eventName, handlers[eventName]); } catch (e) {}
   });
-
   attachHandlers();
   worldSocket.emit('world_get_map', { userId: localPlayer.id });
   console.log("✅ [МИР] Переподписка завершена");
@@ -233,7 +225,8 @@ function rebindHandlersToNewSocket() {
 function onMapData(data) {
   console.log("🗺️ [МИР] Карта получена:", data);
   currentMapData = data;
-  // 🔥 Сохраняем все клетки в кэш
+
+  // 🔥 Кэш
   if (data.tiles) {
     data.tiles.forEach(t => {
       window.tileCache[`${t.x}_${t.y}`] = t;
@@ -249,7 +242,7 @@ function onMapData(data) {
       window.monsterCache[`${m.x}_${m.y}`] = m;
     });
   }
-  console.log(`📦 [МИР] Кэш: ${Object.keys(window.tileCache).length} клеток, ${Object.keys(window.resourceCache).length} ресурсов, ${Object.keys(window.monsterCache).length} мобов`);
+  console.log(`📦 [МИР] Кэш: ${Object.keys(window.tileCache).length} клеток`);
 
   const loader = document.getElementById('world-loader');
   if (loader) loader.style.display = 'none';
@@ -269,42 +262,30 @@ function onMapData(data) {
       isMoving = true;
       moveEndsAt = data.activeMove.endsAt;
       showMoveProgress(remainingMs);
-      blockControls(true);
     }
   } else {
     isMoving = false;
-    blockControls(false);
   }
 
   renderMap(data);
 }
 
-// 🔥 Применить offset
+// --- OFFSET КАРТЫ ---
 function applyMapOffset(offsetX, offsetY, animate = true) {
   const inner = document.getElementById('world-map-inner');
   if (!inner) return;
-
   currentOffsetX = offsetX;
   currentOffsetY = offsetY;
-
-  if (!animate) {
-    inner.style.transition = 'none';
-  } else {
-    inner.style.transition = 'transform 0.4s ease';
-  }
-
+  inner.style.transition = animate ? 'transform 0.4s ease' : 'none';
   inner.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
 }
 
-
-// 🔥 Сдвиг фона карты
 function updateMapBackground(myX, myY) {
   const container = document.getElementById('world-map-container');
   if (!container) return;
 
   const mapSize = 50;
   const containerSize = container.offsetWidth;
-
   const fullMapSize = containerSize * 7.14;
   const cellSize = fullMapSize / mapSize;
 
@@ -314,39 +295,30 @@ function updateMapBackground(myX, myY) {
   const offsetX = containerSize / 2 - playerCenterX;
   const offsetY = containerSize / 2 - playerCenterY;
 
-  const maxOffsetX = 0;
   const minOffsetX = containerSize - fullMapSize;
-  const maxOffsetY = 0;
   const minOffsetY = containerSize - fullMapSize;
 
-  const clampedX = Math.max(minOffsetX, Math.min(maxOffsetX, offsetX));
-  const clampedY = Math.max(minOffsetY, Math.min(maxOffsetY, offsetY));
+  const clampedX = Math.max(minOffsetX, Math.min(0, offsetX));
+  const clampedY = Math.max(minOffsetY, Math.min(0, offsetY));
 
   if (!isDragging) {
     applyMapOffset(clampedX, clampedY, true);
   }
-
-  console.log(`🎨 [МИР] Фон сдвинут: (${clampedX.toFixed(1)}, ${clampedY.toFixed(1)}) для (${myX}, ${myY})`);
 }
 
-// 🔥 Центрировать на игроке
 function centerMapOnPlayer() {
   if (!currentMapData) return;
   updateMapBackground(currentMapData.myX, currentMapData.myY);
 }
 
-// 🔥 Инициализация drag
+// --- DRAG ---
 function initMapDrag() {
-  if (window.__mapDragInited) {
-    console.log("⏭️ [МИР] Drag уже инициализирован");
-    return;
-  }
+  if (window.__mapDragInited) return;
   window.__mapDragInited = true;
 
   const container = document.getElementById('world-map-container');
   if (!container) return;
 
-  // Touch
   container.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) return;
     isDragging = true;
@@ -361,6 +333,10 @@ function initMapDrag() {
     if (!isDragging) return;
     e.preventDefault();
 
+    const now = Date.now();
+    if (now - (window.__lastDragUpdate || 0) < 16) return;
+    window.__lastDragUpdate = now;
+
     const dx = e.touches[0].clientX - dragStartX;
     const dy = e.touches[0].clientY - dragStartY;
 
@@ -370,10 +346,9 @@ function initMapDrag() {
     const containerSize = container.offsetWidth;
     const fullMapSize = containerSize * 7.14;
     const minOffset = containerSize - fullMapSize;
-    const maxOffset = 0;
 
-    const clampedX = Math.max(minOffset, Math.min(maxOffset, newOffsetX));
-    const clampedY = Math.max(minOffset, Math.min(maxOffset, newOffsetY));
+    const clampedX = Math.max(minOffset, Math.min(0, newOffsetX));
+    const clampedY = Math.max(minOffset, Math.min(0, newOffsetY));
 
     applyMapOffset(clampedX, clampedY, false);
   }, { passive: false });
@@ -383,7 +358,6 @@ function initMapDrag() {
     container.classList.remove('dragging');
   });
 
-  // Mouse
   container.addEventListener('mousedown', (e) => {
     isDragging = true;
     container.classList.add('dragging');
@@ -395,21 +369,15 @@ function initMapDrag() {
 
   document.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
-
     const dx = e.clientX - dragStartX;
     const dy = e.clientY - dragStartY;
-
     const newOffsetX = dragOffsetStartX + dx;
     const newOffsetY = dragOffsetStartY + dy;
-
     const containerSize = container.offsetWidth;
     const fullMapSize = containerSize * 7.14;
     const minOffset = containerSize - fullMapSize;
-    const maxOffset = 0;
-
-    const clampedX = Math.max(minOffset, Math.min(maxOffset, newOffsetX));
-    const clampedY = Math.max(minOffset, Math.min(maxOffset, newOffsetY));
-
+    const clampedX = Math.max(minOffset, Math.min(0, newOffsetX));
+    const clampedY = Math.max(minOffset, Math.min(0, newOffsetY));
     applyMapOffset(clampedX, clampedY, false);
   });
 
@@ -427,7 +395,7 @@ function initMapDrag() {
   }
 }
 
-// 🔥 Кнопка «Войти в город»
+// --- КНОПКА «ВОЙТИ В ГОРОД» ---
 function updateCityButton(myX, myY) {
   const btn = document.getElementById('enter-city-btn');
   if (!btn) return;
@@ -437,18 +405,16 @@ function updateCityButton(myX, myY) {
 
   if (myX === CITY_X && myY === CITY_Y) {
     btn.style.display = 'block';
-    console.log("🏰 [МИР] Игрок на клетке замка — кнопка «Войти в город» показана");
   } else {
     btn.style.display = 'none';
   }
 }
 
-// --- РЕНДЕР СЕТКИ 50×50 (один раз) ---
+// --- РЕНДЕР ---
 function renderMap(data) {
   const grid = document.getElementById('world-map-grid');
   if (!grid) return;
 
-  // 🔥 Строим 50×50 только при первом вызове
   if (grid.children.length === 0) {
     buildFullGrid();
   }
@@ -456,11 +422,9 @@ function renderMap(data) {
   updateGridContent(data);
 }
 
-// 🔥 Построить 50×50 сетку (один раз)
 function buildFullGrid() {
   const grid = document.getElementById('world-map-grid');
   if (!grid) return;
-
   grid.innerHTML = '';
 
   for (let y = 0; y < 50; y++) {
@@ -472,18 +436,15 @@ function buildFullGrid() {
       grid.appendChild(cell);
     }
   }
-
-  console.log("🎨 [МИР] Полная сетка 50×50 построена");
+  console.log("🎨 [МИР] Сетка 50×50 построена");
 }
 
-// 🔥 Обновить содержимое клеток (используя КЭШ)
 function updateGridContent(data) {
   const grid = document.getElementById('world-map-grid');
   if (!grid) return;
 
   const { myX, myY, resourcesDB, regionsDB, buildingsDB } = data;
 
-  // 🔥 Используем КЭШ (не только 15×15 от сервера)
   const tileMap = window.tileCache || {};
   const resourceMap = window.resourceCache || {};
   const monsterMap = window.monsterCache || {};
@@ -497,7 +458,6 @@ function updateGridContent(data) {
   window.currentResourceMap = resourceMap;
   window.currentMonsterMap = monsterMap;
 
-  // 🔥 Обновляем КАЖДУЮ клетку из сетки
   const cells = grid.children;
   for (let i = 0; i < cells.length; i++) {
     const cell = cells[i];
@@ -509,77 +469,67 @@ function updateGridContent(data) {
     const monster = monsterMap[`${x}_${y}`];
     const otherPlayer = playerMap[`${x}_${y}`];
 
-    // Сброс
     cell.className = 'tile';
     cell.innerHTML = '';
     cell.onclick = null;
 
-    // Своя клетка
-    if (x === myX && y === myY) {
-      cell.classList.add('center-tile');
-      cell.innerHTML = '<span class="player-icon">👤</span>';
-      cell.onclick = () => onTileClick(x, y, tile, resource, monster, otherPlayer, 0, 0);
-      continue;
-    }
-
-    // Соседняя
-    const dx = x - myX;
-    const dy = y - myY;
-    if (Math.abs(dx) + Math.abs(dy) === 1) {
-      cell.classList.add('adjacent');
-    }
-
- // 🔥 НОВОЕ: рисуем ВСЁ, что есть на клетке — фон + координаты + иконки
-
-    // 1. Фон клетки — иконка биома в углу
+    // Биом
     if (tile && tile.region) {
       const rData = regionsDB[tile.region];
       if (rData && rData.icon) {
         const biomeIcon = document.createElement('span');
         biomeIcon.className = 'biome-icon';
         biomeIcon.textContent = rData.icon;
-        biomeIcon.title = rData.name;
         cell.appendChild(biomeIcon);
       }
     }
 
-    // 2. Центральная иконка — моб ИЛИ ресурс ИЛИ игрок
-    let centerHtml = '';
-    if (otherPlayer) {
-      centerHtml = `<span class="other-player">🟢</span>`;
-      cell.title = otherPlayer.name;
-    }
-    else if (monster && monster.monster_id) {
-      centerHtml = `<span class="monster-icon">👹</span>`;
-      cell.title = `Моб ${monster.level} ур.`;
-    }
-    else if (resource && resource.resource_id) {
-      const rData = resourcesDB[resource.resource_id];
-      centerHtml = `<span class="resource-icon-center">${rData ? rData.icon : '🌿'}</span>`;
-    }
-    else if (tile && tile.building) {
-      const bData = buildingsDB[tile.building];
-      centerHtml = `<span class="building-icon">${bData ? bData.icon : '🏛️'}</span>`;
-    }
-
-    if (centerHtml) {
+    // Своя клетка
+    if (x === myX && y === myY) {
+      cell.classList.add('center-tile');
       const centerSpan = document.createElement('span');
       centerSpan.className = 'center-content';
-      centerSpan.innerHTML = centerHtml;
+      centerSpan.innerHTML = '<span class="player-icon">👤</span>';
       cell.appendChild(centerSpan);
+    } else {
+      const dx = x - myX;
+      const dy = y - myY;
+      if (Math.abs(dx) + Math.abs(dy) === 1) {
+        cell.classList.add('adjacent');
+      }
+
+      let centerHtml = '';
+      if (otherPlayer) {
+        centerHtml = `<span class="other-player">🟢</span>`;
+        cell.title = otherPlayer.name;
+      } else if (monster && monster.monster_id) {
+        centerHtml = `<span class="monster-icon">👹</span>`;
+        cell.title = `Моб ${monster.level} ур.`;
+      } else if (resource && resource.resource_id) {
+        const rData = resourcesDB[resource.resource_id];
+        centerHtml = `<span class="resource-icon-center">${rData ? rData.icon : '🌿'}</span>`;
+      } else if (tile && tile.building) {
+        const bData = buildingsDB[tile.building];
+        centerHtml = `<span class="building-icon">${bData ? bData.icon : '🏛️'}</span>`;
+      }
+
+      if (centerHtml) {
+        const centerSpan = document.createElement('span');
+        centerSpan.className = 'center-content';
+        centerSpan.innerHTML = centerHtml;
+        cell.appendChild(centerSpan);
+      }
     }
 
-    // 3. Координаты внизу — мелко
+    // Координаты
     const coordsEl = document.createElement('span');
     coordsEl.className = 'tile-coords';
     coordsEl.textContent = `${x},${y}`;
     cell.appendChild(coordsEl);
 
-    // 🔥 Клик
-    cell.onclick = () => onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy);
+    cell.onclick = () => onTileClick(x, y, tile, resource, monster, otherPlayer, dx || 0, dy || 0);
   }
 
-  // Инфо-панель
   const myTile = tileMap[`${myX}_${myY}`];
   const myResource = resourceMap[`${myX}_${myY}`];
   const myMonster = monsterMap[`${myX}_${myY}`];
@@ -589,7 +539,7 @@ function updateGridContent(data) {
   if (selectedPanel) selectedPanel.classList.add('hidden');
 }
 
-// --- ИНФО-ПАНЕЛЬ СВОЕЙ КЛЕТКИ ---
+// --- ИНФО-ПАНЕЛЬ ---
 function showMyCellInfo(tile, resource, monster) {
   const myInfo = document.getElementById('my-cell-info');
   const myActions = document.getElementById('my-cell-actions');
@@ -645,7 +595,6 @@ function showMyCellInfo(tile, resource, monster) {
   }
 }
 
-// --- ИНФО-ПАНЕЛЬ ВЫБРАННОЙ КЛЕТКИ ---
 function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y) {
   const panel = document.getElementById('selected-cell-panel');
   const selInfo = document.getElementById('selected-cell-info');
@@ -654,6 +603,7 @@ function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y
 
   if (dx === 0 && dy === 0) {
     panel.classList.add('hidden');
+    hideNavPanel();
     return;
   }
 
@@ -665,16 +615,12 @@ function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y
     const rData = currentMapData.regionsDB[tile.region];
     html += `<div style="font-weight: bold;">${rData ? rData.icon + ' ' + rData.name : tile.region}</div>`;
   }
-  if (monster) {
-    html += `<div style="color: #e74c3c;">👹 Моб ${monster.level} ур.</div>`;
-  }
+  if (monster) html += `<div style="color: #e74c3c;">👹 Моб ${monster.level} ур.</div>`;
   if (resource && resource.resource_id) {
     const rData = currentMapData.resourcesDB[resource.resource_id];
     html += `<div style="color: #2ecc71;">${rData ? rData.icon + ' ' + rData.name : 'Ресурс'}</div>`;
   }
-  if (otherPlayer) {
-    html += `<div style="color: #2ecc71;">🟢 ${otherPlayer.name}</div>`;
-  }
+  if (otherPlayer) html += `<div style="color: #2ecc71;">🟢 ${otherPlayer.name}</div>`;
   if (tile && tile.building) {
     const bData = currentMapData.buildingsDB[tile.building];
     html += `<div style="color: #f1c40f;">${bData ? bData.icon + ' ' + bData.name : tile.building}</div>`;
@@ -683,55 +629,20 @@ function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y
 
   selInfo.innerHTML = html;
 
-const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
+  const isAdjacent = Math.abs(dx) + Math.abs(dy) === 1;
   if (isAdjacent) {
-    // Соседняя — кнопка «Перейти»
     const moveBtn = document.createElement('button');
     moveBtn.className = 'action-btn move';
     moveBtn.textContent = '🚶 Перейти (15с)';
     moveBtn.onclick = () => moveWorld(dx, dy);
     selActions.appendChild(moveBtn);
+    hideNavPanel();
   } else {
     // 🔥 Дальняя — показать панель навигатора
     showNavPanel(x, y);
   }
 }
-// 🔥 Показать панель навигатора
-function showNavPanel(x, y) {
-  const panel = document.getElementById('navigation-panel');
-  if (!panel) return;
 
-  navTarget = { x, y };
-
-  const coordsEl = document.getElementById('nav-target-coords');
-  coordsEl.textContent = `(${x}, ${y})`;
-
-  // Биом
-  const tile = window.tileCache?.[`${x}_${y}`];
-  const biomeEl = document.getElementById('nav-target-biome');
-  if (tile && tile.region) {
-    const rData = currentMapData.regionsDB[tile.region];
-    biomeEl.textContent = rData ? `${rData.icon} ${rData.name}` : tile.region;
-  } else {
-    biomeEl.textContent = '❔ Неизвестно';
-  }
-
-  // Кнопки
-  const startBtn = document.getElementById('nav-start-btn');
-  const cancelBtn = document.getElementById('nav-cancel-btn');
-  startBtn.style.display = 'block';
-  cancelBtn.style.display = 'none';
-
-  panel.style.display = 'block';
-}
-
-// 🔥 Скрыть панель навигатора
-function hideNavPanel() {
-  const panel = document.getElementById('navigation-panel');
-  if (panel) panel.style.display = 'none';
-}
-
-// --- КЛИК ПО КЛЕТКЕ ---
 function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
   selectedTile = { x, y, tile, resource, monster, otherPlayer, dx, dy };
 
@@ -741,21 +652,132 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
     const myMonster = window.currentMonsterMap[`${currentMapData.myX}_${currentMapData.myY}`];
     showMyCellInfo(myTile, myResource, myMonster);
   }
-    showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y);
+
+  showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y);
+}
+
+// --- АВТОНАВИГАТОР ---
+function showNavPanel(x, y) {
+  const panel = document.getElementById('navigation-panel');
+  if (!panel) return;
+
+  navTarget = { x, y };
+
+  document.getElementById('nav-target-coords').textContent = `(${x}, ${y})`;
+
+  const tile = window.tileCache?.[`${x}_${y}`];
+  const biomeEl = document.getElementById('nav-target-biome');
+  if (tile && tile.region) {
+    const rData = currentMapData.regionsDB[tile.region];
+    biomeEl.textContent = rData ? `${rData.icon} ${rData.name}` : tile.region;
+  } else {
+    biomeEl.textContent = '❔ Неизвестно';
+  }
+
+  document.getElementById('nav-start-btn').style.display = 'block';
+  document.getElementById('nav-cancel-btn').style.display = 'none';
+
+  panel.style.display = 'block';
+}
+
+function hideNavPanel() {
+  const panel = document.getElementById('navigation-panel');
+  if (panel) panel.style.display = 'none';
+}
+
+function initNavigationButtons() {
+  const startBtn = document.getElementById('nav-start-btn');
+  const cancelBtn = document.getElementById('nav-cancel-btn');
+
+  if (startBtn) {
+    startBtn.addEventListener('click', () => {
+      if (!navTarget || !currentMapData) return;
+
+      console.log(`🧭 [НАВ] Запрос пути: (${currentMapData.myX}, ${currentMapData.myY}) → (${navTarget.x}, ${navTarget.y})`);
+
+      startBtn.textContent = '⏳ Поиск...';
+      startBtn.disabled = true;
+
+      worldSocket.emit('world_find_path', {
+        userId: localPlayer.id,
+        fromX: currentMapData.myX,
+        fromY: currentMapData.myY,
+        toX: navTarget.x,
+        toY: navTarget.y
+      }, (response) => {
+        startBtn.textContent = '🚶 Идти';
+        startBtn.disabled = false;
+
+        if (!response || !response.success) {
+          console.error("❌ [НАВ] Ошибка:", response?.error);
+          showToast(`🚫 ${response?.error || 'Путь не найден'}`, 'error');
+          return;
+        }
+
+        console.log(`✅ [НАВ] Путь: ${response.pathLength} шагов`);
+
+        navPath = response.steps;
+        isNavigating = true;
+
+        startBtn.style.display = 'none';
+        cancelBtn.style.display = 'block';
+
+        navigateNextStep();
+      });
+    });
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      console.log("❌ [НАВ] Отмена");
+      isNavigating = false;
+      navPath = [];
+      navTarget = null;
+      hideNavPanel();
+      if (isMoving) window.cancelMove();
+    });
+  }
+}
+
+function navigateNextStep() {
+  if (!isNavigating || navPath.length === 0) {
+    console.log("🎉 [НАВ] Дошли до цели!");
+    isNavigating = false;
+    navPath = [];
+    navTarget = null;
+    hideNavPanel();
+    return;
+  }
+
+  if (isMoving) return;
+
+  const step = navPath.shift();
+  console.log(`🚶 [НАВ] Шаг: dx=${step.dx}, dy=${step.dy}, осталось ${navPath.length}`);
+
+  const nextX = currentMapData.myX + step.dx;
+  const nextY = currentMapData.myY + step.dy;
+  const nextTile = window.tileCache?.[`${nextX}_${nextY}`];
+
+  if (nextTile && nextTile.is_blocked) {
+    console.warn("🚫 [НАВ] Заблокировано, отмена");
+    showToast('🚫 Путь заблокирован', 'error');
+    isNavigating = false;
+    navPath = [];
+    hideNavPanel();
+    return;
+  }
+
+  moveWorld(step.dx, step.dy);
 }
 
 // --- ДВИЖЕНИЕ ---
 window.moveWorld = function(dx, dy) {
   if (!worldSocket || !localPlayer) return;
-
   if (isMoving) {
     showToast('🚫 Вы уже в пути!', 'error');
     return;
   }
-
   isMoving = true;
-  blockControls(true);
-
   worldSocket.emit('world_move_start', { userId: localPlayer.id, dx, dy });
 };
 
@@ -772,91 +794,10 @@ window.enterCity = function() {
 };
 
 window.exitWorld = function() {
-  console.log("⚠️ [МИР] exitWorld устарел — используй enterCity");
   window.enterCity();
 };
-// 🔥 Построить путь от игрока к цели (жадный, по прямой)
-function buildPath(fromX, fromY, toX, toY) {
-  const path = [];
-  let cx = fromX;
-  let cy = fromY;
 
-  // Идём по X, потом по Y (жадный алгоритм)
-  while (cx !== toX) {
-    const dx = toX > cx ? 1 : -1;
-    path.push({ dx, dy: 0 });
-    cx += dx;
-  }
-  while (cy !== toY) {
-    const dy = toY > cy ? 1 : -1;
-    path.push({ dx: 0, dy });
-    cy += dy;
-  }
-
-  return path;
-}
-// 🔥 Инициализация кнопок навигатора
-function initNavigationButtons() {
-  const startBtn = document.getElementById('nav-start-btn');
-  const cancelBtn = document.getElementById('nav-cancel-btn');
-
-  if (startBtn) {
-    startBtn.addEventListener('click', () => {
-      if (!navTarget || !currentMapData) return;
-
-      console.log(`🚶 [НАВ] Старт: (${currentMapData.myX}, ${currentMapData.myY}) → (${navTarget.x}, ${navTarget.y})`);
-
-      navPath = buildPath(currentMapData.myX, currentMapData.myY, navTarget.x, navTarget.y);
-      isNavigating = true;
-
-      startBtn.style.display = 'none';
-      cancelBtn.style.display = 'block';
-
-      // Запускаем первый шаг
-      navigateNextStep();
-    });
-  }
-
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', () => {
-      console.log("❌ [НАВ] Отмена навигации");
-      isNavigating = false;
-      navPath = [];
-      navTarget = null;
-
-      hideNavPanel();
-
-      // Отменяем текущий переход
-      if (isMoving) {
-        window.cancelMove();
-      }
-    });
-  }
-}
-
-// 🔥 Следующий шаг навигации
-function navigateNextStep() {
-  if (!isNavigating || navPath.length === 0) {
-    // 🔥 Пришли
-    console.log("🎉 [НАВ] Дошли до цели!");
-    isNavigating = false;
-    navPath = [];
-    navTarget = null;
-    hideNavPanel();
-    return;
-  }
-
-  if (isMoving) {
-    // Ещё идём — подождём
-    return;
-  }
-
-  const step = navPath.shift();
-  console.log(`🚶 [НАВ] Шаг: dx=${step.dx}, dy=${step.dy}, осталось ${navPath.length}`);
-
-  moveWorld(step.dx, step.dy);
-}
-// --- ПРОГРЕСС ПЕРЕХОДА ---
+// --- ПРОГРЕСС ---
 function showMoveProgress(durationMs) {
   window.__moveSyncRequested = false;
   const old = document.getElementById('move-progress');
@@ -913,12 +854,9 @@ function showMoveProgress(durationMs) {
 
       if (!window.__moveSyncRequested) {
         window.__moveSyncRequested = true;
-        console.log("🔄 [МИР] Клиент сам запрашивает карту через актуальный сокет");
-
         const activeSocket = (window.parent && window.parent.socket && window.parent.socket.connected)
           ? window.parent.socket
           : worldSocket;
-
         if (activeSocket && activeSocket.connected) {
           activeSocket.emit('world_get_map', { userId: localPlayer.id });
           if (activeSocket !== worldSocket) {
@@ -934,7 +872,6 @@ function showMoveProgress(durationMs) {
   const safetyTimeout = setTimeout(() => {
     const modal = document.getElementById('move-progress');
     if (modal) {
-      console.warn("🔥 [МИР] Принудительное закрытие модалки (сервер не ответил)");
       hideMoveProgress();
       isMoving = false;
       window.__moveSyncRequested = false;
@@ -955,8 +892,6 @@ function hideMoveProgress() {
   const el = document.getElementById('move-progress');
   if (el) el.remove();
 }
-
-function blockControls(blocked) {}
 
 // --- ТОСТ ---
 function showToast(message, type = 'info') {
@@ -987,43 +922,25 @@ function showToast(message, type = 'info') {
   setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
 }
 
-// --- ОЧИСТКА ПРИ ЗАКРЫТИИ ---
+// --- ОЧИСТКА ---
 window.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'WORLD_WILL_UNLOAD') {
-    console.log("🧹 [МИР] Получен сигнал выгрузки, чистим подписки");
-
     if (worldSocket) {
       Object.keys(handlers).forEach(eventName => {
         try { worldSocket.off(eventName, handlers[eventName]); } catch (e) {}
       });
-      console.log("✅ [МИР] Все подписки сняты");
     }
-
-    if (moveTimerInterval) {
-      clearInterval(moveTimerInterval);
-      moveTimerInterval = null;
-    }
-
-    if (window.__worldSocketCheckInterval) {
-      clearInterval(window.__worldSocketCheckInterval);
-      window.__worldSocketCheckInterval = null;
-    }
-
-    if (window.__moveSafetyTimeout) {
-      clearTimeout(window.__moveSafetyTimeout);
-      window.__moveSafetyTimeout = null;
-    }
-
+    if (moveTimerInterval) clearInterval(moveTimerInterval);
+    if (window.__worldSocketCheckInterval) clearInterval(window.__worldSocketCheckInterval);
+    if (window.__moveSafetyTimeout) clearTimeout(window.__moveSafetyTimeout);
     localStorage.removeItem('world_active');
   }
 });
 
 window.addEventListener('beforeunload', () => {
   if (worldSocket) {
-    console.log("🧹 [МИР] Закрываем сокет при выходе");
     try { worldSocket.disconnect(); } catch(e) {}
   }
 });
-
 
 document.addEventListener('DOMContentLoaded', initWorld);
