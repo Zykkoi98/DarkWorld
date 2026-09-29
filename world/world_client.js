@@ -85,23 +85,32 @@ function startWorldAfterSocket() {
     blockControls(true);
   };
 
-  handlers.world_move_completed = (data) => {
-    console.log("✅ [МИР] Переход завершён, запрашиваем свежую карту");
-    // 🔥 Отменяем защитный таймаут
-    if (window.__moveSafetyTimeout) {
-      clearTimeout(window.__moveSafetyTimeout);
-      window.__moveSafetyTimeout = null;
-    }
-    // 🔥 Сбрасываем флаг синхронизации
-    window.__moveSyncRequested = false;
-    isMoving = false;
-    moveEndsAt = null;
-    hideMoveProgress();
-    blockControls(false);
+ handlers.world_move_completed = (data) => {
+  console.log("✅ [МИР] Переход завершён");
+  if (window.__moveSafetyTimeout) {
+    clearTimeout(window.__moveSafetyTimeout);
+    window.__moveSafetyTimeout = null;
+  }
+  
+  isMoving = false;
+  moveEndsAt = null;
+  hideMoveProgress();
+  blockControls(false);
+  
+  // 🔥 ФИКС: проверяем, не отправил ли уже safety timeout запрос
+  if (!window.__moveSyncRequested) {
+    // Нет — отправляем сами
+    console.log("📤 [МИР] Запрашиваем карту (после world_move_completed)");
     if (worldSocket && worldSocket.connected) {
       worldSocket.emit('world_get_map', { userId: localPlayer.id });
     }
-  };
+  } else {
+    // Да — safety уже запросил
+    console.log("⏭️ [МИР] Пропускаем запрос — safety timeout уже отправил");
+  }
+  
+  window.__moveSyncRequested = false;
+};
 
   handlers.world_move_cancelled = () => {
     console.log("🚫 [МИР] Переход отменён");
