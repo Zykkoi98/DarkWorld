@@ -82,6 +82,10 @@ function initWorld() {
 function startWorldAfterSocket() {
   window.worldSocket = worldSocket;
   worldSocket.userId = localPlayer.id;
+    // 🔥 Глобальный кэш клеток — накапливается с переходами
+  window.tileCache = window.tileCache || {};
+  window.resourceCache = window.resourceCache || {};
+  window.monsterCache = window.monsterCache || {};
 
   handlers.world_map_data = (data) => {
     console.log("🎉 [МИР] world_map_data пришёл от сервера!");
@@ -218,6 +222,23 @@ function rebindHandlersToNewSocket() {
 function onMapData(data) {
   console.log("🗺️ [МИР] Карта получена:", data);
   currentMapData = data;
+  // 🔥 Сохраняем все клетки в кэш
+  if (data.tiles) {
+    data.tiles.forEach(t => {
+      window.tileCache[`${t.x}_${t.y}`] = t;
+    });
+  }
+  if (data.resources) {
+    data.resources.forEach(r => {
+      window.resourceCache[`${r.x}_${r.y}`] = r;
+    });
+  }
+  if (data.monsters) {
+    data.monsters.forEach(m => {
+      window.monsterCache[`${m.x}_${m.y}`] = m;
+    });
+  }
+  console.log(`📦 [МИР] Кэш: ${Object.keys(window.tileCache).length} клеток, ${Object.keys(window.resourceCache).length} ресурсов, ${Object.keys(window.monsterCache).length} мобов`);
 
   const loader = document.getElementById('world-loader');
   if (loader) loader.style.display = 'none';
@@ -263,6 +284,7 @@ function applyMapOffset(offsetX, offsetY, animate = true) {
 
   inner.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
 }
+
 
 // 🔥 Сдвиг фона карты
 function updateMapBackground(myX, myY) {
@@ -410,12 +432,12 @@ function updateCityButton(myX, myY) {
   }
 }
 
-// --- РЕНДЕР СЕТКИ 50×50 ---
+// --- РЕНДЕР СЕТКИ 50×50 (один раз) ---
 function renderMap(data) {
   const grid = document.getElementById('world-map-grid');
   if (!grid) return;
 
-  // 🔥 Перерисовываем редко (для производительности)
+  // 🔥 Строим 50×50 только при первом вызове
   if (grid.children.length === 0) {
     buildFullGrid();
   }
@@ -427,9 +449,9 @@ function renderMap(data) {
 function buildFullGrid() {
   const grid = document.getElementById('world-map-grid');
   if (!grid) return;
-  
+
   grid.innerHTML = '';
-  
+
   for (let y = 0; y < 50; y++) {
     for (let x = 0; x < 50; x++) {
       const cell = document.createElement('div');
@@ -439,34 +461,32 @@ function buildFullGrid() {
       grid.appendChild(cell);
     }
   }
-  
+
   console.log("🎨 [МИР] Полная сетка 50×50 построена");
 }
 
-// 🔥 Обновить содержимое клеток
+// 🔥 Обновить содержимое клеток (используя КЭШ)
 function updateGridContent(data) {
   const grid = document.getElementById('world-map-grid');
   if (!grid) return;
 
-  const { myX, myY, tiles, resources, monsters, players, resourcesDB, regionsDB, buildingsDB } = data;
+  const { myX, myY, resourcesDB, regionsDB, buildingsDB } = data;
 
-  const tileMap = {};
-  tiles.forEach(t => { tileMap[`${t.x}_${t.y}`] = t; });
-
-  const resourceMap = {};
-  resources.forEach(r => { resourceMap[`${r.x}_${r.y}`] = r; });
-
-  const monsterMap = {};
-  monsters.forEach(m => { monsterMap[`${m.x}_${m.y}`] = m; });
+  // 🔥 Используем КЭШ (не только 15×15 от сервера)
+  const tileMap = window.tileCache || {};
+  const resourceMap = window.resourceCache || {};
+  const monsterMap = window.monsterCache || {};
 
   const playerMap = {};
-  players.forEach(p => { playerMap[`${p.x}_${p.y}`] = p; });
+  if (data.players) {
+    data.players.forEach(p => { playerMap[`${p.x}_${p.y}`] = p; });
+  }
 
   window.currentTileMap = tileMap;
   window.currentResourceMap = resourceMap;
   window.currentMonsterMap = monsterMap;
 
-  // 🔥 Обновляем каждую клетку
+  // 🔥 Обновляем КАЖДУЮ клетку из сетки
   const cells = grid.children;
   for (let i = 0; i < cells.length; i++) {
     const cell = cells[i];
@@ -481,11 +501,13 @@ function updateGridContent(data) {
     // Сброс
     cell.className = 'tile';
     cell.innerHTML = '';
+    cell.onclick = null;
 
     // Своя клетка
     if (x === myX && y === myY) {
       cell.classList.add('center-tile');
       cell.innerHTML = '<span class="player-icon">👤</span>';
+      cell.onclick = () => onTileClick(x, y, tile, resource, monster, otherPlayer, 0, 0);
       continue;
     }
 
@@ -496,7 +518,7 @@ function updateGridContent(data) {
       cell.classList.add('adjacent');
     }
 
-    // Дальше приоритет: игрок > моб > ресурс > строение > регион
+    // Приоритет: игрок > моб > ресурс > строение > регион
     if (otherPlayer) {
       cell.innerHTML = `<span class="other-player">🟢</span>`;
       cell.title = otherPlayer.name;
