@@ -74,7 +74,7 @@ body {
 
 /* ===== КЛЕТКИ ===== */
 .tile {
-  background: rgba(0, 0, 0, 0.25); /* 🔥 полупрозрачный — фон просвечивает */
+  background: rgba(0, 0, 0, 0.15);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -83,6 +83,10 @@ body {
   cursor: pointer;
   transition: transform 0.1s, background 0.2s;
   user-select: none;
+  
+  /* 🔥 Тонкая рамка каждой клетки */
+  outline: 0.5px solid rgba(255, 255, 255, 0.15);
+  outline-offset: -0.5px;
 }
 .tile:active { transform: scale(0.92); }
 
@@ -267,4 +271,22 @@ body {
 #selected-cell-actions .action-btn {
   padding: 6px 10px;
   font-size: 12px;
+}
+/* 🔥 Drag карты */
+#world-map-container {
+  cursor: grab;
+  touch-action: none; /* Отключаем браузерные жесты */
+}
+
+#world-map-container.dragging {
+  cursor: grabbing;
+}
+
+#world-map-img {
+  will-change: transform; /* Плавнее анимация */
+}
+
+/* При drag — убрать transition, чтобы плавно двигалось за пальцем */
+#world-map-container.dragging #world-map-img {
+  transition: none;
 }

@@ -167,7 +167,7 @@ function startWorldAfterSocket() {
 
   // Первый запрос карты
   worldSocket.emit('world_get_map', { userId: localPlayer.id });
-
+    initMapDrag();
   // Скрываем лоадер
   setTimeout(() => {
     const loader = document.getElementById('world-loader');
@@ -261,32 +261,156 @@ function onMapData(data) {
 }
 
 // 🔥 Функция: сдвиг фона карты через transform (точная формула)
-function updateMapBackground(myX, myY) {
+let currentOffsetX = 0;
+let currentOffsetY = 0;
+let isDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let dragOffsetStartX = 0;
+let dragOffsetStartY = 0;
+
+// 🔥 Применить offset (общая функция)
+function applyMapOffset(offsetX, offsetY, animate = true) {
   const img = document.getElementById('world-map-img');
+  if (!img) return;
+
+  currentOffsetX = offsetX;
+  currentOffsetY = offsetY;
+
+  if (!animate) {
+    img.style.transition = 'none';
+  } else {
+    img.style.transition = 'transform 0.4s ease';
+  }
+
+  img.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+}
+
+// 🔥 Функция: сдвиг фона карты через transform (точная формула + ограничения)
+function updateMapBackground(myX, myY) {
   const container = document.getElementById('world-map-container');
-  if (!img || !container) return;
+  if (!container) return;
 
   const mapSize = 50;
-  const containerSize = container.offsetWidth; // размер контейнера в px
+  const containerSize = container.offsetWidth;
 
-  // 🔥 Размер всей карты в px (714% от контейнера)
   const fullMapSize = containerSize * 7.14;
-
-  // 🔥 Размер 1 клетки карты в px
   const cellSize = fullMapSize / mapSize;
 
-  // 🔥 Центр клетки игрока (в px)
   const playerCenterX = myX * cellSize + cellSize / 2;
   const playerCenterY = myY * cellSize + cellSize / 2;
 
-  // 🔥 Смещение, чтобы центр клетки игрока попал в центр контейнера
   const offsetX = containerSize / 2 - playerCenterX;
   const offsetY = containerSize / 2 - playerCenterY;
 
-  // 🔥 Применяем через transform
-  img.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+  // 🔥 Ограничения: не уехать за пределы карты
+  const maxOffsetX = 0;
+  const minOffsetX = containerSize - fullMapSize;
+  const maxOffsetY = 0;
+  const minOffsetY = containerSize - fullMapSize;
 
-  console.log(`🎨 [МИР] Фон сдвинут: offset(${offsetX.toFixed(1)}, ${offsetY.toFixed(1)}) для (${myX}, ${myY})`);
+  const clampedX = Math.max(minOffsetX, Math.min(maxOffsetX, offsetX));
+  const clampedY = Math.max(minOffsetY, Math.min(maxOffsetY, offsetY));
+
+  // 🔥 Если не drag — обновляем позицию
+  if (!isDragging) {
+    applyMapOffset(clampedX, clampedY, true);
+  }
+
+  console.log(`🎨 [МИР] Фон сдвинут: (${clampedX.toFixed(1)}, ${clampedY.toFixed(1)}) для (${myX}, ${myY})`);
+}
+
+// 🔥 Центрировать карту на игроке
+function centerMapOnPlayer() {
+  if (!currentMapData) return;
+  updateMapBackground(currentMapData.myX, currentMapData.myY);
+}
+
+// 🔥 Инициализация drag
+function initMapDrag() {
+  const container = document.getElementById('world-map-container');
+  if (!container) return;
+
+  // --- Touch события (мобильные) ---
+  container.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    isDragging = true;
+    container.classList.add('dragging');
+    dragStartX = e.touches[0].clientX;
+    dragStartY = e.touches[0].clientY;
+    dragOffsetStartX = currentOffsetX;
+    dragOffsetStartY = currentOffsetY;
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+
+    const dx = e.touches[0].clientX - dragStartX;
+    const dy = e.touches[0].clientY - dragStartY;
+
+    const newOffsetX = dragOffsetStartX + dx;
+    const newOffsetY = dragOffsetStartY + dy;
+
+    const containerSize = container.offsetWidth;
+    const fullMapSize = containerSize * 7.14;
+    const minOffset = containerSize - fullMapSize;
+    const maxOffset = 0;
+
+    const clampedX = Math.max(minOffset, Math.min(maxOffset, newOffsetX));
+    const clampedY = Math.max(minOffset, Math.min(maxOffset, newOffsetY));
+
+    applyMapOffset(clampedX, clampedY, false);
+  }, { passive: false });
+
+  container.addEventListener('touchend', () => {
+    isDragging = false;
+    container.classList.remove('dragging');
+  });
+
+  // --- Mouse события (для ПК/DevTools) ---
+  container.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    container.classList.add('dragging');
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    dragOffsetStartX = currentOffsetX;
+    dragOffsetStartY = currentOffsetY;
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+
+    const newOffsetX = dragOffsetStartX + dx;
+    const newOffsetY = dragOffsetStartY + dy;
+
+    const containerSize = container.offsetWidth;
+    const fullMapSize = containerSize * 7.14;
+    const minOffset = containerSize - fullMapSize;
+    const maxOffset = 0;
+
+    const clampedX = Math.max(minOffset, Math.min(maxOffset, newOffsetX));
+    const clampedY = Math.max(minOffset, Math.min(maxOffset, newOffsetY));
+
+    applyMapOffset(clampedX, clampedY, false);
+  });
+
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+    container.classList.remove('dragging');
+  });
+
+  // 🔥 Кнопка «Центр»
+  const centerBtn = document.getElementById('center-map-btn');
+  if (centerBtn) {
+    centerBtn.addEventListener('click', () => {
+      console.log("🎯 [МИР] Возврат к игроку");
+      centerMapOnPlayer();
+    });
+  }
 }
 // 🔥 Показ/скрытие кнопки «Войти в город» (только на клетке замка 37,14)
 function updateCityButton(myX, myY) {
