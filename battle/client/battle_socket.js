@@ -138,36 +138,58 @@ onConnect() {
   setupListeners() {
     // --- INIT DATA ---
     BState.socket.on('battle_init_data', (data) => {
-      console.log('📥 [BATTLE INIT]', data);
-      BState.roomId = data.roomId;
-      // 🔥 Сохраняем roomId в localStorage для реконнекта после F5
-     try {
-     localStorage.setItem('battle_room_id', data.roomId);
-     localStorage.setItem('battle_battle_type', data.battleType || '');
-     localStorage.setItem('battle_saved_at', Date.now());
-     } catch(e) {}
+    console.log('📥 [BATTLE INIT]', data);
 
-      BState.myUuid = data.myUuid;
-      BState.battleType = data.battleType;
-      BState.isSpectator = !!data.isSpectator;
-      BState.teamA = data.teamA || [];
-      BState.teamB = data.teamB || [];
-      BState.allLogs = data.allLogs || [];
-      BState.spectatorCount = data.spectatorCount || 0;
+    // 🔥 Сброс флага реконнекта
+    if (BState.reconnectAttempt) BState.reconnectAttempt = false;
 
-        // Авто-выбор цели (для участника)
-        if (!BState.isSpectator) {
+    BState.roomId = data.roomId;
+    BState.myUuid = data.myUuid;
+    BState.battleType = data.battleType;
+    BState.isSpectator = !!data.isSpectator;
+    BState.teamA = data.teamA || [];
+    BState.teamB = data.teamB || [];
+    BState.allLogs = data.allLogs || [];
+    BState.spectatorCount = data.spectatorCount || 0;
+
+    // 🔥 Проверяем — есть ли уже победитель?
+    // Если бой уже завершён (все враги мертвы или все союзники мертвы) — НЕ сохраняем
+    const allEnemiesDead = BState.teamB.length > 0 && BState.teamB.every(f => f.currentHp <= 0);
+    const allAlliesDead = BState.teamA.length > 0 && BState.teamA.every(f => f.currentHp <= 0);
+    const battleIsOver = allEnemiesDead || allAlliesDead;
+
+    if (battleIsOver) {
+        console.log('🏁 [BATTLE INIT] Бой уже завершён — НЕ сохраняем в localStorage');
+        try {
+        localStorage.removeItem('battle_room_id');
+        localStorage.removeItem('battle_battle_type');
+        localStorage.removeItem('battle_saved_at');
+        } catch(e) {}
+
+        // 🔥 Если это "полу-финальный" реконнект — сделаем фейковый финал
+        BState.isBattleOver = true;
+        // НЕ вызываем handleBattleOver полностью — пусть игрок сам увидит лог
+    } else {
+        // Только для АКТИВНОГО боя — сохраняем
+        try {
+        localStorage.setItem('battle_room_id', data.roomId);
+        localStorage.setItem('battle_battle_type', data.battleType || '');
+        localStorage.setItem('battle_saved_at', Date.now());
+        } catch(e) {}
+    }
+
+    // Авто-выбор цели
+    if (!BState.isSpectator) {
         const me = BState.getMyFighter();
         if (me) {
-            const opp = BState.getOpposingTeam();
-            const firstAlive = opp.find(e => e.currentHp > 0);
-            BState.selectedTargetUuid = firstAlive ? firstAlive.uuid : null;
+        const opp = BState.getOpposingTeam();
+        const firstAlive = opp.find(e => e.currentHp > 0);
+        BState.selectedTargetUuid = firstAlive ? firstAlive.uuid : null;
         }
-        } else {
-        // 🔥 Зритель — авто-выбор первой живой цели из teamB
+    } else {
         const firstAliveB = BState.teamB.find(e => e.currentHp > 0);
         BState.selectedTargetUuid = firstAliveB ? firstAliveB.uuid : null;
-        }
+    }
 
       // Обновляем заголовок
       const header = document.getElementById('battle-round-indicator');
