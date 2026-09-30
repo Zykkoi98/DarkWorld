@@ -740,7 +740,7 @@ if (deleteBtn) {
 window.openInventory = function() {
   const modal = document.getElementById('inventory-modal');
   if (modal) { modal.classList.add('active'); modal.style.display = 'flex'; }
-  renderInventory();
+  window.renderInventory();
 };
 
 window.closeInventory = function() {
@@ -752,7 +752,7 @@ window.switchTab = function(tabName) {
   currentTab = tabName;
   document.querySelectorAll('.inv-tab').forEach(t => t.classList.remove('active'));
   const btn = document.getElementById(`tab-btn-${tabName}`); if (btn) btn.classList.add('active');
-  renderInventory();
+  window.renderInventory();
 };
 
 window.hasInventorySpace = function(tabName, itemId) {
@@ -763,7 +763,7 @@ window.hasInventorySpace = function(tabName, itemId) {
   return items.length < 30;
 };
 
-function renderInventory() {
+window.renderInventory = function() {
   if (!window.player) return;
 
   const standardSlots = {
@@ -1093,3 +1093,4 @@ window.addEventListener('DOMContentLoaded', () => {
     wakeUpServer();
   }, 50);
 });
+window.renderInventory = renderInventory;
