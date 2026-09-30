@@ -111,19 +111,28 @@ function initShopPage() {
   shopSocket.on('town_hp_regen_update', (data) => {
     if (!localPlayer) return;
     localPlayer.hp = data.currentHp;
-    
-    // 🔥 Используем единую функцию обновления
     updateShopHpDisplay();
-    
     localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+  });
+
+  // 🔥 СЛУШАЕМ ОБНОВЛЕНИЕ ПРОФИЛЯ — обновляем золото и UI после покупки/продажи
+  shopSocket.off('load_game_success');
+  shopSocket.on('load_game_success', (data) => {
+    if (data && data.player) {
+      console.log("☁️ [МАГАЗИН] Профиль обновлён. Золото:", data.player.gold);
+      localPlayer = data.player;
+      window.player = data.player;
+      try { localStorage.setItem('rpg_save', JSON.stringify({ player: data.player })); } catch(e) {}
+      window.updateShopUi();
+    }
   });
 
   // 🔥 НЕ отправляем load_game_secure — сокет уже зарегистрирован городом
   // Но запрашиваем свежий профиль для магазина
   shopSocket.emit('load_game_secure', { userId: localPlayer.id, username: localPlayer.name });
-  
+
   window.updateShopUi();
-}
+  }
 
 window.switchShopMode = function(mode) {
   if (activeMainMode === mode) return;
