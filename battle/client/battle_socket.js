@@ -42,86 +42,95 @@ window.BSocket = {
   // ==========================================================================
   // ДЕЙСТВИЯ ПРИ ПОДКЛЮЧЕНИИ — в зависимости от роли
   // ==========================================================================
-    onConnect() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const spectateRoom = urlParams.get('spectate');
-    const roomId = urlParams.get('roomId');
-    const userId = urlParams.get('userId');
-    const battleType = urlParams.get('battleType');
-    const monsters = urlParams.get('monsters');
-    const count = urlParams.get('count');
-    const floor = urlParams.get('floor');   // 🔥 для башни
+onConnect() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const spectateRoom = urlParams.get('spectate');
+  const urlRoomId = urlParams.get('roomId');
+  const userId = urlParams.get('userId');
+  const battleType = urlParams.get('battleType');
+  const monsters = urlParams.get('monsters');
+  const count = urlParams.get('count');
+  const floor = urlParams.get('floor');
 
-    // === РОЛЬ 1: ЗРИТЕЛЬ ===
-    if (spectateRoom) {
-        BState.isSpectator = true;
-        BState.roomId = spectateRoom;
-        BState.socket.emit('battle_spectate', { roomId: spectateRoom });
-        return;
-    }
+  // === РОЛЬ 1: ЗРИТЕЛЬ ===
+  if (spectateRoom) {
+    BState.isSpectator = true;
+    BState.roomId = spectateRoom;
+    BState.socket.emit('battle_spectate', { roomId: spectateRoom });
+    return;
+  }
 
-    // === РОЛЬ 2: РЕКОННЕКТ ===
-    if (roomId) {
-    // 🔥 Если userId не в URL — берём из localStorage
+  // === РОЛЬ 2: RECONNECT (приоритет!) ===
+  let roomIdToReconnect = urlRoomId;
+
+  // 🔥 Если URL без roomId — ищем сохранённый (после F5)
+  if (!roomIdToReconnect) {
+    try {
+      const savedRoomId = localStorage.getItem('battle_room_id');
+      const savedAt = Number(localStorage.getItem('battle_saved_at') || 0);
+      const isFresh = (Date.now() - savedAt) < 5 * 60 * 1000;   // 5 минут
+
+      if (savedRoomId && isFresh) {
+        console.log(`♻️ [F5] Найден сохранённый roomId: ${savedRoomId}`);
+        roomIdToReconnect = savedRoomId;
+      }
+    } catch(e) {}
+  }
+
+  if (roomIdToReconnect) {
     let reconnectUserId = userId;
     if (!reconnectUserId) {
-        try {
+      try {
         const tg = window.Telegram?.WebApp?.initDataUnsafe?.user;
         if (tg?.id) reconnectUserId = tg.id;
-        } catch(e) {}
-        if (!reconnectUserId) {
+      } catch(e) {}
+      if (!reconnectUserId) {
         try {
-            const ls = localStorage.getItem('rpg_save');
-            if (ls) reconnectUserId = JSON.parse(ls)?.player?.id;
+          const ls = localStorage.getItem('rpg_save');
+          if (ls) reconnectUserId = JSON.parse(ls)?.player?.id;
         } catch(e) {}
-        }
+      }
     }
 
     if (reconnectUserId) {
-        BState.roomId = roomId;
-        BState.socket.emit('battle_reconnect', { roomId, userId: reconnectUserId });
-        return;
-    } else {
-        BToasts.showConnectionToast('❌ Профиль не найден для реконнекта', 'warning');
-        return;
+      console.log(`♻️ [RECONNECT] Комната: ${roomIdToReconnect}, userId: ${reconnectUserId}`);
+      BState.roomId = roomIdToReconnect;
+      BState.socket.emit('battle_reconnect', { roomId: roomIdToReconnect, userId: reconnectUserId });
+      return;
     }
-    }
+  }
 
-    // === РОЛЬ 3: НОВЫЙ БОЙ ===
-    if (battleType) {
-        const localSave = localStorage.getItem('rpg_save');
-        let localPlayer = null;
-        try { localPlayer = JSON.parse(localSave)?.player; } catch(e) {}
+  // === РОЛЬ 3: НОВЫЙ БОЙ ===
+  if (battleType) {
+    const localSave = localStorage.getItem('rpg_save');
+    let localPlayer = null;
+    try { localPlayer = JSON.parse(localSave)?.player; } catch(e) {}
 
-        if (!localPlayer) {
-        BToasts.showConnectionToast('❌ Профиль не найден', 'warning');
-        return;
-        }
-
-        const params = {};
-
-        // Для мира: список мобов
-        if (battleType === 'world') {
-        params.monsterIds = monsters ? monsters.split(',').map(s => s.trim()).filter(Boolean) : [];
-        params.count = Number(count || params.monsterIds.length || 1);
-        }
-
-        // 🔥 Для башни: этаж
-        if (battleType === 'tower') {
-        params.currentFloor = Number(floor || 1);
-        }
-
-        BState.socket.emit('battle_start', {
-        battleType,
-        playerData: localPlayer,
-        params
-        });
-        return;
+    if (!localPlayer) {
+      BToasts.showConnectionToast('❌ Профиль не найден', 'warning');
+      return;
     }
 
-    // === НЕТ ПАРАМЕТРОВ ===
-    BToasts.showConnectionToast('❌ Неверный URL боя', 'warning');
-    },
+    const params = {};
+    if (battleType === 'world') {
+      params.monsterIds = monsters ? monsters.split(',').map(s => s.trim()).filter(Boolean) : [];
+      params.count = Number(count || params.monsterIds.length || 1);
+    }
+    if (battleType === 'tower') {
+      params.currentFloor = Number(floor || 1);
+    }
+
+    BState.socket.emit('battle_start', {
+      battleType,
+      playerData: localPlayer,
+      params
+    });
+    return;
+  }
+
+  // === НЕТ ПАРАМЕТРОВ ===
+  BToasts.showConnectionToast('❌ Неверный URL боя', 'warning');
+},
 
   // ==========================================================================
   // СЛУШАТЕЛИ СОБЫТИЙ
@@ -131,6 +140,13 @@ window.BSocket = {
     BState.socket.on('battle_init_data', (data) => {
       console.log('📥 [BATTLE INIT]', data);
       BState.roomId = data.roomId;
+      // 🔥 Сохраняем roomId в localStorage для реконнекта после F5
+     try {
+     localStorage.setItem('battle_room_id', data.roomId);
+     localStorage.setItem('battle_battle_type', data.battleType || '');
+     localStorage.setItem('battle_saved_at', Date.now());
+     } catch(e) {}
+
       BState.myUuid = data.myUuid;
       BState.battleType = data.battleType;
       BState.isSpectator = !!data.isSpectator;
@@ -293,6 +309,12 @@ window.BSocket = {
   // ФИНАЛ БОЯ
   // ==========================================================================
   handleBattleOver(data) {
+      // 🔥 Очищаем сохранённый roomId — бой завершён
+  try {
+    localStorage.removeItem('battle_room_id');
+    localStorage.removeItem('battle_battle_type');
+    localStorage.removeItem('battle_saved_at');
+  } catch(e) {}
   const strikeBtn = document.getElementById('strike-action-btn');
   const randBtn = document.getElementById('random-strike-btn');
   if (randBtn) randBtn.style.display = 'none';
