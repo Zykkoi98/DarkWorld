@@ -32,7 +32,14 @@ function updateTowerHpDisplay() {
 
 function initTowerPage() {
   console.log("🎬 [СТАРТ] Инициализация страницы Башни...");
-  
+
+  // 🔥 Показываем заголовок только если НЕ в iframe
+  const isInIframe = window.parent && window.parent !== window;
+  const titleEl = document.getElementById('tower-page-title');
+  if (titleEl && !isInIframe) {
+    titleEl.style.display = 'block';
+  }
+
   const localSave = localStorage.getItem('rpg_save');
   if (localSave) {
     try { localPlayer = JSON.parse(localSave).player; } catch(e) { console.error(e); }

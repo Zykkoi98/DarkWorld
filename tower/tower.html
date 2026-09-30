@@ -14,14 +14,14 @@
 </head>
 <body style="background: #0b0c10; color: #fff; font-family: sans-serif; padding: 16px; margin: 0;">
 
-  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1f2833; padding-bottom: 12px; margin-bottom: 16px;">
-    <div>
-      <h2 style="margin: 0; color: #6c5ce7; font-size: 20px;">🏰 Темная Башня</h2>
-      <div id="tower-cooldown-banner" style="font-size: 12px; color: #e74c3c; margin-top: 4px; display: none;">⏳ Доступ закрыт! Ожидание: <span id="cooldown-timer-text">00:00:00</span></div>
-    </div>
-    <div id="tower-wallet-gold" style="font-weight: bold; color: #f1c40f; font-size: 14px;">🪙 0 монет Башни</div>
-    <div id="tower-hero-hp" style="font-size: 13px; font-weight: bold; color: #e74c3c; margin-top: 4px;">❤️ 0 / 0</div>
+<div id="tower-top-header" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 1px solid #1f2833; padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+  <div id="tower-title-block" style="flex: 1 1 100%;">
+    <h2 id="tower-page-title" style="margin: 0; color: #6c5ce7; font-size: 18px; display: none;">🏰 Тёмная Башня</h2>
+    <div id="tower-cooldown-banner" style="font-size: 12px; color: #e74c3c; margin-top: 4px; display: none;">⏳ Доступ закрыт! Ожидание: <span id="cooldown-timer-text">00:00:00</span></div>
   </div>
+  <div id="tower-wallet-gold" style="font-weight: bold; color: #f1c40f; font-size: 13px; white-space: nowrap;">🪙 0 монет</div>
+  <div id="tower-hero-hp" style="font-size: 12px; font-weight: bold; color: #e74c3c; white-space: nowrap;">❤️ 0 / 0</div>
+</div>
 
   <div id="tower-status-log" style="text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 12px; min-height: 16px;"></div>
 
@@ -44,7 +44,7 @@
   <script src="../config.js?v=78"></script>
   <script src="../shared/ui.js?v=2" defer></script>
   <script src="../shop/shop_items_config.js?v=129"></script>
-  <script src="./tower_client.js?v=6"></script>
+  <script src="./tower_client.js?v=7"></script>
   <script src="../global_battle_watch.js?v=6"></script>
 </body>
 </html>
