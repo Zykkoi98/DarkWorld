@@ -33,6 +33,56 @@ let dragStartY = 0;
 let dragOffsetStartX = 0;
 let dragOffsetStartY = 0;
 
+// ============================================================================
+// 🔥 СОХРАНЕНИЕ И ВОССТАНОВЛЕНИЕ СОСТОЯНИЯ НАВИГАТОРА (ФИКС F5)
+// ============================================================================
+const NAV_STORAGE_KEY = 'world_nav_state';
+const NAV_STORAGE_TTL = 5 * 60 * 1000; // 5 минут — если дольше, считаем устаревшим
+
+function saveNavState() {
+  if (!isNavigating || !navTarget) {
+    localStorage.removeItem(NAV_STORAGE_KEY);
+    return;
+  }
+  try {
+    localStorage.setItem(NAV_STORAGE_KEY, JSON.stringify({
+      navTarget,
+      navPath,
+      navPathOriginal,
+      navStartX,
+      navStartY,
+      isNavigating: true,
+      savedAt: Date.now()
+    }));
+  } catch (e) { console.warn("⚠️ Не удалось сохранить навигацию:", e.message); }
+}
+
+function loadNavState() {
+  try {
+    const raw = localStorage.getItem(NAV_STORAGE_KEY);
+    if (!raw) return null;
+
+    const state = JSON.parse(raw);
+    if (!state || !state.isNavigating || !state.navTarget) return null;
+
+    // Проверяем TTL — если слишком давно, отбрасываем
+    if (Date.now() - (state.savedAt || 0) > NAV_STORAGE_TTL) {
+      console.log("🕒 [НАВ] Сохранённая навигация устарела, отбрасываем");
+      localStorage.removeItem(NAV_STORAGE_KEY);
+      return null;
+    }
+
+    console.log("♻️ [НАВ] Восстанавливаем состояние навигатора:", state);
+    return state;
+  } catch (e) {
+    console.warn("⚠️ Ошибка чтения навигации:", e.message);
+    return null;
+  }
+}
+
+function clearNavState() {
+  try { localStorage.removeItem(NAV_STORAGE_KEY); } catch (e) {}
+}
 // --- ИНИЦИАЛИЗАЦИЯ ---
 function initWorld() {
   console.log("🗺️ [МИР] Запуск клиента карты...");
@@ -163,6 +213,7 @@ function startWorldAfterSocket() {
     navPathOriginal = [];
     navStartX = null;
     navStartY = null;
+    clearNavState();   // 🔥 Очищаем
     hideMoveProgress();
     if (currentMapData) updateGridContent(currentMapData);
   };
@@ -175,6 +226,7 @@ function startWorldAfterSocket() {
     navPathOriginal = [];
     navStartX = null;
     navStartY = null;
+    clearNavState();   // 🔥 Очищаем
     hideMoveProgress();
     if (currentMapData) updateGridContent(currentMapData);
   };
@@ -230,7 +282,7 @@ function startWorldAfterSocket() {
     navStartY = currentMapData.myY;
     navPathOriginal = [...response.steps];
     navPath = response.steps;
-
+    window.__navRestoreAttempted = false;   // 🔥 Сбрасываем флаг, чтобы F5 работал в новом маршруте
     isNavigating = true;
 
     // 🔥 Обновляем сетку (подсветка всего пути)
@@ -321,6 +373,62 @@ function onMapData(data) {
   }
 
   renderMap(data);
+  // 🔥 ВОССТАНОВЛЕНИЕ НАВИГАТОРА ПОСЛЕ F5
+  // Пытаемся восстановить ТОЛЬКО ОДИН РАЗ и только если навигация не идёт сейчас
+  if (!isNavigating && !window.__navRestoreAttempted) {
+    window.__navRestoreAttempted = true;   // 🔥 Защита от повторного восстановления
+    const saved = loadNavState();
+    
+    if (saved) {
+      console.log("♻️ [НАВ F5] Восстанавливаем прерванный маршрут:", saved.navTarget);
+
+      navTarget = saved.navTarget;
+      navPathOriginal = saved.navPathOriginal || [];
+      navStartX = saved.navStartX;
+      navStartY = saved.navStartY;
+
+      // 🔥 Пересчитываем оставшийся путь от текущей позиции игрока
+      // (потому что за время F5 игрок мог сдвинуться на 1-2 клетки)
+      const stepsToRemove = Math.max(0, 
+        Math.abs(data.myX - navStartX) + Math.abs(data.myY - navStartY)
+      );
+      
+      navPath = navPathOriginal.slice(stepsToRemove);
+      
+      // Обновляем стартовую точку под новую позицию (для корректной подсветки)
+      navStartX = data.myX;
+      navStartY = data.myY;
+      navPathOriginal = [...navPath];
+
+      isNavigating = true;
+
+      console.log(`✅ [НАВ F5] Осталось шагов: ${navPath.length} (срезано ${stepsToRemove})`);
+
+      updateGridContent(data);
+      showSelectedCellInfo(
+        window.currentTileMap[`${navTarget.x}_${navTarget.y}`],
+        window.currentResourceMap[`${navTarget.x}_${navTarget.y}`],
+        window.currentMonsterMap[`${navTarget.x}_${navTarget.y}`],
+        null,
+        navTarget.x - data.myX,
+        navTarget.y - data.myY,
+        navTarget.x, navTarget.y
+      );
+
+      // 🔥 Запускаем продолжение навигатора с задержкой
+      // Если игрок сейчас в движении (isMoving = true) — ждём завершения текущего шага
+      const tryResume = () => {
+        if (!isMoving) {
+          console.log("🚀 [НАВ F5] Продолжаем маршрут...");
+          navigateNextStep();
+        } else {
+          console.log("⏳ [НАВ F5] Ждём завершения текущего перехода...");
+          setTimeout(tryResume, 500);
+        }
+      };
+      setTimeout(tryResume, 800);   // Небольшая пауза — даём UI отрисоваться
+    }
+  }
 }
 
 // --- OFFSET ---
@@ -765,6 +873,7 @@ function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y
       navStartX = null;
       navStartY = null;
       navTarget = null;
+      clearNavState();   // 🔥 Очищаем
       updateGridContent(currentMapData);
       if (isMoving) window.cancelMove();
       showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y);
@@ -862,6 +971,7 @@ function navigateNextStep() {
     navStartX = null;
     navStartY = null;
     navTarget = null;
+    clearNavState();   // 🔥 Очищаем сохранённое состояние
     hideMoveProgress();                    // 🔥 Скрываем модалку в конце пути
     updateGridContent(currentMapData);     // 🔥 Убираем подсветку пути
 
@@ -917,6 +1027,7 @@ function navigateNextStep() {
     return;
   }
 
+  saveNavState();   // 🔥 Сохраняем перед отправкой шага
   moveWorld(step.dx, step.dy);
 }
 
@@ -940,6 +1051,7 @@ window.cancelMove = function() {
   navStartX = null;
   navStartY = null;
   navTarget = null;
+  clearNavState();   // 🔥 Очищаем
 
   updateGridContent(currentMapData);
   hideMoveProgress();
@@ -1133,6 +1245,7 @@ function showToast(message, type = 'info') {
 
 // --- ОЧИСТКА ---
 window.addEventListener('beforeunload', () => {
+  saveNavState();   // 🔥 Сохраняем состояние перед закрытием
   if (worldSocket) {
     try { worldSocket.disconnect(); } catch(e) {}
   }
