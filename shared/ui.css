@@ -1,0 +1,343 @@
+/* ============================================================================
+   ===== 🎨 ЕДИНЫЕ СТИЛИ МОДАЛЬНЫХ ОКОН И ИНВЕНТАРЯ (SHARED/UI.CSS) =====
+   ===== Используется на всех страницах: город, карта, магазин, башня, бой =====
+   ============================================================================ */
+
+/* ============================================================================
+   ===== 🪟 БАЗОВЫЕ МОДАЛКИ (ОБЩИЕ) =====
+   ============================================================================ */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  padding: 16px;
+}
+
+.modal-overlay.active {
+  display: flex !important;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-content {
+  background: var(--bg, #1a1a2e);
+  border-top: 3px solid var(--btn, #6c5ce7);
+  border-radius: 20px !important;
+  width: 95% !important;
+  max-width: 460px !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+  transform: scale(0.9);
+  transition: transform 0.2s ease;
+  max-height: 95vh !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-overlay.active .modal-content {
+  transform: scale(1) !important;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 14px !important;
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: var(--text, #ffffff);
+  font-size: 12px;
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ============================================================================
+   ===== 🪟 ПРОФИЛЬ (ОСНОВНЫЕ СТАТЫ И МОДИФИКАТОРЫ) =====
+   ============================================================================ */
+
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0 !important;
+  font-size: 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.profile-row:last-child {
+  border-bottom: none;
+}
+
+.profile-row > span:first-child {
+  color: var(--hint, #9aa0b5);
+}
+
+.profile-row > span:last-child {
+  font-weight: bold;
+}
+
+.modal-body-stats hr,
+.modal-content hr {
+  margin: 6px 0 !important;
+}
+
+/* Кнопки-переключатели вкладок ("Основные" / "Модификаторы") */
+.modal-body-stats button {
+  padding: 5px !important;
+  font-size: 11px !important;
+  border-radius: 5px !important;
+}
+
+/* Скроллбар для статов */
+.modal-body-stats {
+  max-height: 450px !important;
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding-right: 4px;
+  display: flex !important;
+  flex-direction: column !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal-body-stats::-webkit-scrollbar {
+  width: 4px;
+}
+
+.modal-body-stats::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+/* ============================================================================
+   ===== 🎒 ИНВЕНТАРЬ (ВКЛАДКИ, СЛОТЫ, СЕТКА) =====
+   ============================================================================ */
+
+.inv-tabs {
+  display: flex;
+  gap: 4px !important;
+  margin: 0 auto 8px auto !important;
+  padding-bottom: 4px !important;
+  max-width: 270px !important;
+  width: 100% !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.inv-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--hint, #9aa0b5);
+  font-size: 11px !important;
+  font-weight: 600;
+  padding: 6px 2px !important;
+  cursor: pointer;
+  border-radius: 6px !important;
+  transition: all 0.2s;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.inv-tab:hover {
+  color: var(--text, #ffffff);
+}
+
+.inv-tab.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text, #ffffff);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.inv-content {
+  min-height: 160px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.inv-slot {
+  aspect-ratio: 1;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.inv-slot:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.inv-count {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.inv-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--hint, #9aa0b5);
+  font-size: 13px;
+  padding: 16px 0;
+}
+
+/* 🔥 Компактная сетка предметов внутри инвентаря */
+#inventory-content {
+  display: grid !important;
+  grid-template-columns: repeat(5, 46px) !important;
+  gap: 8px !important;
+  justify-content: center !important;
+  max-height: 200px !important;
+  overflow-y: auto !important;
+  max-width: 270px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  padding: 8px 0 16px 0 !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+#inventory-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+#inventory-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+/* Фикс размера ячеек внутри инвентаря */
+#inventory-content .inv-slot {
+  width: 46px !important;
+  height: 46px !important;
+  box-sizing: border-box !important;
+  font-size: 18px !important;
+  border-radius: 8px !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+#inventory-content .inv-slot img {
+  width: 32px !important;
+  height: 32px !important;
+  object-fit: contain !important;
+}
+
+/* ============================================================================
+   ===== 🪟 ПОПОВЕР ИНФОРМАЦИИ О ПРЕДМЕТЕ =====
+   ============================================================================ */
+
+#item-info-popover {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 88%;
+  max-width: 330px;
+  background: #111111;
+  border: 2px solid var(--btn, #6c5ce7);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85), 0 0 0 1000px rgba(0, 0, 0, 0.65);
+  z-index: 3500;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ============================================================================
+   ===== 📊 ПОПОВЕРЫ СТАТОВ В БОЮ (player-stats / monster-stats) =====
+   ============================================================================ */
+
+#player-stats-popover,
+#monster-stats-popover {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 85% !important;
+  max-width: 360px !important;
+  background: #111111 !important;
+  border-radius: 14px !important;
+  padding: 16px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9), 0 0 0 1000px rgba(0, 0, 0, 0.6) !important;
+  z-index: 5000 !important;
+  flex-direction: column !important;
+}
+
+#player-popover-body .profile-row,
+#monster-popover-body .profile-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 8px 0 !important;
+  font-size: 14px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+}
+
+#player-popover-body .profile-row:last-child,
+#monster-popover-body .profile-row:last-child {
+  border-bottom: none !important;
+}
+
+/* ============================================================================
+   ===== 🎯 СТИЛЬ КНОПКИ ДЕЙСТВИЯ В ПОПОВЕРЕ =====
+   ============================================================================ */
+
+.battle-btn-finish {
+  margin-top: 15px;
+  width: 100%;
+  background: var(--btn, #6c5ce7);
+  border: none;
+  color: #fff;
+  padding: 12px;
+  font-weight: bold;
+  border-radius: 10px;
+  cursor: pointer;
+}

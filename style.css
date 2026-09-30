@@ -3,7 +3,6 @@
    ============================================================================ */
 
 :root {
-  /* Жестко зафиксированная темно-синяя палитра интерфейса */
   --bg: #1a1a2e;
   --text: #ffffff;
   --hint: #9aa0b5;
@@ -13,9 +12,9 @@
   --danger: #e74c3c;
 }
 
-* { 
-  box-sizing: border-box; 
-  -webkit-tap-highlight-color: transparent; 
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -26,15 +25,15 @@ body {
   padding: 16px;
 }
 
-#app { 
-  max-width: 480px; 
-  margin: 0 auto; 
+#app {
+  max-width: 480px;
+  margin: 0 auto;
 }
 
-#title { 
-  text-align: center; 
-  font-size: 22px; 
-  margin: 8px 0 16px; 
+#title {
+  text-align: center;
+  font-size: 22px;
+  margin: 8px 0 16px;
 }
 
 /* Главный заголовок города сверху */
@@ -42,7 +41,7 @@ body {
   text-align: center;
   font-size: 24px;
   margin: 8px 0 20px;
-  color: #f1c40f; /* Золотистый оттенок для атмосферы фэнтези */
+  color: #f1c40f;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
@@ -53,7 +52,10 @@ body {
   margin-bottom: 12px;
 }
 
-/* Шапка персонажа */
+/* ============================================================================
+   ===== 👤 ШАПКА ПЕРСОНАЖА (ГОРОД + КАРТА МИРА) =====
+   ============================================================================ */
+
 .player-header {
   display: flex;
   align-items: center;
@@ -91,7 +93,6 @@ body {
 .player-meta-name { font-size: 18px; font-weight: bold; }
 .player-meta-title { font-size: 13px; color: var(--hint); }
 
-/* 🔥 Ряд: ник + уровень рядом */
 .player-meta-name-row {
   display: flex;
   align-items: baseline;
@@ -116,10 +117,11 @@ body {
   line-height: 1.2;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
-/* 🔥 HP-оверлей поверх аватарки в городе */
+
+/* HP-оверлей поверх аватарки */
 .hp-overlay {
   position: absolute;
-  bottom: 0; /* 🔥 теперь прижат к самому низу аватарки */
+  bottom: 0;
   left: 0;
   right: 0;
   padding: 4px 4px 3px 4px;
@@ -159,7 +161,6 @@ body {
   letter-spacing: 0.3px;
 }
 
-
 /* Кнопка рюкзака в шапке */
 .inv-toggle-btn {
   margin-left: auto;
@@ -177,7 +178,10 @@ body {
 }
 .inv-toggle-btn:active { transform: scale(0.9); opacity: 0.8; }
 
-/* Сетка локаций (плитка) */
+/* ============================================================================
+   ===== 🏰 СЕТКА ЛОКАЦИЙ ГОРОДА =====
+   ============================================================================ */
+
 .location-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -185,7 +189,6 @@ body {
   margin-bottom: 6px;
 }
 
-/* Кнопки локаций */
 .loc-btn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -212,185 +215,15 @@ body {
 }
 
 /* ============================================================================
-   ===== 🪟 МОДАЛЬНЫЕ ОКНА И ДИНАМИЧЕСКИЕ ИНТЕРФЕЙСЫ (ПРОФИЛЬ, РЮКЗАК) =====
-   ============================================================================ */
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7); 
-  backdrop-filter: blur(5px);
-  display: none;
-  align-items: center; 
-  justify-content: center;
-  z-index: 1000;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-  padding: 16px; 
-}
-.modal-overlay.active { 
-  display: flex !important; 
-  opacity: 1; 
-  pointer-events: auto; 
-}
-
-.modal-content {
-  background: var(--bg);
-  border-top: 3px solid var(--btn);
-  
-  /* 🔥 КРАСИВЫЙ СБОРНИК УГЛОВ: Округляем все 4 угла (20px), так как окно теперь центрировано! */
-  border-radius: 20px !important; 
-  
-  width: 95% !important;
-  max-width: 460px !important; /* Идеальная аккуратная ширина для Mini App */
-  padding: 12px 14px !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-  
-  /* 🔥 МЯГКАЯ АНИМАЦИЯ ПОЯВЛЕНИЯ: Вместо выезда снизу, окно будет красиво всплывать (масштабироваться) */
-  transform: scale(0.9);
-  transition: transform 0.2s ease;
-  
-  max-height: 95vh !important; /* Занимает до 90% высоты экрана, давая статам раскрыться на полную! */
-  display: flex;
-  flex-direction: column;
-}
-
-/* Когда модалка активна — плавно возвращаем масштаб в 1 */
-.modal-overlay.active .modal-content { 
-  transform: scale(1) !important; 
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.modal-header h3 { margin: 0; font-size: 14px !important; }
-
-.close-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: none;
-  color: var(--text);
-   font-size: 12px;
-  width: 26px !important;  /* Было 34px */
-  height: 26px !important; /* Было 34px */
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-.close-btn:hover { background: rgba(255, 255, 255, 0.15); }
-
-.profile-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 0 !important; /* Было 12px (сжимаем строки по вертикали) */
-  font-size: 12px !important; /* Было 16px (уменьшено строго на 1/3!) */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-.profile-row:last-child { border-bottom: none; }
-.profile-row > span:first-child { color: var(--hint); }
-.profile-row > span:last-child { font-weight: bold; }
-.modal-body-stats hr, 
-.modal-content hr {
-  margin: 6px 0 !important; /* Было 12px */
-}
-/*  кнопки-переключатели вкладок ("Основные" / "Модификаторы") */
-.modal-body-stats button {
-  padding: 5px !important; /* Было 8px */
-  font-size: 11px !important;
-  border-radius: 5px !important;
-}
-.inv-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 6px;
-}
-
-.inv-tab {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: var(--hint);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 8px 4px;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s;
-  text-align: center;
-  white-space: nowrap;
-}
-.inv-tab:hover { color: var(--text); }
-.inv-tab.active {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-}
-
-.inv-content {
-  min-height: 160px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-  gap: 10px;
-  max-height: 260px;
-  overflow-y: auto;
-}
-
-.inv-slot {
-  aspect-ratio: 1;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  position: relative;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.inv-slot:hover { background: rgba(255, 255, 255, 0.04); }
-
-.inv-count {
-  position: absolute;
-  bottom: 2px;
-  right: 4px;
-  font-size: 10px;
-  font-weight: bold;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 1px 4px;
-  border-radius: 4px;
-  color: #fff;
-}
-
-.inv-empty {
-  grid-column: 1 / -1;
-  text-align: center;
-  color: var(--hint);
-  font-size: 13px;
-  padding: 16px 0;
-}
-/* ============================================================================
-   ===== ⚔️ КЛАССЫ ДЛЯ БЕЗОПАСНОГО CSP-ОКНА БОЯ (BATTLE INTERFACE) =====
+   ===== ⚔️ КЛАССЫ ДЛЯ БОЕВОГО ИНТЕРФЕЙСА (BATTLE) =====
    ============================================================================ */
 
 #battle-modal {
-  z-index: 2000; /* Перекрывает все остальные модальные окна */
+  z-index: 2000;
 }
 
 .battle-content-box {
-  border-top: 3px solid var(--danger) !important; /* Намертво форсируем опасный красный цвет заголовка */
+  border-top: 3px solid var(--danger) !important;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
@@ -403,11 +236,9 @@ body {
   margin-bottom: 15px;
 }
 
-/* 🔥 ИСПРАВЛЕНИЕ: Полностью обесцвечиваем и делаем прозрачной подложку карточек, */
-/* чтобы убрать то самое полупрозрачное затемнение из-под текста и аватарок! */
 .battle-character-card {
   flex: 1;
-  background: transparent !important; /* Намертво сносим белый полупрозрачный фон */
+  background: transparent !important;
   background-color: transparent !important;
   box-shadow: none !important;
   border: none !important;
@@ -421,7 +252,6 @@ body {
   margin-bottom: 4px;
 }
 
-/* Контейнеры для шкал здоровья на арене боя */
 .hp-bar-bg {
   width: 100%;
   height: 10px;
@@ -435,7 +265,7 @@ body {
 .hp-bar-fill {
   width: 100%;
   height: 100%;
-  background: #2ecc71; /* Зеленый цвет здоровья игрока по умолчанию */
+  background: #2ecc71;
   border-radius: 6px;
   transition: width 0.15s ease-out;
 }
@@ -454,7 +284,6 @@ body {
   color: var(--danger);
 }
 
-/* Текстовое поле вывода логов сражения */
 .battle-log-viewport {
   flex: 1;
   overflow-y: auto;
@@ -469,38 +298,13 @@ body {
   max-height: 300px;
 }
 
-/* Стилизация CSP-сообщений боя */
-.battle-round-title {
-  color: var(--hint);
-  margin: 6px 0 2px 0;
-}
-
-.battle-msg-start {
-  color: #f1c40f;
-  font-weight: bold;
-  margin-bottom: 8px;
-}
-
-.battle-msg-crit {
-  color: #e67e22;
-  font-weight: bold;
-}
-
-.battle-msg-hit {
-  color: #2ecc71;
-}
-
-.battle-msg-evade-monster {
-  color: #95a5a6;
-}
-
-.battle-msg-evade-player {
-  color: #3498db;
-}
-
-.battle-msg-damage-player {
-  color: #e74c3c;
-}
+.battle-round-title { color: var(--hint); margin: 6px 0 2px 0; }
+.battle-msg-start { color: #f1c40f; font-weight: bold; margin-bottom: 8px; }
+.battle-msg-crit { color: #e67e22; font-weight: bold; }
+.battle-msg-hit { color: #2ecc71; }
+.battle-msg-evade-monster { color: #95a5a6; }
+.battle-msg-evade-player { color: #3498db; }
+.battle-msg-damage-player { color: #e74c3c; }
 
 .battle-result-box {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -521,62 +325,7 @@ body {
   cursor: pointer;
 }
 
-/* 🔥 Специфический класс для мгновенного отображения поповеров характеристик в бою */
-#player-stats-popover.active, 
-#monster-stats-popover.active {
-  display: flex !important;
-}
-
-/* ============================================================================
-   ===== 📊 УНИВЕРСАЛЬНЫЕ ФОРСИРОВАННЫЕ СТИЛИ ДЛЯ ПОПОВЕРОВ В БОЮ =====
-   ============================================================================ */
-
-#player-stats-popover, 
-#monster-stats-popover {
-  position: fixed !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important; /* Идеальное центрирование по центру экрана смартфона */
-  width: 85% !important;
-  max-width: 360px !important;
-  background: #111111 !important;
-  border-radius: 14px !important;
-  padding: 16px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9), 0 0 0 1000px rgba(0, 0, 0, 0.6) !important; /* Плотное затемнение всего заднего фона боя */
-  z-index: 5000 !important; /* Выносим на самый верхний слой поверх логов и шапки */
-  flex-direction: column !important;
-}
-
-/* Ограничитель высоты скролла для строк статов внутри поповера */
-.modal-body-stats {
-  max-height: 450px !important;
-  overflow-y: auto !important;
-  padding-right: 4px;
-  display: flex !important;
-  flex-direction: column !important;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Красивое отображение строк внутри поповеров характеристик */
-#player-popover-body .profile-row,
-#monster-popover-body .profile-row {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  padding: 8px 0 !important;
-  font-size: 14px !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-  color: #ffffff !important;
-}
-
-#player-popover-body .profile-row:last-child,
-#monster-popover-body .profile-row:last-child {
-  border-bottom: none !important;
-}
-
-/* ============================================================================
-   ===== 🧼 ИЗОЛИРОВАННАЯ ПРОЗРАЧНОСТЬ ИМЕН СТРОГО ВНУТРИ БОЕВОЙ МОДАЛКИ =====
-   ============================================================================ */
+/* Имена внутри боевой модалки */
 #battle-modal #bf-player-name,
 #battle-modal #bf-monster-name,
 #battle-modal [id*="player-name"],
@@ -592,41 +341,29 @@ body {
   margin: 4px 0 !important;
 }
 
-/* Форсируем растягивание внутренних картинок на 100% */
 #battle-modal .battle-character-card img,
 #battle-modal [class*="character-card"] img {
   width: 100% !important;
-  height: 100% !important;
+  height: auto !important;
+  border-radius: 12px !important;
   object-fit: contain !important;
 }
-/* ============================================================================
-   ===== 🧼 УЛЬТИМАТИВНЫЙ СБРОС ЧЕРНОГО ФОНА ПОД ИМЕНЕМ И ПОЛОСОЙ HP =====
-   ============================================================================ */
 
-/* Намертво убираем заливку с нижней части карточки боя, где выводится текст */
 #battle-modal .battle-character-card,
-#battle-modal [class*="character-card"] {
-  background: transparent !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-}
-
-/* Если в battle_template.html под текст и HP выделен отдельный внутренний блок-контейнер */
+#battle-modal [class*="character-card"],
 #battle-modal .battle-character-card div,
 #battle-modal [class*="character-card"] div,
 #battle-modal .battle-char-name,
 #battle-modal .battle-char-hp-text {
   background: transparent !important;
   background-color: transparent !important;
+  box-shadow: none !important;
 }
 
-/* Округляем углы у самого портрета, чтобы он красиво смотрелся без черной плашки снизу */
-#battle-modal .battle-character-card img,
-#battle-modal [class*="character-card"] img {
-  border-radius: 12px !important;
-  width: 100% !important;
-  height: auto !important;
-}
+/* ============================================================================
+   ===== 🏆 iframe-ОБЁРТКИ (АРЕНА, МАГАЗИН, БАШНЯ) =====
+   ============================================================================ */
+
 #arena-iframe-wrapper {
   position: fixed !important;
   top: 0 !important;
@@ -635,8 +372,8 @@ body {
   width: 100% !important;
   max-width: 480px !important;
   height: 100vh !important;
-  background: #1a1a2e !important; /* Твой фэнтези темно-синий фон города */
-  z-index: 4000 !important; /* Ставим выше всех модалок, чтобы город не перекрывал Арену */
+  background: #1a1a2e !important;
+  z-index: 4000 !important;
 }
 
 #arena-iframe-frame {
@@ -644,88 +381,4 @@ body {
   height: 100% !important;
   border: none !important;
   background: transparent !important;
-}
-/* ============================================================================
-   ===== 🎒 УЛЬТИМАТИВНЫЙ ФИКС: УЛЬТРА-КОМПАКТНЫЕ СЛОТЫ ВНУТРИ ВКЛАДОК =====
-   ============================================================================ */
-
-/* 1. Настраиваем сетку вкладок рюкзака (сжимаем саму ширину контейнера кнопок) */
-.inv-tabs {
-  gap: 4px !important;
-  margin: 0 auto 8px auto !important;
-  padding-bottom: 4px !important;
-  max-width: 270px !important; /* Намертво стягиваем кнопки вкладок по ширине куклы! */
-  width: 100% !important;
-}
-
-.inv-tab {
-  font-size: 11px !important;
-  padding: 6px 2px !important;
-  border-radius: 6px !important;
-}
-
-/* Настройка контейнера, где рендерятся ячейки рюкзака */
-#inventory-content {
-  display: grid !important;
-  /* 🔥 ИСПРАВЛЕНО: Вместо автоматического 1fr задаем жесткий фиксированный размер ячеек 46px.
-     Теперь, даже если в рюкзаке всего 1 вещь, она останется аккуратным маленьким квадратом 46х46px 
-      и не будет раздуваться на пол-экрана! */
-  grid-template-columns: repeat(5, 46px) !important; 
-  gap: 8px !important;
-  justify-content: center !important; /* Центрируем сетку предметов ровно по ширине куклы */
-  
-  /* 🔥 ИСПРАВЛЕНО: Зажимаем максимальную высоту, чтобы окно не улетало вверх */
-  max-height: 200px !important; 
-  overflow-y: auto !important; /* Включаем внутреннюю прокрутку */
-  max-width: 270px !important; 
-  width: 100% !important;
-  margin: 0 auto !important;
-  padding: 8px 0 16px 0 !important;
-  -webkit-overflow-scrolling: touch; /* Плавный скролл для Telegram на iOS */
-}
-
-/* Красивый тонкий скроллбар для зоны рюкзака, чтобы не портил визуал */
-#inventory-content::-webkit-scrollbar {
-  width: 4px;
-}
-#inventory-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
-}
-
-/* Принудительно фиксируем размер самих ячеек рюкзака, гася конфликты с JS */
-#inventory-content .inv-slot {
-  width: 46px !important;
-  height: 46px !important;
-  box-sizing: border-box !important;
-  font-size: 18px !important;
-  border-radius: 8px !important;
-  background: rgba(0, 0, 0, 0.25) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-/* Фикс для картинок внутри маленьких ячеек */
-#inventory-content .inv-slot img {
-  width: 32px !important;
-  height: 32px !important;
-  object-fit: contain !important;
-}
-/* 🔥 ДОПОЛНИТЕЛЬНО: Делаем так, чтобы тело скроллилось внутри поп-апа профиля */
-.modal-body-stats {
-  flex: 1 !important;
-  overflow-y: auto !important; /* Включаем вертикальный скролл для статов */
-  padding-right: 4px;
-  -webkit-overflow-scrolling: touch; /* Плавный свайп на iPhone */
-}
-
-/* Красивый тонкий скроллбар для характеристик, как и в рюкзаке */
-.modal-body-stats::-webkit-scrollbar {
-  width: 4px;
-}
-.modal-body-stats::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
 }

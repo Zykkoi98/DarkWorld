@@ -7,32 +7,28 @@
 
   <title>Dark World</title>
 
-  <!-- 1. Библиотека Supabase (Загружается первой) -->
+  <!-- 1. Библиотеки -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <!-- 2. Официальный SDK Telegram (СТРОГО С ЗАКРЫВАЮЩИМ ТЕГОМ) -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  
   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
 
-  <!-- 3. Стили игры -->
-  <link rel="stylesheet" href="style.css?v=77">
+  <!-- 2. Стили -->
+  <link rel="stylesheet" href="style.css?v=78">
+  <link rel="stylesheet" href="shared/ui.css?v=1">
 
-  <!-- 4. Игровые скрипты СТРОГО с параметром defer -->
-  <script src="config.js?v=77" defer></script>
-  <script src="equipment.js?v=77" defer></script>
-  <script src="game.js?v=77" defer></script>
-  <script src="telegram.js?v=77" defer></script>
+  <!-- 3. Скрипты (defer) -->
+  <script src="config.js?v=79" defer></script>
+  <script src="shared/ui.js?v=79" defer></script>
+  <script src="equipment.js?v=79" defer></script>
+  <script src="game.js?v=79" defer></script>
+  <script src="telegram.js?v=79" defer></script>
   <script src="shop/shop_items_config.js"></script>
-  <script>
-  // 🔥 ЭКСПРЕСС-ДЕТЕКТОР С УДЕРЖАНИЕМ ЖЕСТКОЙ ШТОРКИ GAME-LOADER-SCREEN
-  (function() {
-    console.log("🔍 Запуск экспресс-проверки боевого статуса в Telegram...");
 
-    // Форсируем глубокий темный фон для всего документа с самого старта
+  <script>
+  (function() {
+    console.log("🔍 Экспресс-проверка боевого статуса...");
     document.documentElement.style.background = "#1a1a2e";
 
-    // 1. Извлекаем ID пользователя из Telegram или кэша сохранения
     const tgData = window.Telegram?.WebApp?.initDataUnsafe?.user;
     let userId = tgData?.id;
 
@@ -43,116 +39,59 @@
       } catch (e) {}
     }
 
-    // Если это самый первый вход новичка (нет ID в памяти), плавно открываем город
     if (!userId) {
-      console.log("ℹ️ Профиль игрока пуст. Загружаем стандартную регистрацию города.");
       window.addEventListener('DOMContentLoaded', () => {
         setTimeout(hideMainGameLoader, 200);
       });
       return;
     }
 
-    const sUserId = String(userId);
-/* 
-    // 2. Поднимаем быстрый временный сокет для опроса ОЗУ бэкенда Render
-    const expressSocket = io('https://darkworld-server.onrender.com', {
-      transports: ['websocket', 'polling'],
-      timeout: 1800 // Если сервер спит или тормозит, не вешаем загрузку игры намертво
-    });   
-    expressSocket.on('connect', () => {
-      console.log(`📡 Экспресс-сокет на связи. Проверяем ОЗУ сервера для ID: ${sUserId}`);
-      
-      expressSocket.emit('check_active_battle_directly', { userId: sUserId }, (response) => {
-        if (response && response.activeRoomId) {
-          console.log(`⚔️ [ПЕРЕХВАТ] Обнаружен активный PVE бой ${response.activeRoomId}. Уходим на арену!`);
-          expressSocket.disconnect();
-
-          if (window.Telegram && window.Telegram.WebApp) {
-            try { window.Telegram.WebApp.ready(); } catch(e) {}
-          }
-          
-          // Жесткая подмена адреса. Игрок видит только ваш анимированный лоадер с часами ⏳
-          window.location.replace(`battle/battle.html?roomId=${response.activeRoomId}`);
-        } else {
-          console.log("🟢 Игрок свободен от сражений. Разрешаем отображение города.");
-          expressSocket.disconnect();
-          hideMainGameLoader(); // Плавный показ площади города
-        }
-      });
-    });
-
-    expressSocket.on('connect_error', () => {
-      console.warn("⚠️ Сервер Render не ответил вовремя. Открываем город по умолчанию.");
-      expressSocket.disconnect();
-      hideMainGameLoader();
-    });*/
-
-    // Функция плавного тушения стартового экрана загрузки
     window.hideMainGameLoader = function() {
-      // Ищем элемент лоадера
       const loader = document.getElementById('game-loader-screen');
-      
       if (loader) {
-        // Мгновенно выключаем его отображение, стирая его с экрана
         loader.style.display = 'none';
         loader.style.opacity = '0';
         loader.style.zIndex = '-1';
       } else {
-        // Если по какой-то причине id не совпал, этот код найдёт его по тегу
-        const backupLoader = document.querySelector('[id*="loader"]') || document.querySelector('[id*="loading"]');
-        if (backupLoader) {
-          backupLoader.style.display = 'none';
-        }
+        const backupLoader = document.querySelector('[id*="loader"]');
+        if (backupLoader) backupLoader.style.display = 'none';
       }
-    }
+    };
   })();
-</script>
+  </script>
 </head>
 <body>
-    <!-- Экран загрузки (исчезнет после синхронизации с Supabase) -->
+
+  <!-- Экран загрузки -->
   <div id="game-loader-screen" style="
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: #1a1a2e; /* Твой базовый темно-синий цвет */
-    z-index: 999999;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    font-family: -apple-system, sans-serif;
-    color: #ffffff;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #1a1a2e; z-index: 999999;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px; font-family: -apple-system, sans-serif; color: #fff;
   ">
     <div style="font-size: 40px; animation: spin 2s linear infinite;">⏳</div>
-    <div style="font-size: 18px; font-weight: bold; letter-spacing: 0.5px; color: #f1c40f;">Синхронизация с облаком...</div>
+    <div style="font-size: 18px; font-weight: bold; color: #f1c40f;">Синхронизация с облаком...</div>
     <div style="font-size: 12px; color: #9aa0b5;">Пожалуйста, подождите</div>
   </div>
 
   <style>
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
+
   <div id="app">
-    <!-- ============================================================================
-         ===== 🏰 ГЛАВНЫЙ ЭКРАН ИГРЫ (ИНТЕРФЕЙС ГОРОДА) =====
-         ============================================================================ -->
-    
-     <!-- Шапка персонажа на главном экране -->
+    <!-- Шапка персонажа -->
     <div class="player-header card">
-      <!-- Слот аватарки игрока с HP-баром внизу -->
       <div class="player-avatar-slot" id="player-avatar-slot">
         <img id="player-avatar" src="assets/avatars/hero1.png" alt="Аватар">
-        
-        <!-- 🔥 HP-полоска внизу аватарки -->
         <div class="hp-overlay">
           <div class="hp-overlay-bar">
             <div class="hp-overlay-fill" id="player-hp-fill"></div>
           </div>
-          <div class="hp-overlay-text" id="player-hp-badge">150 / 150</div>
+          <div class="hp-overlay-text" id="player-hp-badge">0 / 0</div>
         </div>
       </div>
-      
-      <!-- Мета-данные игрока (ник + уровень рядом) -->
+
       <div class="player-meta">
         <div class="player-meta-name-row">
           <span class="player-meta-name" id="player-name">Загрузка...</span>
@@ -160,261 +99,48 @@
         </div>
         <div class="player-meta-title">Искатель приключений</div>
       </div>
-      
-      <!-- Кнопка вызова Рюкзака (Инвентаря) -->
+
       <button class="inv-toggle-btn" id="inventory-toggle-btn">🎒</button>
     </div>
 
-    <!-- Заголовок текущего города -->
     <div id="current-town-name">Ашенваль</div>
-
-    <!-- Сетка локаций города (сюда JS динамически рендерит кнопки зданий) -->
     <div class="location-grid" id="town-locations"></div>
-
-  </div> <!-- /#app -->
-
+  </div>
 
   <!-- ============================================================================
-       ===== 🪟 МОДАЛЬНОЕ ОКНО ПРОФИЛЯ И ХАРАКТЕРИСТИК =====
+       ===== iframe-обёртки для оверлеев (магазин, арена, башня) =====
        ============================================================================ -->
-  <div id="profile-modal" class="modal-overlay">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>📊 Профиль Героя</h3>
-        <button class="close-btn" id="profile-close-btn">✕</button>
+
+  <!-- МАГАЗИН -->
+  <div id="shop-iframe-wrapper" style="display:none;position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:100%;background:var(--bg);z-index:1500;">
+    <div style="display:flex;flex-direction:column;width:100%;height:100%;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;">
+        <h3 style="margin:0;font-size:20px;color:#f1c40f;">🏪 Торговая Лавка</h3>
       </div>
-      <!-- Сюда JS безопасно выводит характеристики и кнопки распределения очков -->
-      <div class="modal-body-stats"></div>
+      <iframe id="shop-iframe-frame" src="about:blank" style="width:100%;flex:1;border:none;background:transparent;border-radius:12px;"></iframe>
     </div>
   </div>
 
-
-  <!-- ============================================================================ -->
-<!-- ===== 🎒 ПОЛНОСТЬЮ ВЫРОВНЕННАЯ МОДАЛКА ИНВЕНТАРЯ (ФИКС ГЕОМЕТРИИ КУКЛЫ) ===== -->
-<!-- ============================================================================ -->
-<div id="inventory-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;">
-  <div class="modal-content" style="display: flex; flex-direction: column; width: 100%; max-width: 480px; margin: 0 auto; height: auto;">
-    
-    <!-- Шапка модального окна рюкзака -->
-    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-      <h3 style="margin: 0; font-size: 18px;">🎒 Инвентарь и Снаряжение</h3>
-      <button id="inventory-close-btn" class="close-btn">✕</button>
-    </div>
-
-    <!-- Верхняя секция: Кукла персонажа вокруг аватара Яна (Сжатая в 1.2 раза) -->
-    <div class="inventory-top-doll-section" style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 0 auto 8px;">
-      <div class="inv-equipment-doll" style="display: grid; grid-template-columns: 44px 160px 44px; gap: 12px; align-items: center; justify-content: center; width: 100%; max-width: 280px;">
-        
-        <!-- Левая колонка слотов куклы (Атака и верхние шмотки) -->
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          <div id="eslot-head" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🪖</div>
-          <div id="eslot-neck" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">📿</div>
-          <div id="eslot-gloves" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🧤</div>
-          <div id="eslot-mainHand" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">⚔️</div>
-        </div>
-
-        <!-- 🔥 ФИКС: Центральная рамка с точным ID для управления из style.css -->
-        <div id="inv-avatar-frame" style="display: flex; justify-content: center; align-items: center; overflow: hidden; border-radius: 14px; border: 2px solid var(--btn); width: 160px; height: 160px; max-width: 160px; max-height: 160px; padding: 0; margin: 0 auto;">
-          <img id="inv-hero-avatar" src="assets/avatars/hero5.jpg" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; padding: 0; margin: 0;">
-        </div>
-
-        <!-- Правая колонка слотов куклы (Защита и нижние шмотки) -->
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          <div id="eslot-body" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">👕</div>
-          <div id="eslot-legs" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🥾</div>
-          <div id="eslot-extra" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">✨</div>
-          <div id="eslot-offHand" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🛡️</div>
-        </div>
-
+  <!-- АРЕНА -->
+  <div id="arena-iframe-wrapper" style="display:none;position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:100%;background:var(--bg);z-index:1500;">
+    <div style="display:flex;flex-direction:column;width:100%;height:100%;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;">
+        <h3 style="margin:0;font-size:20px;color:#f1c40f;">🏆 Колизей Гладиаторов</h3>
       </div>
+      <iframe id="arena-iframe-frame" src="about:blank" style="width:100%;flex:1;border:none;background:transparent;border-radius:12px;"></iframe>
     </div>
-
-    <!-- Линейка бижутерии и быстрых слотов (Уменьшенная по высоте) -->
-    <div style="display: flex; justify-content: space-between; gap: 6px; width: 100%; max-width: 280px; margin: 0 auto 10px;">
-      <div id="eslot-potion" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">🧪</div>
-      <div id="eslot-ring-0" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
-      <div id="eslot-ring-1" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
-      <div id="eslot-ring-2" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
-      <div id="eslot-scroll" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">📜</div>
-    </div>
-
-    <!-- Вкладки рюкзака -->
-    <div class="inv-tabs" style="margin-bottom: 10px;">
-      <button id="tab-btn-equipment" class="inv-tab active">Амуниция</button>
-      <button id="tab-btn-resources" class="inv-tab">Ресурсы</button>
-      <button id="tab-btn-consumables" class="inv-tab">Расходники</button>
-    </div>
-
-    <!-- Нижняя вместительная сетка рюкзака (Наполняется через JS) -->
-    <div id="inventory-content" class="inv-content" style="
-      display: grid !important;
-      grid-template-columns: repeat(4, 1fr) !important;
-      gap: 10px !important;
-      max-height: 350px !important;
-      overflow-y: auto !important;
-      width: 100% !important;
-    ">
-      <!-- Сюда функция renderInventory() вставит ячейки вещей -->
-    </div>
-
-  </div> <!-- /modal-content -->
-</div> <!-- /inventory-modal -->
-
-<!-- ============================================================================ -->
-<!-- ===== 🪟 ВСЛЫВАЮЩЕЕ ОКНО ОСМОТРА И ИНФОРМАЦИИ О ВЕЩАХ (ЧАСТЬ 1 ИЗ 2) ===== -->
-<!-- ============================================================================ -->
-<div id="item-info-popover" style="
-  display: none; 
-  position: fixed; 
-  top: 50%; 
-  left: 50%; 
-  transform: translate(-50%, -50%); 
-  width: 88%; 
-  max-width: 330px; 
-  background: #111111; 
-  border: 2px solid var(--btn); 
-  border-radius: 16px; 
-  padding: 16px; 
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85), 0 0 0 1000px rgba(0,0,0,0.65); 
-  z-index: 3500; 
-  flex-direction: column; 
-  gap: 14px;
-">
-  <!-- Шапка попвера с названием и крестиком закрытия -->
-  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px;">
-    <h4 id="popover-item-name" style="margin: 0; font-size: 16px; font-weight: bold; color: #ffffff; letter-spacing: 0.5px;">Название предмета</h4>
-    <button onclick="document.getElementById('item-info-popover').style.display = 'none'" style="background: transparent; border: none; color: var(--hint); font-size: 20px; cursor: pointer; padding: 2px 6px; transition: color 0.15s;">✕</button>
-  </div>
-   <!-- Блок с иконкой и текстовым описанием характеристик предмета -->
-  <div style="display: flex; gap: 14px; align-items: center; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.04);">
-    <div id="popover-item-icon" style="
-      font-size: 34px; 
-      min-width: 55px; 
-      height: 55px; 
-      background: rgba(0,0,0,0.3); 
-      border: 1px solid rgba(255,255,255,0.08); 
-      border-radius: 8px; 
-      display: flex; 
-      align-items: center; 
-      justify-content: center;
-    ">🗡️</div>
-    <div id="popover-item-desc" style="
-      font-size: 13px; 
-      color: var(--hint); 
-      line-height: 1.5; 
-      white-space: pre-line; 
-      font-family: sans-serif;
-    ">Описание характеристик...</div>
   </div>
 
-  <!-- Большая кнопка действия (Надеть / Снять), которой управляет сервер -->
-  <button id="popover-item-action-btn" class="battle-btn-finish" style="
-    margin: 4px 0 0 0; 
-    padding: 12px; 
-    font-size: 14px; 
-    font-weight: bold; 
-    width: 100%; 
-    border-radius: 10px; 
-    cursor: pointer; 
-    border: none; 
-    color: #fff; 
-    transition: background 0.2s, transform 0.1s;
-  "></button>
-</div> <!-- /item-info-popover -->
-<!-- ============================================================================ -->
-<!-- ===== 🏆 ТАКТИЧЕСКИЙ ФРЕЙМ PvP АРЕНЫ (ARENA OVERLAY) — ЧАСТЬ 1 ИЗ 2 ===== -->
-<!-- ============================================================================ -->
-<div id="arena-iframe-wrapper" style="
-  display: none; 
-  position: fixed; 
-  top: 0; 
-  left: 0; 
-  width: 100%; 
-  height: 100%; 
-  background: var(--bg); 
-  z-index: 1500; 
-  max-width: 480px; 
-  left: 50%; 
-  transform: translateX(-50%);
-">
-  <!-- Внутренний контейнер для центрирования и шапки Арены -->
-  <div style="display: flex; flex-direction: column; width: 100%; height: 100%; padding: 16px;">
-    
-    <!-- Шапка окна Арены (чтобы игрок понимал, где находится) -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
-      <h3 style="margin: 0; font-size: 20px; color: #f1c40f; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">🏆 Колизей Гладиаторов</h3>
+  <!-- БАШНЯ -->
+  <div id="tower-iframe-wrapper" style="display:none;position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:100%;background:var(--bg);z-index:1500;">
+    <div style="display:flex;flex-direction:column;width:100%;height:100%;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;">
+        <h3 style="margin:0;font-size:20px;color:#6c5ce7;">🏰 Тёмная Башня</h3>
+      </div>
+      <iframe id="tower-iframe-frame" src="about:blank" style="width:100%;flex:1;border:none;background:transparent;border-radius:12px;"></iframe>
     </div>
-      <!-- Тег iframe, который намертво выгружается при уходе в город, чтобы убить спам сокетов -->
-    <iframe id="arena-iframe-frame" src="about:blank" style="
-      width: 100%; 
-      flex: 1; 
-      border: none; 
-      background: transparent;
-      border-radius: 12px;
-    "></iframe>
-
   </div>
-</div> <!-- /arena-iframe-wrapper -->
-<!-- ============================================================================
-     ===== 🛒 ФРЕЙМ МАГАЗИНА (SHOP OVERLAY) =====
-     ============================================================================ -->
-<div id="shop-iframe-wrapper" style="
-  display: none; 
-  position: fixed; 
-  top: 0; 
-  left: 0; 
-  width: 100%; 
-  height: 100%; 
-  background: var(--bg); 
-  z-index: 1500; 
-  max-width: 480px; 
-  left: 50%; 
-  transform: translateX(-50%);
-">
-  <div style="display: flex; flex-direction: column; width: 100%; height: 100%; padding: 16px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
-      <h3 style="margin: 0; font-size: 20px; color: #f1c40f;">🏪 Торговая Лавка</h3>
-    </div>
-    <iframe id="shop-iframe-frame" src="about:blank" style="
-      width: 100%; 
-      flex: 1; 
-      border: none; 
-      background: transparent;
-      border-radius: 12px;
-    "></iframe>
-  </div>
-</div>
 
-<!-- ============================================================================
-     ===== 🏰 ФРЕЙМ БАШНИ (TOWER OVERLAY) =====
-     ============================================================================ -->
-<div id="tower-iframe-wrapper" style="
-  display: none; 
-  position: fixed; 
-  top: 0; 
-  left: 0; 
-  width: 100%; 
-  height: 100%; 
-  background: var(--bg); 
-  z-index: 1500; 
-  max-width: 480px; 
-  left: 50%; 
-  transform: translateX(-50%);
-">
-  <div style="display: flex; flex-direction: column; width: 100%; height: 100%; padding: 16px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
-      <h3 style="margin: 0; font-size: 20px; color: #6c5ce7;">🏰 Тёмная Башня</h3>
-    </div>
-    <iframe id="tower-iframe-frame" src="about:blank" style="
-      width: 100%; 
-      flex: 1; 
-      border: none; 
-      background: transparent;
-      border-radius: 12px;
-    "></iframe>
-  </div>
-</div>
-
-
-<script src="global_battle_watch.js?v=1"></script>
+  <script src="global_battle_watch.js?v=2"></script>
 </body>
+</html>

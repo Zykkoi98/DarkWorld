@@ -40,7 +40,7 @@ window.equipItem = function(itemId) {
     if (slotType === 'twoHanded') slotType = 'mainHand';
     window.player.equipped[slotType] = cleanItemId;
     window.saveGame({ player: window.player });
-    if (window.renderInventory) window.renderInventory();
+    if (window.UI && window.UI.renderInventory) window.UI.renderInventory();
     if (window.render) window.render();
   }
 };
@@ -91,6 +91,6 @@ window.unequipItem = function(slotKey, ringIndex = null) {
   }
 
   if (window.saveGame) window.saveGame({ player: window.player });
-  if (window.renderInventory) window.renderInventory();
+  if (window.UI && window.UI.renderInventory) window.UI.renderInventory();
   if (window.render) window.render();
 };

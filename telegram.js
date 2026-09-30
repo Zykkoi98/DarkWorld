@@ -164,7 +164,7 @@ function setupSecureDataListeners(callback) {
             if (typeof resetStatBuffer === 'function') resetStatBuffer();
             if (typeof window.checkLevelUp === 'function') window.checkLevelUp(true);
             if (typeof render === 'function') render();
-            if (typeof window.renderInventory === 'function') window.renderInventory();
+           if (window.UI && typeof window.UI.renderInventory === 'function') window.UI.renderInventory();
           } catch (heavyRenderErr) {
             console.error("⚠️ Ошибка рендеринга:", heavyRenderErr.message);
           }
