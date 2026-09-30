@@ -295,7 +295,7 @@ function renderShopRow(block, itemId, item) {
 
   // 🔥 БРОНИРОВАННАЯ СБОРКА СТРОКИ: Убрали шаблонные кавычки, чтобы полностью исключить баги с {item.level}
   let innerHtml = '';
-  innerHtml += '<div onclick="if(window.parent && window.parent.showItemInfo) { window.parent.showItemInfo(\'' + itemId + '\', false); } else if(typeof window.showItemInfo === \'function\') { window.showItemInfo(\'' + itemId + '\', false); }" style="display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;">';
+  innerHtml += '<div onclick="window.showItemInfo(\'' + itemId + '\');"style="display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;">';
   innerHtml += '  <div class="item-icon">' + (item.icon || '📦') + '</div>';
   innerHtml += '  <div class="item-info">';
   innerHtml += '    <div class="item-name" style="text-decoration: underline; color: #a29bfe;">' + item.name + '</div>';
@@ -322,7 +322,7 @@ function renderSellRow(block, itemUuidOrId, dbData, isConsumable, count = 1) {
   row.className = 'item-row';
 
   let innerHtml = '';
-  innerHtml += '<div onclick="if(window.parent && window.parent.showItemInfo) { window.parent.showItemInfo(\'' + itemUuidOrId + '\', false); } else if(typeof window.showItemInfo === \'function\') { window.showItemInfo(\'' + itemUuidOrId + '\', false); }" style="display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;">';
+  innerHtml += '<div onclick="window.showItemInfo(\'' + itemUuidOrId + '\');" style="display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;">';
   innerHtml += '  <div class="item-icon">' + (dbData.icon || '📦') + '</div>';
   innerHtml += '  <div class="item-info">';
   
