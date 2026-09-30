@@ -4,19 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Битва Чести — Dark World</title>
-   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-<script>
-  // Страховочный буфер: создаем пустой объект БАЗЫ шмоток ДО загрузки конфигов, 
-  // чтобы страница боя гарантированно видела его в ОЗУ!
-  window.GAME_ITEMS_DATABASE = window.GAME_ITEMS_DATABASE || {};
-</script>
 
-<script src="../config.js?v=11"></script>
-<script src="../shop/shop_items_config.js?v=129"></script>
-  <script src="client_battle.js?v=121" defer></script>
+  <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+  <script>
+    window.GAME_ITEMS_DATABASE = window.GAME_ITEMS_DATABASE || {};
+  </script>
+
+  <script src="../config.js?v=78"></script>
+  <script src="../shop/shop_items_config.js?v=129"></script>
+  <script src="client_battle.js?v=122" defer></script>
+
+  <!-- Стили -->
   <link rel="stylesheet" href="../style.css?v=192">
-  
-  
+  <link rel="stylesheet" href="../shared/ui.css?v=2">
+
   <style>
     :root {
       --bg: #0d0e15;
@@ -50,100 +51,64 @@
       padding: 4px 0; border-bottom: 1px solid var(--border);
     }
 
-    /* 🔥 ЖЕСТКИЙ СТАБИЛЬНЫЙ РЯД ДУЭЛИ 1Х1 */
     .duel-zone {
-      display: flex !important;
-      flex-direction: row !important;
-      justify-content: space-between !important;
-      align-items: flex-start !important;
-      gap: 4px;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 14px;
-      padding: 6px;
-      border: 1px solid var(--border);
-      width: 100%;
+      display: flex !important; flex-direction: row !important;
+      justify-content: space-between !important; align-items: flex-start !important;
+      gap: 4px; background: rgba(0, 0, 0, 0.3);
+      border-radius: 14px; padding: 6px;
+      border: 1px solid var(--border); width: 100%;
     }
 
     .fighter-side-wrapper {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 110px;
-      flex-shrink: 0;
+      display: flex; flex-direction: column;
+      align-items: center; width: 110px; flex-shrink: 0;
     }
 
     .big-fighter-card {
-      width: 110px;
-      height: 145px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 6px 4px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      position: relative; 
-      overflow: hidden;   
-      background: #13141f; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      width: 110px; height: 145px;
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 6px 4px; text-align: center;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-start;
+      position: relative; overflow: hidden;
+      background: #13141f; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
-    
+
     .card-background-art {
-      position: absolute;
-      top: 0; left: 0;
+      position: absolute; top: 0; left: 0;
       width: 100%; height: 100%;
-      object-fit: cover;
-      z-index: 1;
-      opacity: 0.75; /* 🔥 Увеличили с 0.35 до 0.75! Теперь картинку отлично видно */
-      filter: contrast(1.05) saturate(1.1); /* Убрали brightness(0.6), добавили сочности цветам */
+      object-fit: cover; z-index: 1; opacity: 0.75;
+      filter: contrast(1.05) saturate(1.1);
       pointer-events: none;
     }
 
-  .card-gradient-overlay {
-        position: absolute;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
-        background: linear-gradient(to bottom, 
-          rgba(13, 14, 21, 0.75) 0%,    /* Легкая тень вверху strictly под желтый уровень */
-          rgba(13, 14, 21, 0.0) 35%,    /* Полная прозрачность по центру — лицо горит ярко! */
-          rgba(13, 14, 21, 0.0) 65%,    /* Полная прозрачность */
-          rgba(13, 14, 21, 0.85) 100%   /* Тень в самом низу строго под имя и белое ХП */
-        );
-        z-index: 2;
-        pointer-events: none;
-      }
+    .card-gradient-overlay {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(to bottom,
+        rgba(13, 14, 21, 0.75) 0%,
+        rgba(13, 14, 21, 0.0) 35%,
+        rgba(13, 14, 21, 0.0) 65%,
+        rgba(13, 14, 21, 0.85) 100%);
+      z-index: 2; pointer-events: none;
+    }
 
     .big-lvl, .big-name, .hp-wrapper { position: relative; z-index: 3; }
 
-    .big-lvl { 
-      font-size: 11px; 
-      color: #f1c40f; 
-      font-weight: bold; 
-      height: 14px; 
-      line-height: 14px;
-      margin-bottom: 4px; /* Небольшой фиксированный отступ до шкалы ХП */
-      text-shadow: 0 1px 4px #000;
-      width: 100%;
-      text-align: center;
+    .big-lvl {
+      font-size: 11px; color: #f1c40f; font-weight: bold;
+      height: 14px; line-height: 14px;
+      margin-bottom: 4px; text-shadow: 0 1px 4px #000;
+      width: 100%; text-align: center;
     }
 
-     .big-name { 
-      height: 28px; 
-      font-size: 11px; 
-      font-weight: bold; 
-      line-height: 1.2;
-      width: 100%; 
-      white-space: normal; 
-      word-wrap: break-word;
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
-      text-align: center;
-      color: #ffffff; 
-      
-      margin-top: auto; /* 🔥 ГЛАВНЫЙ СДВИГ: Выталкивает имя и уровень в самый низ карточки */
-      margin-bottom: 2px; /* Фиксированный шаг до уровня */
+    .big-name {
+      height: 28px; font-size: 11px; font-weight: bold;
+      line-height: 1.2; width: 100%;
+      white-space: normal; word-wrap: break-word;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; color: #ffffff;
+      margin-top: auto; margin-bottom: 2px;
       text-shadow: 0 1px 4px #000;
     }
 
@@ -151,9 +116,9 @@
     .hp-bar { width: 100%; height: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; overflow: hidden; border: 1px solid rgba(0,0,0,0.2); }
     .hp-fill { height: 100%; background: linear-gradient(90deg, #2ecc71, #26de81); width: 100%; transition: width 0.3s ease; }
     .enemy-hp .hp-fill { background: linear-gradient(90deg, #ff4757, #ff6b6b); }
-    
-    .hp-text { 
-      font-size: 13px; color: #ffffff; font-family: monospace; font-weight: bold; 
+
+    .hp-text {
+      font-size: 13px; color: #ffffff; font-family: monospace; font-weight: bold;
       text-shadow: 0 1px 4px rgba(0,0,0,0.9);
     }
 
@@ -174,18 +139,18 @@
     .columns-wrapper { display: flex; gap: 4px; width: 100%; }
     .zone-column-box { flex: 1; display: flex; flex-direction: column; gap: 3px; }
     .mini-title { font-size: 9px; font-weight: bold; text-align: center; margin-bottom: 1px; letter-spacing: 0.5px; text-transform: uppercase; }
-    
+
     .compact-zone-btn {
       width: 100%; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);
       color: #b2bec3; padding: 7px 0; font-size: 10px; font-weight: 600; border-radius: 6px;
       cursor: pointer; text-align: center; transition: all 0.15s ease; text-transform: uppercase;
     }
-    .compact-zone-btn.attack-selected { 
-      background: linear-gradient(135deg, #ff9f43, #ee5253) !important; 
+    .compact-zone-btn.attack-selected {
+      background: linear-gradient(135deg, #ff9f43, #ee5253) !important;
       border-color: #ff6b6b; color: #fff !important; box-shadow: 0 0 8px rgba(238, 82, 83, 0.4);
     }
-    .compact-zone-btn.defend-selected { 
-      background: linear-gradient(135deg, #0abde3, #10ac84) !important; 
+    .compact-zone-btn.defend-selected {
+      background: linear-gradient(135deg, #0abde3, #10ac84) !important;
       border-color: #00d2d3; color: #fff !important; box-shadow: 0 0 8px rgba(10, 189, 227, 0.4);
     }
 
@@ -229,8 +194,6 @@
 </head>
 <body>
 
-  <body>
-  <!-- Экран загрузки -->
   <div id="battle-loading-overlay">
     <div class="spinner"></div>
     <div style="font-weight: bold; color: #7f8c8d; font-size: 13px; font-family: sans-serif;">Синхронизация графики дуэли...</div>
@@ -239,20 +202,14 @@
   <div id="battle-screen">
     <div id="battle-round-indicator" class="battle-header">Подключение к арене...</div>
 
-    <!-- ============================================================================
-       ===== ⚔️ ЧАСТЬ 1: СТРОГАЯ ГОРИЗОНТАЛЬНАЯ ДУЭЛЬНАЯ ЗОНА (КАРТОЧКИ) =====
-       ============================================================================ -->
     <div class="duel-zone">
-      
-      <!-- ЛЕВАЯ СТОРОНА: Герой Ян -->
+      <!-- ЛЕВАЯ СТОРОНА: Герой -->
       <div class="fighter-side-wrapper">
         <div id="main-hero-card" class="big-fighter-card">
-          <img id="hero-card-bg-img" class="card-background-art"onclick="window.openPlayerStatsInBattle()" src="../assets/avatars/hero4.jpg" alt="Hero BG">
+          <img id="hero-card-bg-img" class="card-background-art" onclick="window.openPlayerStatsInBattle()" src="../assets/avatars/hero4.jpg" alt="Hero BG">
           <div class="card-gradient-overlay"></div>
-          
           <div class="big-name" id="hero-name-text">Загрузка...</div>
           <div class="big-lvl" id="hero-lvl-text">Lv. --</div>
-          
           <div class="hp-wrapper">
             <div class="hp-bar"><div id="hero-hp-fill" class="hp-fill"></div></div>
             <div class="hp-text" id="hero-hp-text">0 / 0</div>
@@ -264,7 +221,7 @@
         </div>
       </div>
 
-      <!-- ЦЕНТРАЛЬНЫЙ ПУЛЬТ ТАКТИКИ (УДАР / БЛОК) -->
+      <!-- ЦЕНТРАЛЬНЫЙ ПУЛЬТ -->
       <div class="tactical-center-controls">
         <div class="columns-wrapper">
           <div class="zone-column-box">
@@ -285,20 +242,16 @@
           </div>
         </div>
         <button id="strike-action-btn" disabled>АТАКОВАТЬ</button>
-        <button id="random-strike-btn" style="width: 100%; background: #e67e22; color: #fff; padding: 10px; font-weight: bold; border-radius: 10px; border: none; margin-bottom: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3);">
-  🎲 СЛУЧАЙНЫЙ ХОД
-</button>
+        <button id="random-strike-btn" style="width: 100%; background: #e67e22; color: #fff; padding: 10px; font-weight: bold; border-radius: 10px; border: none; margin-bottom: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3);">🎲 СЛУЧАЙНЫЙ ХОД</button>
       </div>
 
-      <!-- ПРАВАЯ СТОРОНА: Каменный голем -->
+      <!-- ПРАВАЯ СТОРОНА: Враг -->
       <div class="fighter-side-wrapper">
         <div id="main-target-card" class="big-fighter-card">
           <img id="target-card-bg-img" class="card-background-art" onclick="window.openEnemyStatsInBattle()" src="../assets/monsters/monster1.jpg" alt="Monster BG">
           <div class="card-gradient-overlay"></div>
-          
           <div class="big-name" id="target-name-text">Нет цели</div>
           <div class="big-lvl" id="target-lvl-text">Lv. --</div>
-          
           <div class="hp-wrapper enemy-hp">
             <div class="hp-bar"><div id="target-hp-fill" class="hp-fill"></div></div>
             <div class="hp-text" id="target-hp-text">0 / 0</div>
@@ -309,12 +262,9 @@
           <button class="quick-action-btn" disabled style="opacity: 0.05;">⚔️</button>
         </div>
       </div>
+    </div>
 
-    </div> <!-- 🔥 ФИКС: Здесь дуэльный горизонтальный ряд ЖЕСТКО закрывается! -->
-
-    <!-- ============================================================================
-       ===== 👥 ЧАСТЬ 2: СРЕДНЯЯ ЗОНА МАССОВКИ (ОТРЯД / ВРАГИ) =====
-       ============================================================================ -->
+    <!-- МАССОВКА -->
     <div class="reserve-zone">
       <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
         <div class="mini-title" style="text-align: left; padding-left: 4px; color: #2ecc71;">👥 Отряд:</div>
@@ -326,32 +276,29 @@
       </div>
     </div>
 
-    <!-- ============================================================================
-       ===== 📜 ЧАСТЬ 3: НИЖНЯЯ ЗОНА ТЕКСТОВЫХ ЛОГОВ СРАЖЕНИЯ =====
-       ============================================================================ -->
+    <!-- ЛОГИ -->
     <div class="battle-bottom">
       <div id="battle-log-viewport" class="battle-log">
         <div class="log-system">Синхронизация логов с сервером...</div>
       </div>
     </div>
-    
-  </div> <!-- Конец основного контейнера battle-screen -->
-<!-- Поповер характеристик Игрока в бою -->
-<div id="player-stats-popover" style="display: none;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">
-    <h3 style="margin: 0; color: #6c5ce7; font-size: 16px;">📊 Ваши характеристики</h3>
-    <button onclick="document.getElementById('player-stats-popover').style.display='none'" style="background: rgba(255,255,255,0.1); border: none; color: #fff; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-weight: bold; font-size: 12px;">✕</button>
   </div>
-  <div id="player-popover-body" class="modal-body-stats"></div>
-</div>
 
-<!-- Поповер характеристик Врага в бою -->
-<div id="monster-stats-popover" style="display: none;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">
-    <h3 style="margin: 0; color: #e74c3c; font-size: 16px;">👹 Параметры цели</h3>
-    <button onclick="document.getElementById('monster-stats-popover').style.display='none'" style="background: rgba(255,255,255,0.1); border: none; color: #fff; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-weight: bold; font-size: 12px;">✕</button>
+  <!-- Поповеры статов (создаются динамически через UI.init или остаются в HTML) -->
+  <div id="player-stats-popover" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">
+      <h3 style="margin: 0; color: #6c5ce7; font-size: 16px;">📊 Ваши характеристики</h3>
+      <button onclick="document.getElementById('player-stats-popover').style.display='none'" style="background: rgba(255,255,255,0.1); border: none; color: #fff; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-weight: bold; font-size: 12px;">✕</button>
+    </div>
+    <div id="player-popover-body" class="modal-body-stats"></div>
   </div>
-  <div id="monster-popover-body" class="modal-body-stats"></div>
-</div>
+
+  <div id="monster-stats-popover" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">
+      <h3 style="margin: 0; color: #e74c3c; font-size: 16px;">👹 Параметры цели</h3>
+      <button onclick="document.getElementById('monster-stats-popover').style.display='none'" style="background: rgba(255,255,255,0.1); border: none; color: #fff; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-weight: bold; font-size: 12px;">✕</button>
+    </div>
+    <div id="monster-popover-body" class="modal-body-stats"></div>
+  </div>
 </body>
 </html>
