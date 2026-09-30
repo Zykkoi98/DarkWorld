@@ -21,44 +21,12 @@ function updateTowerLog(text, isError = false) {
   logEl.style.color = isError ? '#e74c3c' : '#2ecc71';
 }
 
-// ============================================================================
-// 🔥 ФИКС: универсальное обновление HP в шапке Башни (с бонусами экипировки)
-// ============================================================================
+// 🔥 Обновление HP в шапке Башни через общий UI
 function updateTowerHpDisplay() {
   const hpEl = document.getElementById('tower-hero-hp');
   if (!hpEl || !localPlayer) return;
-  
   const currentHp = Number(localPlayer.hp || 0);
-  
-  // 🔥 Считаем maxHp с бонусами экипировки (формула из db_helper.getServerMaxHp)
-  const baseEndurance = Number(localPlayer.stats?.endurance || localPlayer.endurance || 1);
-  
-  let gearEndurance = 0;
-  let flatHpBonus = 0;
-  
-  if (localPlayer.equipped) {
-    const slots = ['head', 'body', 'legs', 'gloves', 'neck', 'mainHand', 'offHand', 'extra'];
-    
-    const processItem = (itemId) => {
-      if (!itemId || !window.getItemData) return;
-      const itemData = window.getItemData(itemId);
-      if (itemData?.bonus) {
-        if (itemData.bonus.endurance) gearEndurance += itemData.bonus.endurance;
-        if (itemData.bonus.stats?.endurance) gearEndurance += itemData.bonus.stats.endurance;
-        if (itemData.bonus.hp) flatHpBonus += itemData.bonus.hp;
-      }
-    };
-    
-    slots.forEach(slot => processItem(localPlayer.equipped[slot]));
-    
-    // Кольца
-    if (Array.isArray(localPlayer.equipped.rings)) {
-      localPlayer.equipped.rings.forEach(itemId => processItem(itemId));
-    }
-  }
-  
-  const maxHp = ((baseEndurance + gearEndurance) * 10) + flatHpBonus;
-  
+  const maxHp = (window.UI && window.UI.getMaxHp) ? window.UI.getMaxHp(localPlayer) : 10;
   hpEl.textContent = `❤️ ${currentHp} / ${maxHp}`;
 }
 
@@ -117,11 +85,10 @@ function initTowerPage() {
   towerSocket.on('tower_load_game_success', (data) => {
     if (data && data.player) {
       localPlayer = data.player;
+      window.player = data.player;   // 🔥 синхронизация с общим UI
       localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-      
-      // 🔥 Обновляем HP после загрузки свежего профиля
+
       updateTowerHpDisplay();
-      
       renderTowerInterface();
     }
   });
@@ -254,7 +221,7 @@ function renderTowerInterface() {
       html += `    <div style="font-size:11px; color:#9aa0b5; margin-top:2px;">${item.desc}</div>`;
       html += `  </div>`;
       html += `</div>`;
-      html += `<button onclick="triggerTowerBuy('${itemId}')" ${canAfford ? '' : 'disabled'} style="...">🪙 ${item.price}</button>`;
+      html += `<button onclick="triggerTowerBuy('${itemId}')" ${canAfford ? '' : 'disabled'} style="padding:8px 14px; background:${canAfford ? '#2ecc71' : 'rgba(255,255,255,0.05)'}; color:${canAfford ? '#fff' : '#666'}; border:none; border-radius:6px; font-weight:bold; cursor:${canAfford ? 'pointer' : 'not-allowed'};">🪙 ${item.price}</button>`;
 
       row.innerHTML = html;
       shopContainer.appendChild(row);
