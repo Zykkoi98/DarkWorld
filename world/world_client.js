@@ -100,34 +100,45 @@ function initWorld() {
 
   localStorage.setItem('world_active', 'true');
 
-  console.log("📡 [МИР] Создаём свой сокет...");
+  console.log("📡 [МИР] Проверяем сокет...");
 
-  if (typeof io === 'undefined') {
-    console.error("❌ [МИР] Socket.io не подключён!");
-    return;
-  }
+if (typeof io === 'undefined') {
+  console.error("❌ [МИР] Socket.io не подключён!");
+  return;
+}
 
-  if (window.socket && window.socket.connected) {
-    console.log("♻️ [МИР] Сокет уже есть, переиспользуем");
-    worldSocket = window.socket;
+// 🔥 ПЕРЕИСПОЛЬЗУЕМ сокет от telegram.js — НЕ создаём дубль
+if (window.socket) {
+  worldSocket = window.socket;
+  console.log(`♻️ [МИР] Переиспользуем сокет telegram.js (connected: ${worldSocket.connected})`);
+
+  if (worldSocket.connected) {
     startWorldAfterSocket();
-    return;
+  } else {
+    // Сокет создан, но ещё коннектится — ждём событие connect
+    worldSocket.once('connect', () => {
+      console.log(`✅ [МИР] Сокет подключён: ${worldSocket.id}`);
+      startWorldAfterSocket();
+    });
   }
+  return;
+}
 
-  worldSocket = io('https://darkworld-server.onrender.com', {
-    transports: ['websocket'],
-    forceNew: false,
-    upgrade: false,
-    auth: { userId: localPlayer.id }
-  });
+// Fallback — если telegram.js не загрузился (на всякий случай)
+console.warn("⚠️ [МИР] window.socket не найден, создаём свой...");
+worldSocket = io('https://darkworld-server.onrender.com', {
+  transports: ['websocket'],
+  forceNew: false,
+  upgrade: false,
+  auth: { userId: localPlayer.id }
+});
+window.socket = worldSocket;
+window.worldSocket = worldSocket;
 
-  window.socket = worldSocket;
-  window.worldSocket = worldSocket;
-
-  worldSocket.on('connect', () => {
-    console.log(`✅ [МИР] Сокет подключён: ${worldSocket.id}`);
-    startWorldAfterSocket();
-  });
+worldSocket.on('connect', () => {
+  console.log(`✅ [МИР] Fallback-сокет подключён: ${worldSocket.id}`);
+  startWorldAfterSocket();
+});
 
   worldSocket.on('connect_error', (err) => {
     console.error("🚨 [МИР] Ошибка подключения:", err.message);
@@ -136,7 +147,13 @@ function initWorld() {
 }
 
 // --- ОСНОВНАЯ ЛОГИКА ---
+// --- ОСНОВНАЯ ЛОГИКА ---
 function startWorldAfterSocket() {
+  if (!worldSocket) {
+    console.error("❌ [МИР] worldSocket не инициализирован!");
+    return;
+  }
+
   window.worldSocket = worldSocket;
   worldSocket.userId = localPlayer.id;
 
@@ -146,7 +163,7 @@ function startWorldAfterSocket() {
 
   handlers.world_map_data = (data) => {
     console.log("🎉 [МИР] world_map_data пришёл!");
-    __mapSynced = true;   // 🔥 Карта синхронизирована
+    __mapSynced = true;
     onMapData(data);
   };
 
@@ -168,12 +185,10 @@ function startWorldAfterSocket() {
     isMoving = false;
     moveEndsAt = null;
 
-    // 🔥 Модалку НЕ закрываем, если идёт навигация — она остаётся весь маршрут
     if (!isNavigating) {
       hideMoveProgress();
     }
 
-    // 🔥 Запрашиваем свежую карту для синхронизации
     if (worldSocket && worldSocket.connected) {
       __mapSynced = false;
       worldSocket.emit('world_get_map', { userId: localPlayer.id });
@@ -183,7 +198,6 @@ function startWorldAfterSocket() {
 
     window.__moveSyncRequested = false;
 
-    // 🔥 Автонавигатор: ждём, пока карта реально обновится
     if (isNavigating) {
       const waitForSync = setInterval(() => {
         if (__mapSynced) {
@@ -192,7 +206,6 @@ function startWorldAfterSocket() {
         }
       }, 80);
 
-      // 🔥 Страховка: если карта не пришла за 3 сек — форсируем шаг
       setTimeout(() => {
         clearInterval(waitForSync);
         if (!__mapSynced) {
@@ -213,7 +226,7 @@ function startWorldAfterSocket() {
     navPathOriginal = [];
     navStartX = null;
     navStartY = null;
-    clearNavState();   // 🔥 Очищаем
+    clearNavState();
     hideMoveProgress();
     if (currentMapData) updateGridContent(currentMapData);
   };
@@ -226,7 +239,7 @@ function startWorldAfterSocket() {
     navPathOriginal = [];
     navStartX = null;
     navStartY = null;
-    clearNavState();   // 🔥 Очищаем
+    clearNavState();
     hideMoveProgress();
     if (currentMapData) updateGridContent(currentMapData);
   };
@@ -261,7 +274,6 @@ function startWorldAfterSocket() {
 
     if (!response) return;
 
-    // Сброс кнопки
     const goBtn = document.querySelector('#selected-cell-actions .action-btn.move');
     if (goBtn) {
       goBtn.textContent = '🚶 Идти';
@@ -277,15 +289,13 @@ function startWorldAfterSocket() {
 
     console.log(`✅ [НАВ] Путь: ${response.pathLength} шагов`);
 
-    // 🔥 ФИКСИРУЕМ стартовую позицию игрока и полный путь
     navStartX = currentMapData.myX;
     navStartY = currentMapData.myY;
     navPathOriginal = [...response.steps];
     navPath = response.steps;
-    window.__navRestoreAttempted = false;   // 🔥 Сбрасываем флаг, чтобы F5 работал в новом маршруте
+    window.__navRestoreAttempted = false;
     isNavigating = true;
 
-    // 🔥 Обновляем сетку (подсветка всего пути)
     updateGridContent(currentMapData);
 
     if (navTarget) {
@@ -302,14 +312,60 @@ function startWorldAfterSocket() {
     navigateNextStep();
   };
 
+  // 🔥 HP-регенерация — обновляем шапку
+  handlers.town_hp_regen_update = (data) => {
+    if (!localPlayer) return;
+    localPlayer.hp = data.currentHp;
+    updateWorldHeader();
+  };
+
   handlers.error = (msg) => {
     showToast(`🚨 ${msg}`, 'error');
   };
+
+  // 🔥 Слушаем обновление профиля от telegram.js — синхронизируем локальную копию
+  worldSocket.on('load_game_success', (data) => {
+    if (data && data.player) {
+      console.log("☁️ [МИР] Профиль обновлён с сервера");
+      localPlayer = data.player;
+      window.player = data.player;
+      updateWorldHeader();
+    }
+  });
 
   attachHandlers();
 
   worldSocket.emit('world_get_map', { userId: localPlayer.id });
   initMapDrag();
+
+  // 🔥 Кнопка инвентаря — вызывает window.openInventory() из game.js
+  const invBtn = document.getElementById('world-inventory-btn');
+  if (invBtn) {
+    invBtn.addEventListener('click', () => {
+      console.log("🎒 [МИР] Открыть инвентарь");
+      if (typeof window.openInventory === 'function') {
+        window.openInventory();
+      } else {
+        console.error("❌ window.openInventory не найдена! Проверь подключение game.js");
+      }
+    });
+  }
+
+  // 🔥 Аватарка — вызывает window.openProfile() из game.js
+  const avatarSlot = document.getElementById('world-avatar-slot');
+  if (avatarSlot) {
+    avatarSlot.addEventListener('click', () => {
+      console.log("👤 [МИР] Открыть профиль");
+      if (typeof window.openProfile === 'function') {
+        window.openProfile();
+      } else {
+        console.error("❌ window.openProfile не найдена! Проверь подключение game.js");
+      }
+    });
+  }
+
+  // 🔥 Обновляем шапку после загрузки профиля
+  updateWorldHeader();
 
   setTimeout(() => {
     const loader = document.getElementById('world-loader');
