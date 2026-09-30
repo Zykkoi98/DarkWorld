@@ -184,8 +184,13 @@ window.exitTower = function() {
 function renderTowerInterface() {
   if (!localPlayer) return;
 
+  // 🔥 ПОКАЗЫВАЕМ МОНЕТЫ БАШНИ
   const goldEl = document.getElementById('tower-wallet-gold');
-  if (goldEl) goldEl.textContent = `💰 ${localPlayer.gold} монет`;
+  if (goldEl) {
+    const coins = Number(localPlayer.tower_coins ?? 0);
+    goldEl.textContent = `🪙 ${coins} монет Башни`;
+    goldEl.style.color = '#f1c40f';
+  }
 
   // 🔥 ФИКС: всегда обновляем HP при рендере
   updateTowerHpDisplay();
@@ -239,7 +244,8 @@ function renderTowerInterface() {
       const row = document.createElement('div');
       row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px; background:#111; border:1px solid #222; border-radius:8px; margin-bottom:8px;';
 
-      const canAfford = localPlayer.gold >= item.price;
+      const currentCoins = Number(localPlayer.tower_coins ?? 0);
+      const canAfford = currentCoins >= item.price;
 
       let html = `<div style="display:flex; align-items:center; gap:12px;">`;
       html += `  <div style="font-size:24px; background:#1f2833; padding:8px; border-radius:6px;">${item.icon}</div>`;
@@ -248,7 +254,7 @@ function renderTowerInterface() {
       html += `    <div style="font-size:11px; color:#9aa0b5; margin-top:2px;">${item.desc}</div>`;
       html += `  </div>`;
       html += `</div>`;
-      html += `<button onclick="triggerTowerBuy('${itemId}')" ${canAfford ? '' : 'disabled'} style="padding:8px 12px; background:${canAfford ? '#2ecc71' : '#222'}; color:${canAfford ? '#fff' : '#555'}; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">💰 ${item.price}</button>`;
+      html += `<button onclick="triggerTowerBuy('${itemId}')" ${canAfford ? '' : 'disabled'} style="...">🪙 ${item.price}</button>`;
 
       row.innerHTML = html;
       shopContainer.appendChild(row);
