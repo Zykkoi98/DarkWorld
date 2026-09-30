@@ -1,6 +1,6 @@
 // ============================================================================
-// ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) — v10 =====
-// ===== Навигатор event-based, тёмные координаты, линия пути, блокировка =====
+// ===== 🗺️ КЛИЕНТ КАРТЫ МИРА (WORLD_CLIENT.JS) — v11 =====
+// ===== Навигатор с фиксом подсветки пути + синхронизация переходов =====
 // ============================================================================
 
 let worldSocket = null;
@@ -18,7 +18,11 @@ const handlers = {};
 // 🔥 Автонавигатор
 let navTarget = null;
 let navPath = [];
+let navPathOriginal = [];     // 🔥 Полная копия изначального пути
+let navStartX = null;          // 🔥 Координаты старта пути
+let navStartY = null;
 let isNavigating = false;
+let __mapSynced = true;        // 🔥 Флаг синхронизации карты
 
 // 🔥 Drag
 let currentOffsetX = 0;
@@ -92,6 +96,7 @@ function startWorldAfterSocket() {
 
   handlers.world_map_data = (data) => {
     console.log("🎉 [МИР] world_map_data пришёл!");
+    __mapSynced = true;   // 🔥 Карта синхронизирована
     onMapData(data);
   };
 
@@ -104,6 +109,7 @@ function startWorldAfterSocket() {
 
   handlers.world_move_completed = (data) => {
     console.log("✅ [МИР] Переход завершён");
+
     if (window.__moveSafetyTimeout) {
       clearTimeout(window.__moveSafetyTimeout);
       window.__moveSafetyTimeout = null;
@@ -111,21 +117,40 @@ function startWorldAfterSocket() {
 
     isMoving = false;
     moveEndsAt = null;
-    hideMoveProgress();
 
-    if (!window.__moveSyncRequested) {
-      if (worldSocket && worldSocket.connected) {
-        worldSocket.emit('world_get_map', { userId: localPlayer.id });
-      }
+    // 🔥 Модалку НЕ закрываем, если идёт навигация — она остаётся весь маршрут
+    if (!isNavigating) {
+      hideMoveProgress();
+    }
+
+    // 🔥 Запрашиваем свежую карту для синхронизации
+    if (worldSocket && worldSocket.connected) {
+      __mapSynced = false;
+      worldSocket.emit('world_get_map', { userId: localPlayer.id });
+    } else {
+      __mapSynced = true;
     }
 
     window.__moveSyncRequested = false;
 
-    // 🔥 Автонавигатор
+    // 🔥 Автонавигатор: ждём, пока карта реально обновится
     if (isNavigating) {
+      const waitForSync = setInterval(() => {
+        if (__mapSynced) {
+          clearInterval(waitForSync);
+          setTimeout(() => navigateNextStep(), 150);
+        }
+      }, 80);
+
+      // 🔥 Страховка: если карта не пришла за 3 сек — форсируем шаг
       setTimeout(() => {
-        navigateNextStep();
-      }, 500);
+        clearInterval(waitForSync);
+        if (!__mapSynced) {
+          console.warn("⚠️ [НАВ] Карта не синхронизировалась за 3с — форсируем шаг");
+          __mapSynced = true;
+          if (isNavigating) navigateNextStep();
+        }
+      }, 3000);
     }
   };
 
@@ -133,13 +158,25 @@ function startWorldAfterSocket() {
     console.log("🚫 [МИР] Переход отменён");
     isMoving = false;
     moveEndsAt = null;
+    isNavigating = false;
+    navPath = [];
+    navPathOriginal = [];
+    navStartX = null;
+    navStartY = null;
     hideMoveProgress();
+    if (currentMapData) updateGridContent(currentMapData);
   };
 
   handlers.world_move_blocked = (data) => {
     showToast(`🚫 ${data.reason}`, 'error');
     isMoving = false;
+    isNavigating = false;
+    navPath = [];
+    navPathOriginal = [];
+    navStartX = null;
+    navStartY = null;
     hideMoveProgress();
+    if (currentMapData) updateGridContent(currentMapData);
   };
 
   handlers.world_player_moved = () => {
@@ -166,7 +203,7 @@ function startWorldAfterSocket() {
     alert(`⚔️ ${data.monster.name}\nУровень: ${data.monster.level}\n\nБой подключим позже.`);
   };
 
-  // 🔥 НОВЫЙ handler — ответ от A* (event-based)
+  // 🔥 Ответ от A* (event-based)
   handlers.world_find_path_result = (response) => {
     console.log("📡 [НАВ] Получен ответ:", response);
 
@@ -186,25 +223,31 @@ function startWorldAfterSocket() {
 
     if (response.targetUserId !== Number(localPlayer.id)) return;
 
-  console.log(`✅ [НАВ] Путь: ${response.pathLength} шагов`);
-      navPath = response.steps;
-      isNavigating = true;
+    console.log(`✅ [НАВ] Путь: ${response.pathLength} шагов`);
 
-      // 🔥 Обновляем сетку (подсветка пути)
-      updateGridContent(currentMapData);
+    // 🔥 ФИКСИРУЕМ стартовую позицию игрока и полный путь
+    navStartX = currentMapData.myX;
+    navStartY = currentMapData.myY;
+    navPathOriginal = [...response.steps];
+    navPath = response.steps;
 
-      if (navTarget) {
-        showSelectedCellInfo(
-          window.currentTileMap[`${navTarget.x}_${navTarget.y}`],
-          window.currentResourceMap[`${navTarget.x}_${navTarget.y}`],
-          window.currentMonsterMap[`${navTarget.x}_${navTarget.y}`],
-          null,
-          navTarget.x - currentMapData.myX,
-          navTarget.y - currentMapData.myY,
-          navTarget.x, navTarget.y
-        );
-      }
-      navigateNextStep();
+    isNavigating = true;
+
+    // 🔥 Обновляем сетку (подсветка всего пути)
+    updateGridContent(currentMapData);
+
+    if (navTarget) {
+      showSelectedCellInfo(
+        window.currentTileMap[`${navTarget.x}_${navTarget.y}`],
+        window.currentResourceMap[`${navTarget.x}_${navTarget.y}`],
+        window.currentMonsterMap[`${navTarget.x}_${navTarget.y}`],
+        null,
+        navTarget.x - currentMapData.myX,
+        navTarget.y - currentMapData.myY,
+        navTarget.x, navTarget.y
+      );
+    }
+    navigateNextStep();
   };
 
   handlers.error = (msg) => {
@@ -294,6 +337,7 @@ function updateMapBackground(myX, myY) {
   const container = document.getElementById('world-map-container');
   if (!container) return;
 
+  // 🔥 Тихий пропуск центрирования во время навигации или выбора клетки
   if (isNavigating || (selectedTile && (selectedTile.dx !== 0 || selectedTile.dy !== 0))) {
     return;
   }
@@ -555,14 +599,13 @@ function updateGridContent(data) {
     coordsEl.textContent = `${x},${y}`;
     cell.appendChild(coordsEl);
 
- // 🔥 Пометка выбранной клетки
+    // 🔥 Пометка выбранной клетки
     if (selectedTile && selectedTile.x === x && selectedTile.y === y && (dx !== 0 || dy !== 0)) {
       cell.classList.add('selected-tile');
     }
 
-    // 🔥 Подсветка пути навигатора
+    // 🔥 Подсветка пути навигатора (только оставшиеся клетки)
     if (isNavigating && navTarget) {
-      // Проверяем, входит ли клетка в оставшийся путь
       const isPathCell = isCellInPath(x, y);
       const isTargetCell = (x === navTarget.x && y === navTarget.y);
 
@@ -586,16 +629,27 @@ function updateGridContent(data) {
     if (selectedPanel) selectedPanel.classList.add('hidden');
   }
 }
-// 🔥 Проверка: входит ли клетка в оставшийся путь навигации
+
+// 🔥 Проверка: входит ли клетка в ОСТАВШИЙСЯ путь навигации
+// Считаем от исходной стартовой позиции — так подсветка НЕ дёргается,
+// но пройденные клетки автоматически гаснут.
 function isCellInPath(x, y) {
-  if (!isNavigating || !navPath || navPath.length === 0 || !currentMapData) return false;
+  if (!isNavigating || !navPathOriginal || navPathOriginal.length === 0) return false;
+  if (navStartX === null || navStartY === null) return false;
 
-  let curX = currentMapData.myX;
-  let curY = currentMapData.myY;
+  // Сколько шагов уже пройдено (полный путь минус оставшийся)
+  const passedCount = navPathOriginal.length - navPath.length;
 
-  for (const step of navPath) {
-    curX += step.dx;
-    curY += step.dy;
+  let curX = navStartX;
+  let curY = navStartY;
+
+  for (let i = 0; i < navPathOriginal.length; i++) {
+    curX += navPathOriginal[i].dx;
+    curY += navPathOriginal[i].dy;
+
+    // Пропускаем пройденные клетки — они гаснут
+    if (i < passedCount) continue;
+
     if (curX === x && curY === y) return true;
   }
   return false;
@@ -707,6 +761,9 @@ function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y
     cancelBtn.onclick = () => {
       isNavigating = false;
       navPath = [];
+      navPathOriginal = [];
+      navStartX = null;
+      navStartY = null;
       navTarget = null;
       updateGridContent(currentMapData);
       if (isMoving) window.cancelMove();
@@ -796,15 +853,17 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
   showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y);
 }
 
-
 // --- НАВИГАЦИЯ ---
 function navigateNextStep() {
- if (!isNavigating || navPath.length === 0) {
+  if (!isNavigating || navPath.length === 0) {
     isNavigating = false;
     navPath = [];
+    navPathOriginal = [];
+    navStartX = null;
+    navStartY = null;
     navTarget = null;
-    updateGridContent(currentMapData);   // 🔥 убираем подсветку
-    
+    hideMoveProgress();                    // 🔥 Скрываем модалку в конце пути
+    updateGridContent(currentMapData);     // 🔥 Убираем подсветку пути
 
     if (selectedTile) {
       showSelectedCellInfo(
@@ -825,6 +884,9 @@ function navigateNextStep() {
 
   const step = navPath.shift();
 
+  // 🔥 Обновляем подсветку пути (пройденные клетки гаснут автоматически)
+  updateGridContent(currentMapData);
+
   if (navTarget) {
     showSelectedCellInfo(
       window.currentTileMap[`${navTarget.x}_${navTarget.y}`],
@@ -842,10 +904,15 @@ function navigateNextStep() {
   const nextY = currentMapData.myY + step.dy;
   const nextTile = window.tileCache?.[`${nextX}_${nextY}`];
 
- if (nextTile && nextTile.is_blocked) {
+  if (nextTile && nextTile.is_blocked) {
     showToast('🚫 Путь заблокирован', 'error');
     isNavigating = false;
     navPath = [];
+    navPathOriginal = [];
+    navStartX = null;
+    navStartY = null;
+    navTarget = null;
+    hideMoveProgress();
     updateGridContent(currentMapData);
     return;
   }
@@ -869,8 +936,13 @@ window.cancelMove = function() {
 
   isNavigating = false;
   navPath = [];
+  navPathOriginal = [];
+  navStartX = null;
+  navStartY = null;
   navTarget = null;
+
   updateGridContent(currentMapData);
+  hideMoveProgress();
   worldSocket.emit('world_move_cancel', { userId: localPlayer.id });
 
   if (selectedTile) {
@@ -900,14 +972,12 @@ window.exitWorld = function() {
 // --- ПРОГРЕСС ---
 function showMoveProgress(durationMs) {
   window.__moveSyncRequested = false;
-
   const old = document.getElementById('move-progress');
 
-  // 🔥 ФИКС: Если модалка уже открыта — просто обновляем таймер, НЕ пересоздаём
+  // 🔥 ФИКС: Если модалка уже открыта — обновляем таймер, НЕ пересоздаём
   if (old) {
     console.log("♻️ [МИР] Модалка перехода уже открыта — обновляем таймер");
-    
-    // Останавливаем старый интервал
+
     if (moveTimerInterval) {
       clearInterval(moveTimerInterval);
       moveTimerInterval = null;
@@ -918,12 +988,24 @@ function showMoveProgress(durationMs) {
     const startTime = Date.now();
     const totalDuration = durationMs;
 
+    if (fill) {
+      fill.style.transition = 'none';
+      fill.style.width = '0%';
+      requestAnimationFrame(() => {
+        fill.style.transition = `width ${totalDuration}ms linear`;
+        requestAnimationFrame(() => { fill.style.width = '100%'; });
+      });
+    }
+
+    if (timeEl) {
+      timeEl.textContent = `${(totalDuration / 1000).toFixed(1)}с`;
+      timeEl.style.color = '#f1c40f';
+      timeEl.style.fontSize = '18px';
+    }
+
     moveTimerInterval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const percent = Math.min(100, (elapsed / totalDuration) * 100);
       const remaining = Math.max(0, (totalDuration - elapsed) / 1000);
-
-      if (fill) fill.style.width = `${percent}%`;
 
       if (remaining > 0) {
         if (timeEl) timeEl.textContent = `${remaining.toFixed(1)}с`;
@@ -933,36 +1015,22 @@ function showMoveProgress(durationMs) {
           timeEl.style.color = '#3498db';
           timeEl.style.fontSize = '14px';
         }
-
-        if (!window.__moveSyncRequested) {
-          window.__moveSyncRequested = true;
-          if (worldSocket && worldSocket.connected) {
-            worldSocket.emit('world_get_map', { userId: localPlayer.id });
-          }
-        }
       }
     }, 100);
 
-    // Обновляем safety timeout
-    if (window.__moveSafetyTimeout) {
-      clearTimeout(window.__moveSafetyTimeout);
-    }
+    if (window.__moveSafetyTimeout) clearTimeout(window.__moveSafetyTimeout);
     window.__moveSafetyTimeout = setTimeout(() => {
       const modal = document.getElementById('move-progress');
-      if (modal) {
+      if (modal && !isNavigating) {
         hideMoveProgress();
         isMoving = false;
-        window.__moveSyncRequested = false;
-        if (worldSocket && worldSocket.connected) {
-          worldSocket.emit('world_get_map', { userId: localPlayer.id });
-        }
       }
     }, totalDuration + 5000);
 
-    return; // 🔥 Выходим — не пересоздаём DOM!
+    return;
   }
 
-  // === Первое создание модалки (оставляем как было) ===
+  // === Первое создание модалки ===
   const container = document.createElement('div');
   container.id = 'move-progress';
   container.style.cssText = `
@@ -982,9 +1050,9 @@ function showMoveProgress(durationMs) {
     <div style="font-size: 32px; margin-bottom: 8px;">🚶‍♂️</div>
     <div style="font-weight: bold; color: #fff; margin-bottom: 12px;">Переход в пути...</div>
     <div style="background: rgba(255,255,255,0.1); border-radius: 6px; height: 8px; overflow: hidden; margin-bottom: 8px;">
-      <div id="move-progress-fill" style="height: 100%; width: 0%; background: linear-gradient(90deg, #6c5ce7, #a29bfe); transition: width 0.1s linear;"></div>
+      <div id="move-progress-fill" style="height: 100%; width: 0%; background: linear-gradient(90deg, #6c5ce7, #a29bfe); transition: width ${durationMs}ms linear;"></div>
     </div>
-    <div id="move-progress-time" style="font-size: 18px; font-weight: bold; color: #f1c40f; font-family: monospace;">15.0с</div>
+    <div id="move-progress-time" style="font-size: 18px; font-weight: bold; color: #f1c40f; font-family: monospace;">${(durationMs / 1000).toFixed(1)}с</div>
     <button onclick="window.cancelMove()" style="margin-top: 12px; background: #e74c3c; border: none; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer;">Отменить</button>
   `;
 
@@ -995,13 +1063,14 @@ function showMoveProgress(durationMs) {
   const startTime = Date.now();
   const totalDuration = durationMs;
 
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => { if (fill) fill.style.width = '100%'; });
+  });
+
   if (moveTimerInterval) clearInterval(moveTimerInterval);
   moveTimerInterval = setInterval(() => {
     const elapsed = Date.now() - startTime;
-    const percent = Math.min(100, (elapsed / totalDuration) * 100);
     const remaining = Math.max(0, (totalDuration - elapsed) / 1000);
-
-    if (fill) fill.style.width = `${percent}%`;
 
     if (remaining > 0) {
       if (timeEl) timeEl.textContent = `${remaining.toFixed(1)}с`;
@@ -1011,26 +1080,15 @@ function showMoveProgress(durationMs) {
         timeEl.style.color = '#3498db';
         timeEl.style.fontSize = '14px';
       }
-
-      if (!window.__moveSyncRequested) {
-        window.__moveSyncRequested = true;
-        if (worldSocket && worldSocket.connected) {
-          worldSocket.emit('world_get_map', { userId: localPlayer.id });
-        }
-      }
     }
   }, 100);
 
   if (window.__moveSafetyTimeout) clearTimeout(window.__moveSafetyTimeout);
   window.__moveSafetyTimeout = setTimeout(() => {
     const modal = document.getElementById('move-progress');
-    if (modal) {
+    if (modal && !isNavigating) {
       hideMoveProgress();
       isMoving = false;
-      window.__moveSyncRequested = false;
-      if (worldSocket && worldSocket.connected) {
-        worldSocket.emit('world_get_map', { userId: localPlayer.id });
-      }
     }
   }, totalDuration + 5000);
 }
