@@ -6,17 +6,25 @@
   <title>Битва Чести — Dark World</title>
 
   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+
   <script>
     window.GAME_ITEMS_DATABASE = window.GAME_ITEMS_DATABASE || {};
   </script>
 
   <script src="../config.js?v=78"></script>
   <script src="../shop/shop_items_config.js?v=129"></script>
-  <script src="client_battle.js?v=122" defer></script>
 
-  <!-- Стили -->
+  <!-- Клиентские модули боя (порядок важен!) -->
+  <script src="client/battle_state.js?v=1" defer></script>
+  <script src="client/battle_toasts.js?v=1" defer></script>
+  <script src="client/battle_timer.js?v=1" defer></script>
+  <script src="client/battle_renderer.js?v=1" defer></script>
+  <script src="client/battle_stats.js?v=1" defer></script>
+  <script src="client/battle_ui.js?v=1" defer></script>
+  <script src="client/battle_socket.js?v=1" defer></script>
+  <script src="client/battle_client.js?v=1" defer></script>
+
   <link rel="stylesheet" href="../style.css?v=192">
-  <link rel="stylesheet" href="../shared/ui.css?v=2">
 
   <style>
     :root {
@@ -157,9 +165,20 @@
     #strike-action-btn {
       width: 100%; background: linear-gradient(135deg, #70a1ff, #1e90ff); color: white; border: none;
       padding: 9px; font-size: 12px; font-weight: bold; border-radius: 6px;
-      cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 12px rgba(30, 144, 255, 0.2);
+      cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
+      box-shadow: 0 4px 12px rgba(30, 144, 255, 0.2);
     }
     #strike-action-btn:disabled { background: #2c3e50 !important; color: #7f8c8d !important; opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+    #random-strike-btn {
+      width: 100%; background: #e67e22; color: #fff;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: bold; border-radius: 6px; border: none;
+      cursor: pointer; box-shadow: 0 3px 8px rgba(230, 126, 34, 0.25);
+      margin-top: 2px;
+    }
+    #random-strike-btn:disabled { opacity: 0.4; pointer-events: none; }
 
     .reserve-zone { display: flex; justify-content: space-between; gap: 8px; width: 100%; margin-top: 2px; }
     .reserve-column {
@@ -206,7 +225,7 @@
       <!-- ЛЕВАЯ СТОРОНА: Герой -->
       <div class="fighter-side-wrapper">
         <div id="main-hero-card" class="big-fighter-card">
-          <img id="hero-card-bg-img" class="card-background-art" onclick="window.openPlayerStatsInBattle()" src="../assets/avatars/hero4.jpg" alt="Hero BG">
+          <img id="hero-card-bg-img" class="card-background-art" src="../assets/avatars/hero4.jpg" alt="Hero BG">
           <div class="card-gradient-overlay"></div>
           <div class="big-name" id="hero-name-text">Загрузка...</div>
           <div class="big-lvl" id="hero-lvl-text">Lv. --</div>
@@ -217,7 +236,7 @@
         </div>
         <div class="quick-slots-row">
           <button id="quick-potion-btn" class="quick-action-btn" title="Выпить зелье" disabled>🧪</button>
-          <button id="quick-scroll-btn" class="quick-action-btn" title="Прочитать свиток" disabled>📜</button>
+          <button id="quick-scroll-btn" class="quick-action-btn" title="Свиток" disabled>📜</button>
         </div>
       </div>
 
@@ -242,13 +261,13 @@
           </div>
         </div>
         <button id="strike-action-btn" disabled>АТАКОВАТЬ</button>
-        <button id="random-strike-btn" style="width: 100%; background: #e67e22; color: #fff; padding: 10px; font-weight: bold; border-radius: 10px; border: none; margin-bottom: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3);">🎲 СЛУЧАЙНЫЙ ХОД</button>
+        <button id="random-strike-btn">🎲 СЛУЧАЙНЫЙ ХОД</button>
       </div>
 
       <!-- ПРАВАЯ СТОРОНА: Враг -->
       <div class="fighter-side-wrapper">
         <div id="main-target-card" class="big-fighter-card">
-          <img id="target-card-bg-img" class="card-background-art" onclick="window.openEnemyStatsInBattle()" src="../assets/monsters/monster1.jpg" alt="Monster BG">
+          <img id="target-card-bg-img" class="card-background-art" src="../assets/monsters/monster1.jpg" alt="Monster BG">
           <div class="card-gradient-overlay"></div>
           <div class="big-name" id="target-name-text">Нет цели</div>
           <div class="big-lvl" id="target-lvl-text">Lv. --</div>
@@ -284,10 +303,10 @@
     </div>
   </div>
 
-  <!-- Поповеры статов (создаются динамически через UI.init или остаются в HTML) -->
+  <!-- Поповеры статов -->
   <div id="player-stats-popover" style="display: none;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">
-      <h3 style="margin: 0; color: #6c5ce7; font-size: 16px;">📊 Ваши характеристики</h3>
+      <h3 style="margin: 0; color: #6c5ce7; font-size: 16px;">📊 Характеристики</h3>
       <button onclick="document.getElementById('player-stats-popover').style.display='none'" style="background: rgba(255,255,255,0.1); border: none; color: #fff; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-weight: bold; font-size: 12px;">✕</button>
     </div>
     <div id="player-popover-body" class="modal-body-stats"></div>
@@ -300,5 +319,6 @@
     </div>
     <div id="monster-popover-body" class="modal-body-stats"></div>
   </div>
+
 </body>
 </html>
