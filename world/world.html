@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Карта мира — Dark World</title>
-  <link rel="stylesheet" href="world.css?v=21">
+  <link rel="stylesheet" href="world.css?v=25">
 </head>
 <body>
 
@@ -38,8 +38,11 @@
     <div id="world-map-inner">
       <img id="world-map-img" src="../assets/maps/world_ashenval_background.jpg" alt="">
       <div id="world-map-grid"></div>
+    </div>
+    <!-- ✅ Кнопка «Центр» — внутри контейнера, но СНАРУЖИ inner -->
     <button id="center-map-btn">🎯</button>
   </div>
+  <!-- ✅ КОНТЕЙНЕР КАРТЫ ЗАКРЫТ ЗДЕСЬ -->
 
   <!-- ======================= ИНФО-ПАНЕЛЬ (2 КОЛОНКИ) ======================= -->
   <div id="world-info-panel">
@@ -62,6 +65,6 @@
   </div>
 
   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-  <script src="world_client.js?v=21"></script>
+  <script src="world_client.js?v=25"></script>
 </body>
 </html>
