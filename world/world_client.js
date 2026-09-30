@@ -295,7 +295,6 @@ function updateMapBackground(myX, myY) {
   if (!container) return;
 
   if (isNavigating || (selectedTile && (selectedTile.dx !== 0 || selectedTile.dy !== 0))) {
-    console.log("🎯 [МИР] Центрирование пропущено");
     return;
   }
 
@@ -901,9 +900,69 @@ window.exitWorld = function() {
 // --- ПРОГРЕСС ---
 function showMoveProgress(durationMs) {
   window.__moveSyncRequested = false;
-  const old = document.getElementById('move-progress');
-  if (old) old.remove();
 
+  const old = document.getElementById('move-progress');
+
+  // 🔥 ФИКС: Если модалка уже открыта — просто обновляем таймер, НЕ пересоздаём
+  if (old) {
+    console.log("♻️ [МИР] Модалка перехода уже открыта — обновляем таймер");
+    
+    // Останавливаем старый интервал
+    if (moveTimerInterval) {
+      clearInterval(moveTimerInterval);
+      moveTimerInterval = null;
+    }
+
+    const fill = document.getElementById('move-progress-fill');
+    const timeEl = document.getElementById('move-progress-time');
+    const startTime = Date.now();
+    const totalDuration = durationMs;
+
+    moveTimerInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const percent = Math.min(100, (elapsed / totalDuration) * 100);
+      const remaining = Math.max(0, (totalDuration - elapsed) / 1000);
+
+      if (fill) fill.style.width = `${percent}%`;
+
+      if (remaining > 0) {
+        if (timeEl) timeEl.textContent = `${remaining.toFixed(1)}с`;
+      } else {
+        if (timeEl) {
+          timeEl.textContent = 'Синхронизация...';
+          timeEl.style.color = '#3498db';
+          timeEl.style.fontSize = '14px';
+        }
+
+        if (!window.__moveSyncRequested) {
+          window.__moveSyncRequested = true;
+          if (worldSocket && worldSocket.connected) {
+            worldSocket.emit('world_get_map', { userId: localPlayer.id });
+          }
+        }
+      }
+    }, 100);
+
+    // Обновляем safety timeout
+    if (window.__moveSafetyTimeout) {
+      clearTimeout(window.__moveSafetyTimeout);
+    }
+    window.__moveSafetyTimeout = setTimeout(() => {
+      const modal = document.getElementById('move-progress');
+      if (modal) {
+        hideMoveProgress();
+        isMoving = false;
+        window.__moveSyncRequested = false;
+        if (worldSocket && worldSocket.connected) {
+          worldSocket.emit('world_get_map', { userId: localPlayer.id });
+        }
+      }
+    }, totalDuration + 5000);
+
+    return; // 🔥 Выходим — не пересоздаём DOM!
+  }
+
+  // === Первое создание модалки (оставляем как было) ===
   const container = document.createElement('div');
   container.id = 'move-progress';
   container.style.cssText = `
@@ -962,7 +1021,8 @@ function showMoveProgress(durationMs) {
     }
   }, 100);
 
-  const safetyTimeout = setTimeout(() => {
+  if (window.__moveSafetyTimeout) clearTimeout(window.__moveSafetyTimeout);
+  window.__moveSafetyTimeout = setTimeout(() => {
     const modal = document.getElementById('move-progress');
     if (modal) {
       hideMoveProgress();
@@ -973,8 +1033,6 @@ function showMoveProgress(durationMs) {
       }
     }
   }, totalDuration + 5000);
-
-  window.__moveSafetyTimeout = safetyTimeout;
 }
 
 function hideMoveProgress() {
