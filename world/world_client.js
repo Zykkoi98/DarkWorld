@@ -144,22 +144,19 @@ function startWorldAfterSocket() {
       updateWorldHeader();
       try { localStorage.setItem('rpg_save', JSON.stringify({ player: data.player })); } catch(e) {}
 
-      // 🔥 ОБНОВЛЯЕМ ОТКРЫТЫЕ МОДАЛКИ
-      const invModal = document.getElementById('inventory-modal');
-      if (invModal && invModal.style.display === 'flex') {
-        if (typeof window.renderWorldInventory === 'function') {
-          window.renderWorldInventory();
+      // 🔥 Обновляем открытые модалки через UI
+      if (window.UI) {
+        const invModal = document.getElementById('inventory-modal');
+        if (invModal && invModal.style.display === 'flex') {
+          window.UI.renderInventory();
         }
-      }
-      const profModal = document.getElementById('profile-modal');
-      if (profModal && profModal.style.display === 'flex') {
-        if (typeof window.openProfile === 'function') {
-          window.openProfile();
+        const profModal = document.getElementById('profile-modal');
+        if (profModal && profModal.style.display === 'flex') {
+          window.UI.openProfile();
         }
       }
     }
   });
-
   worldSocket.on('stat_distribution_error', (msg) => {
     alert(`❌ Ошибка сохранения: ${msg}`);
   });
@@ -342,33 +339,6 @@ function startWorldAfterSocket() {
 
   worldSocket.emit('world_get_map', { userId: localPlayer.id });
   initMapDrag();
-
-  // 🔥 Кнопка инвентаря — вызывает window.openInventory() из world_ui.js
-  const invBtn = document.getElementById('world-inventory-btn');
-  if (invBtn) {
-    invBtn.addEventListener('click', () => {
-      console.log("🎒 [МИР] Открыть инвентарь");
-      if (typeof window.openInventory === 'function') {
-        window.openInventory();
-      } else {
-        console.error("❌ window.openInventory не найдена! Проверь world_ui.js");
-      }
-    });
-  }
-
-  // 🔥 Аватарка — вызывает window.openProfile() из world_ui.js
-  const avatarSlot = document.getElementById('world-avatar-slot');
-  if (avatarSlot) {
-    avatarSlot.addEventListener('click', () => {
-      console.log("👤 [МИР] Открыть профиль");
-      if (typeof window.openProfile === 'function') {
-        window.openProfile();
-      } else {
-        console.error("❌ window.openProfile не найдена! Проверь world_ui.js");
-      }
-    });
-  }
-
   updateWorldHeader();
 
   setTimeout(() => {
@@ -394,15 +364,13 @@ function updateWorldHeader() {
 
 const avatarImg = document.getElementById('world-player-avatar');
 if (avatarImg) {
-  const avatarValue = localPlayer.avatar || '';
-  if (avatarValue.startsWith('http') || avatarValue.startsWith('/')) {
-    avatarImg.src = avatarValue;
-  } else if (avatarValue.startsWith('assets/')) {
-    avatarImg.src = '../' + avatarValue;   // 🔥 Фикс: ../assets/avatars/hero1.png
-  } else if (avatarValue.startsWith('../')) {
+  const avatarValue = localPlayer.avatar || 'assets/avatars/hero1.png';
+  // На карте мы всегда в подпапке world/ — значит нужен ../
+  const clean = avatarValue.replace(/^\/+/, '').replace(/^(\.\.\/)+/, '');
+  if (avatarValue.startsWith('http')) {
     avatarImg.src = avatarValue;
   } else {
-    avatarImg.src = '../assets/avatars/hero1.png';
+    avatarImg.src = '../' + clean;
   }
 }
 
@@ -415,7 +383,7 @@ if (avatarImg) {
   const hpBadge = document.getElementById('world-hp-badge');
   const hpFill = document.getElementById('world-hp-fill');
   const currentHp = Number(localPlayer.hp || 0);
-  const maxHp = getPlayerMaxHp();
+  const maxHp = (window.UI && window.UI.getMaxHp) ? window.UI.getMaxHp(localPlayer) : 10;
 
   if (hpBadge) hpBadge.textContent = `${currentHp} / ${maxHp}`;
   if (hpFill) {
@@ -434,28 +402,6 @@ if (avatarImg) {
                   : 'Мир';
     titleEl.textContent = `🗺️ ${mapName} · Клетка (${currentMapData.myX}, ${currentMapData.myY})`;
   }
-}
-
-function getPlayerMaxHp() {
-  if (!localPlayer) return 10;
-  const baseEnd = Number(localPlayer.stats?.endurance || localPlayer.endurance || 1);
-  let gearEnd = 0, flatHp = 0;
-
-  if (localPlayer.equipped) {
-    const slots = ['head', 'body', 'legs', 'gloves', 'neck', 'mainHand', 'offHand', 'extra'];
-    const proc = (id) => {
-      if (!id || !window.getItemData) return;
-      const d = window.worldGetItemData ? window.worldGetItemData(id) : null;   // ✅ стало
-      if (d?.bonus) {
-        if (d.bonus.endurance) gearEnd += d.bonus.endurance;
-        if (d.bonus.stats?.endurance) gearEnd += d.bonus.stats.endurance;
-        if (d.bonus.hp) flatHp += d.bonus.hp;
-      }
-    };
-    slots.forEach(s => proc(localPlayer.equipped[s]));
-    if (Array.isArray(localPlayer.equipped.rings)) localPlayer.equipped.rings.forEach(proc);
-  }
-  return ((baseEnd + gearEnd) * 10) + flatHp;
 }
 
 // --- ОБРАБОТКА КАРТЫ ---
