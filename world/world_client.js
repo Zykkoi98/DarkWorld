@@ -971,22 +971,21 @@ function navigateNextStep() {
     navStartX = null;
     navStartY = null;
     navTarget = null;
-    clearNavState();   // 🔥 Очищаем сохранённое состояние
-    hideMoveProgress();                    // 🔥 Скрываем модалку в конце пути
-    updateGridContent(currentMapData);     // 🔥 Убираем подсветку пути
+    hideMoveProgress();
+    updateGridContent(currentMapData);
 
-    if (selectedTile) {
-      showSelectedCellInfo(
-        selectedTile.tile,
-        selectedTile.resource,
-        selectedTile.monster,
-        selectedTile.otherPlayer,
-        selectedTile.dx,
-        selectedTile.dy,
-        selectedTile.x,
-        selectedTile.y
-      );
-    }
+    // 🔥 Очищаем выбранную клетку, чтобы не блокировала центрирование
+    selectedTile = null;
+    const selectedPanel = document.getElementById('selected-cell-panel');
+    if (selectedPanel) selectedPanel.classList.add('hidden');
+
+    // 🔥 Центрируем карту на игроке после завершения маршрута
+    setTimeout(() => {
+      if (currentMapData) {
+        updateMapBackground(currentMapData.myX, currentMapData.myY);
+      }
+    }, 200);
+
     return;
   }
 
@@ -1100,13 +1099,15 @@ function showMoveProgress(durationMs) {
     const startTime = Date.now();
     const totalDuration = durationMs;
 
+    // 🔥 ЖЁСТКИЙ СБРОС ПОЛЗУНКА В 0 С REFLOW
     if (fill) {
       fill.style.transition = 'none';
       fill.style.width = '0%';
-      requestAnimationFrame(() => {
-        fill.style.transition = `width ${totalDuration}ms linear`;
-        requestAnimationFrame(() => { fill.style.width = '100%'; });
-      });
+      // 🔥 Форсируем reflow браузера — БЕЗ него transition не сработает
+      void fill.offsetWidth;
+      // Теперь применяем transition и запускаем анимацию
+      fill.style.transition = `width ${totalDuration}ms linear`;
+      fill.style.width = '100%';
     }
 
     if (timeEl) {
