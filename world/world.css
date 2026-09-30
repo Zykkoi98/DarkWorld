@@ -1,7 +1,6 @@
 /* ============================================================================
-   ===== 🗺️ СТИЛИ КАРТЫ МИРА (WORLD.CSS) — v4 =====
-   ===== Фон + сетка двигаются вместе через #world-map-inner =====
-   ===== Тонкие рамки, координаты, биом, drag, без тяжёлых фильтров =====
+   ===== 🗺️ СТИЛИ КАРТЫ МИРА (WORLD.CSS) — v10 =====
+   ===== Тёмные координаты, выбранная клетка, без теней, drag, SVG =====
    ============================================================================ */
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -33,13 +32,6 @@ body {
   margin-bottom: 10px;
 }
 
-/* ===== ПАНЕЛЬ АВТОНАВИГАТОРА ===== */
-#navigation-panel {
-  width: 100%;
-  max-width: 460px;
-  margin-bottom: 10px;
-}
-
 /* ===== КОНТЕЙНЕР КАРТЫ ===== */
 #world-map-container {
   width: 100%;
@@ -60,25 +52,24 @@ body {
   cursor: grabbing;
 }
 
-/* ===== ВНУТРЕННЯЯ ОБЁРТКА (двигается через transform) ===== */
+/* ===== ВНУТРЕННЯЯ ОБЁРТКА ===== */
 #world-map-inner {
   position: absolute;
   top: 0;
   left: 0;
-  width: 714%;         /* 50 / 7 = 7.14 → 714% */
+  width: 714%;
   height: 714%;
   transform-origin: 0 0;
   transition: transform 0.4s ease;
   will-change: transform;
-  contain: layout style paint; /* 🔥 изоляция рендера */
+  contain: layout style paint;
 }
 
-/* При drag — убираем transition, чтобы плавно двигалось за пальцем */
 #world-map-container.dragging #world-map-inner {
   transition: none;
 }
 
-/* ===== ФОН — img на всю обёртку ===== */
+/* ===== ФОН ===== */
 #world-map-img {
   position: absolute;
   top: 0;
@@ -91,7 +82,7 @@ body {
   image-rendering: -webkit-optimize-contrast;
 }
 
-/* ===== СЕТКА 50×50 — поверх фона, внутри inner ===== */
+/* ===== СЕТКА 50×50 ===== */
 #world-map-grid {
   position: absolute;
   top: 0;
@@ -105,7 +96,7 @@ body {
   background: transparent;
 }
 
-/* ===== КНОПКА «ЦЕНТР» — вне inner, всегда в углу контейнера ===== */
+/* ===== КНОПКА «ЦЕНТР» ===== */
 #center-map-btn {
   position: absolute;
   bottom: 8px;
@@ -144,8 +135,6 @@ body {
   cursor: pointer;
   transition: transform 0.1s, background 0.2s;
   user-select: none;
-
-  /* 🔥 Тонкая рамка каждой клетки */
   outline: 0.5px solid rgba(255, 255, 255, 0.15);
   outline-offset: -0.5px;
 }
@@ -158,19 +147,17 @@ body {
   z-index: 2;
 }
 
-/* ===== ИКОНКИ В КЛЕТКАХ (без фильтров — для производительности) ===== */
-.tile .player-icon {
-  font-size: 26px;
+/* 🔥 ВЫБРАННАЯ КЛЕТКА — золотая пунктирная рамка */
+.tile.selected-tile {
+  outline: 2px dashed #f1c40f;
+  outline-offset: -2px;
+  z-index: 3;
 }
 
-.tile .other-player {
-  font-size: 24px;
-}
-
-.tile .monster-icon {
-  font-size: 22px;
-}
-
+/* ===== ИКОНКИ (без фильтров) ===== */
+.tile .player-icon { font-size: 26px; }
+.tile .other-player { font-size: 24px; }
+.tile .monster-icon { font-size: 22px; }
 .tile .resource-icon {
   font-size: 16px;
   position: absolute;
@@ -179,22 +166,15 @@ body {
   opacity: 0.9;
   z-index: 1;
 }
+.tile .resource-icon-center { font-size: 22px; }
+.tile .building-icon { font-size: 24px; }
 
-.tile .resource-icon-center {
-  font-size: 22px;
-}
-
-.tile .building-icon {
-  font-size: 24px;
-}
-
-/* ===== ЦЕНТРАЛЬНЫЙ КОНТЕНТ (моб/ресурс/строение) ===== */
 .tile .center-content {
   position: relative;
   z-index: 2;
 }
 
-/* ===== ИКОНКА БИОМА — В ЛЕВОМ ВЕРХНЕМ УГЛУ ===== */
+/* ===== ИКОНКА БИОМА ===== */
 .tile .biome-icon {
   position: absolute;
   top: 1px;
@@ -205,50 +185,21 @@ body {
   z-index: 1;
 }
 
-/* ===== КООРДИНАТЫ ВНИЗУ КЛЕТКИ ===== */
+/* ===== КООРДИНАТЫ — ТЁМНЫЕ ===== */
 .tile .tile-coords {
   position: absolute;
   bottom: 2px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 9px;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(0, 0, 0, 0.85);
   font-family: monospace;
   font-weight: bold;
   pointer-events: none;
   white-space: nowrap;
-  background: rgba(0, 0, 0, 0.45);
-  padding: 0 3px;
-  border-radius: 3px;
   letter-spacing: 0.3px;
   z-index: 1;
   line-height: 1.1;
-}
-
-/* ===== УПРАВЛЕНИЕ (устаревшее, оставлено) ===== */
-#world-controls {
-  width: 100%;
-  max-width: 460px;
-  margin-bottom: 10px;
-}
-
-.ctrl-btn {
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
-  background: rgba(108, 92, 231, 0.15);
-  border: 1px solid rgba(108, 92, 231, 0.4);
-  color: #fff;
-  font-size: 18px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: block;
-  margin: 0 auto;
-}
-.ctrl-btn:active {
-  background: rgba(108, 92, 231, 0.4);
-  transform: scale(0.9);
 }
 
 /* ===== ИНФО-ПАНЕЛЬ (2 КОЛОНКИ) ===== */
@@ -280,17 +231,13 @@ body {
   display: none;
 }
 
-.info-column:only-child,
-#world-info-panel.single-column .info-column {
-  max-width: 100%;
-}
-
 .info-column-title {
   font-size: 12px;
   font-weight: bold;
   color: #9aa0b5;
   margin-bottom: 4px;
   letter-spacing: 0.5px;
+  overflow: hidden;
 }
 
 #my-cell-info, #selected-cell-info {
@@ -313,7 +260,7 @@ body {
   font-size: 12px;
 }
 
-/* ===== КНОПКИ ДЕЙСТВИЙ ===== */
+/* ===== КНОПКИ ===== */
 .action-btn {
   padding: 8px 14px;
   border-radius: 8px;
@@ -328,32 +275,18 @@ body {
 .action-btn.attack  { background: #e74c3c; }
 .action-btn.gather  { background: #2ecc71; }
 .action-btn.move    { background: #6c5ce7; }
-.action-btn.portal  { background: #9b59b6; }
-.action-btn.enter   { background: #f1c40f; color: #000; }
 
-/* ============================================================================
-   ===== ✨ ПОДСВЕТКА СОСЕДНИХ КЛЕТОК =====
-   ============================================================================ */
-
+/* ===== ПОДСВЕТКА СОСЕДНИХ ===== */
 .tile.adjacent {
   box-shadow: inset 0 0 0 2px rgba(108, 92, 231, 0.7);
   cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.1s;
 }
 
 .tile.adjacent:active {
   transform: scale(0.95);
 }
 
-.tile.center-tile.adjacent {
-  box-shadow: inset 0 0 12px rgba(241, 196, 15, 0.5);
-}
-
-/* ============================================================================
-   ===== 🔥 ОПТИМИЗАЦИЯ DRAG =====
-   ============================================================================ */
-
-
+/* ===== ОПТИМИЗАЦИЯ DRAG (только координаты) ===== */
 #world-map-container.dragging .tile-coords {
   background: transparent;
 }
