@@ -290,3 +290,21 @@ body {
 #world-map-container.dragging .tile-coords {
   background: transparent;
 }
+/* ============================================================================
+   ===== 🧭 ПОДСВЕТКА ПУТИ НАВИГАТОРА =====
+   ============================================================================ */
+
+/* Все клетки пути — пунктирная золотая рамка */
+.tile.path-tile {
+  outline: 2px dashed #f1c40f;
+  outline-offset: -2px;
+  z-index: 3;
+}
+
+/* Конечная клетка — сплошная золотая рамка */
+.tile.target-tile {
+  outline: 3px solid #f1c40f;
+  outline-offset: -3px;
+  z-index: 4;
+  box-shadow: inset 0 0 10px rgba(241, 196, 15, 0.4);
+}

@@ -186,24 +186,25 @@ function startWorldAfterSocket() {
 
     if (response.targetUserId !== Number(localPlayer.id)) return;
 
-    console.log(`✅ [НАВ] Путь: ${response.pathLength} шагов`);
-    navPath = response.steps;
-    isNavigating = true;
+  console.log(`✅ [НАВ] Путь: ${response.pathLength} шагов`);
+      navPath = response.steps;
+      isNavigating = true;
 
-    drawPath(navPath);
+      // 🔥 Обновляем сетку (подсветка пути)
+      updateGridContent(currentMapData);
 
-    if (navTarget) {
-      showSelectedCellInfo(
-        window.currentTileMap[`${navTarget.x}_${navTarget.y}`],
-        window.currentResourceMap[`${navTarget.x}_${navTarget.y}`],
-        window.currentMonsterMap[`${navTarget.x}_${navTarget.y}`],
-        null,
-        navTarget.x - currentMapData.myX,
-        navTarget.y - currentMapData.myY,
-        navTarget.x, navTarget.y
-      );
-    }
-    navigateNextStep();
+      if (navTarget) {
+        showSelectedCellInfo(
+          window.currentTileMap[`${navTarget.x}_${navTarget.y}`],
+          window.currentResourceMap[`${navTarget.x}_${navTarget.y}`],
+          window.currentMonsterMap[`${navTarget.x}_${navTarget.y}`],
+          null,
+          navTarget.x - currentMapData.myX,
+          navTarget.y - currentMapData.myY,
+          navTarget.x, navTarget.y
+        );
+      }
+      navigateNextStep();
   };
 
   handlers.error = (msg) => {
@@ -555,8 +556,22 @@ function updateGridContent(data) {
     coordsEl.textContent = `${x},${y}`;
     cell.appendChild(coordsEl);
 
+ // 🔥 Пометка выбранной клетки
     if (selectedTile && selectedTile.x === x && selectedTile.y === y && (dx !== 0 || dy !== 0)) {
       cell.classList.add('selected-tile');
+    }
+
+    // 🔥 Подсветка пути навигатора
+    if (isNavigating && navTarget) {
+      // Проверяем, входит ли клетка в оставшийся путь
+      const isPathCell = isCellInPath(x, y);
+      const isTargetCell = (x === navTarget.x && y === navTarget.y);
+
+      if (isTargetCell) {
+        cell.classList.add('target-tile');
+      } else if (isPathCell) {
+        cell.classList.add('path-tile');
+      }
     }
 
     cell.onclick = () => onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy);
@@ -571,6 +586,20 @@ function updateGridContent(data) {
     const selectedPanel = document.getElementById('selected-cell-panel');
     if (selectedPanel) selectedPanel.classList.add('hidden');
   }
+}
+// 🔥 Проверка: входит ли клетка в оставшийся путь навигации
+function isCellInPath(x, y) {
+  if (!isNavigating || !navPath || navPath.length === 0 || !currentMapData) return false;
+
+  let curX = currentMapData.myX;
+  let curY = currentMapData.myY;
+
+  for (const step of navPath) {
+    curX += step.dx;
+    curY += step.dy;
+    if (curX === x && curY === y) return true;
+  }
+  return false;
 }
 
 // --- ИНФО-ПАНЕЛЬ «ВЫ ЗДЕСЬ» ---
@@ -680,7 +709,7 @@ function showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y
       isNavigating = false;
       navPath = [];
       navTarget = null;
-      clearPath();
+      updateGridContent(currentMapData);
       if (isMoving) window.cancelMove();
       showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y);
     };
@@ -768,67 +797,15 @@ function onTileClick(x, y, tile, resource, monster, otherPlayer, dx, dy) {
   showSelectedCellInfo(tile, resource, monster, otherPlayer, dx, dy, x, y);
 }
 
-// --- SVG ПУТЬ ---
-function drawPath(path) {
-  const svg = document.getElementById('world-path-svg');
-  if (!svg) return;
-  svg.innerHTML = '';
-  if (!path || path.length === 0) return;
-
-  const grid = document.getElementById('world-map-grid');
-  if (!grid) return;
-
-  const cellSize = grid.offsetWidth / 50;
-
-  const gridRect = grid.getBoundingClientRect();
-  const svgRect = svg.getBoundingClientRect();
-  const gridOffsetX = gridRect.left - svgRect.left;
-  const gridOffsetY = gridRect.top - svgRect.top;
-
-  const startX = currentMapData.myX;
-  const startY = currentMapData.myY;
-
-  const points = [];
-  points.push({
-    x: gridOffsetX + startX * cellSize + cellSize / 2,
-    y: gridOffsetY + startY * cellSize + cellSize / 2
-  });
-
-  let curX = startX;
-  let curY = startY;
-  for (const step of path) {
-    curX += step.dx;
-    curY += step.dy;
-    points.push({
-      x: gridOffsetX + curX * cellSize + cellSize / 2,
-      y: gridOffsetY + curY * cellSize + cellSize / 2
-    });
-  }
-
-  const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  polyline.setAttribute('points', points.map(p => `${p.x},${p.y}`).join(' '));
-  polyline.setAttribute('fill', 'none');
-  polyline.setAttribute('stroke', '#f1c40f');
-  polyline.setAttribute('stroke-width', '3');
-  polyline.setAttribute('stroke-opacity', '0.85');
-  polyline.setAttribute('stroke-linecap', 'round');
-  polyline.setAttribute('stroke-linejoin', 'round');
-  polyline.setAttribute('stroke-dasharray', '6,4');
-  svg.appendChild(polyline);
-}
-
-function clearPath() {
-  const svg = document.getElementById('world-path-svg');
-  if (svg) svg.innerHTML = '';
-}
 
 // --- НАВИГАЦИЯ ---
 function navigateNextStep() {
-  if (!isNavigating || navPath.length === 0) {
+ if (!isNavigating || navPath.length === 0) {
     isNavigating = false;
     navPath = [];
     navTarget = null;
-    clearPath();
+    updateGridContent(currentMapData);   // 🔥 убираем подсветку
+    
 
     if (selectedTile) {
       showSelectedCellInfo(
@@ -866,11 +843,11 @@ function navigateNextStep() {
   const nextY = currentMapData.myY + step.dy;
   const nextTile = window.tileCache?.[`${nextX}_${nextY}`];
 
-  if (nextTile && nextTile.is_blocked) {
+ if (nextTile && nextTile.is_blocked) {
     showToast('🚫 Путь заблокирован', 'error');
     isNavigating = false;
     navPath = [];
-    clearPath();
+    updateGridContent(currentMapData);
     return;
   }
 
@@ -894,8 +871,7 @@ window.cancelMove = function() {
   isNavigating = false;
   navPath = [];
   navTarget = null;
-  clearPath();
-
+  updateGridContent(currentMapData);
   worldSocket.emit('world_move_cancel', { userId: localPlayer.id });
 
   if (selectedTile) {
