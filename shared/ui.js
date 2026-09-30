@@ -566,19 +566,10 @@
     });
 
     // Аватар
-    const avatar = document.getElementById('inv-hero-avatar');
-    if (avatar) {
-      const avatarValue = p.avatar || '';
-      if (avatarValue.startsWith('http') || avatarValue.startsWith('/')) {
-        avatar.src = avatarValue;
-      } else if (avatarValue.startsWith('assets/')) {
-        avatar.src = '../' + avatarValue;
-      } else if (avatarValue.startsWith('../')) {
-        avatar.src = avatarValue;
-      } else {
-        avatar.src = '../assets/avatars/hero1.png';
-      }
-    }
+        const avatar = document.getElementById('inv-hero-avatar');
+        if (avatar) {
+        avatar.src = window.getAssetPath ? window.getAssetPath(p.avatar || 'assets/avatars/hero1.png') : (p.avatar || '../assets/avatars/hero1.png');
+        }
 
     // Сетка
     const container = document.getElementById('inventory-content');
