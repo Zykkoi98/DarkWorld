@@ -34,8 +34,42 @@ window.BSocket = {
     });
 
     BState.socket.on('error', (msg) => {
-      console.error('🚨 [BATTLE ERROR]', msg);
-      BToasts.showConnectionToast(`❌ ${msg}`, 'warning');
+    console.error('🚨 [BATTLE ERROR]', msg);
+
+    // 🔥 Если ошибка — «Бой уже завершился» — возвращаемся назад
+    if (msg && (msg.includes('завершился') || msg.includes('не найден'))) {
+        console.log('🏁 [BATTLE] Бой завершён — возврат назад');
+
+        // Очищаем localStorage
+        try {
+        localStorage.removeItem('battle_room_id');
+        localStorage.removeItem('battle_battle_type');
+        localStorage.removeItem('battle_saved_at');
+        } catch(e) {}
+
+        // Определяем, куда возвращаться
+        const urlParams = new URLSearchParams(window.location.search);
+        const battleType = urlParams.get('battleType') || BState.battleType;
+
+        // Если это был редирект из башни — в башню
+        if (battleType === 'tower') {
+        window.location.replace('../tower/tower.html');
+        return;
+        }
+
+        // Если это был мир — на карту
+        if (battleType === 'world') {
+        window.location.replace('../world/world.html');
+        return;
+        }
+
+        // Иначе — в город
+        window.location.replace('../index.html');
+        return;
+    }
+
+    // Другие ошибки — просто тост
+    BToasts.showConnectionToast(`❌ ${msg}`, 'warning');
     });
   },
 
