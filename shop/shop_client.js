@@ -10,9 +10,29 @@ let localPlayer = null;
 let activeMainMode = 'ammo';       // 'ammo' (Амуниция), 'consumables' (Расходники), 'sell' (Продажа)
 let activeAmmoClass = 'dodger';     // 'dodger' (Плут), 'critter' (Варвар), 'tank' (Танк)
 
+
+// 🔥 Функция обновления статуса в кошельке магазина
+function updateWalletStatusLog(text, isError = false) {
+  const logEl = document.getElementById('wallet-status-log');
+  if (!logEl) return;
+
+  logEl.textContent = text;
+  logEl.style.color = isError ? '#e74c3c' : '#2ecc71';
+  logEl.style.background = isError ? 'rgba(231, 76, 60, 0.15)' : 'rgba(46, 204, 113, 0.15)';
+
+  // 🔥 Автосброс через 3 секунды
+  clearTimeout(window.__shopStatusTimeout);
+  window.__shopStatusTimeout = setTimeout(() => {
+    logEl.textContent = '🟢 Готов к торговле';
+    logEl.style.color = '#2ecc71';
+    logEl.style.background = 'rgba(0,0,0,0.2)';
+  }, 3000);
+}
 // ============================================================================
 // 🔥 ФИКС: универсальное обновление HP в шапке Магазина
 // ============================================================================
+
+
 function updateShopHpDisplay() {
   const hpEl = document.getElementById('shop-hero-hp');
   if (!hpEl || !localPlayer) return;
