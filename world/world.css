@@ -1,6 +1,6 @@
 /* ============================================================================
-   ===== 🗺️ СТИЛИ КАРТЫ МИРА (WORLD.CSS) — v10 =====
-   ===== Тёмные координаты, выбранная клетка, без теней, drag, SVG =====
+   ===== 🗺️ СТИЛИ КАРТЫ МИРА (WORLD.CSS) — v11 =====
+   ===== Квадратные клетки, правильное центрирование, адаптив =====
    ============================================================================ */
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -32,11 +32,11 @@ body {
   margin-bottom: 10px;
 }
 
-/* ===== КОНТЕЙНЕР КАРТЫ ===== */
+/* ===== КОНТЕЙНЕР КАРТЫ — ГЛАВНЫЙ ФИКС ===== */
 #world-map-container {
   width: 100%;
   max-width: 460px;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 1 / 1;          /* 🔥 Квадрат */
   border: 2px solid #2f3640;
   border-radius: 14px;
   overflow: hidden;
@@ -46,6 +46,21 @@ body {
   background: #13141f;
   cursor: grab;
   touch-action: none;
+  /* ❌ УБРАНЫ max-height и min-height — они ломали квадрат */
+}
+
+/* 🔥 Адаптив для низких экранов — СУЖАЕМ ширину, чтобы карта + шапка + панель влезли */
+@media (max-height: 750px) {
+  #world-map-container { max-width: 380px; }
+}
+@media (max-height: 680px) {
+  #world-map-container { max-width: 330px; }
+}
+@media (max-height: 620px) {
+  #world-map-container { max-width: 280px; }
+}
+@media (max-height: 560px) {
+  #world-map-container { max-width: 240px; }
 }
 
 #world-map-container.dragging {
@@ -147,14 +162,13 @@ body {
   z-index: 2;
 }
 
-/* 🔥 ВЫБРАННАЯ КЛЕТКА — золотая пунктирная рамка */
 .tile.selected-tile {
   outline: 2px dashed #f1c40f;
   outline-offset: -2px;
   z-index: 3;
 }
 
-/* ===== ИКОНКИ (без фильтров) ===== */
+/* ===== ИКОНКИ ===== */
 .tile .player-icon { font-size: 26px; }
 .tile .other-player { font-size: 24px; }
 .tile .monster-icon { font-size: 22px; }
@@ -174,7 +188,6 @@ body {
   z-index: 2;
 }
 
-/* ===== ИКОНКА БИОМА ===== */
 .tile .biome-icon {
   position: absolute;
   top: 1px;
@@ -185,7 +198,6 @@ body {
   z-index: 1;
 }
 
-/* ===== КООРДИНАТЫ — ТЁМНЫЕ ===== */
 .tile .tile-coords {
   position: absolute;
   bottom: 2px;
@@ -202,7 +214,7 @@ body {
   line-height: 1.1;
 }
 
-/* ===== ИНФО-ПАНЕЛЬ (2 КОЛОНКИ) ===== */
+/* ===== ИНФО-ПАНЕЛЬ ===== */
 #world-info-panel {
   display: flex !important;
   gap: 8px;
@@ -286,30 +298,22 @@ body {
   transform: scale(0.95);
 }
 
-/* ===== ОПТИМИЗАЦИЯ DRAG (только координаты) ===== */
-#world-map-container.dragging .tile-coords {
-  background: transparent;
-}
-/* ============================================================================
-   ===== 🧭 ПОДСВЕТКА ПУТИ НАВИГАТОРА =====
-   ============================================================================ */
-
-/* Все клетки пути — пунктирная золотая рамка */
+/* ===== ПОДСВЕТКА ПУТИ ===== */
 .tile.path-tile {
   outline: 2px dashed #f1c40f;
   outline-offset: -2px;
   z-index: 3;
 }
 
-/* Конечная клетка — сплошная золотая рамка */
 .tile.target-tile {
   outline: 3px solid #f1c40f;
   outline-offset: -3px;
   z-index: 4;
   box-shadow: inset 0 0 10px rgba(241, 196, 15, 0.4);
 }
+
 /* ============================================================================
-   ===== 🎒 ШАПКА, МОДАЛКИ, КНОПКИ КАРТЫ МИРА =====
+   ===== 🎒 ШАПКА, КНОПКИ ВХОДА, МОДАЛКИ =====
    ============================================================================ */
 
 #world-player-header {
@@ -318,7 +322,6 @@ body {
   margin-bottom: 10px;
 }
 
-/* Кнопка входа в локацию */
 .action-btn.enter-city {
   padding: 8px 14px;
   border-radius: 8px;
@@ -342,13 +345,6 @@ body {
   margin-top: 4px;
 }
 
-/* Ограничение высоты карты */
-#world-map-container {
-  max-height: calc(100dvh - 320px);
-  min-height: 240px;
-}
-
-/* Стили модалок (если не подхватились из style.css) */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0;

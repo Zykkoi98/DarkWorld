@@ -529,18 +529,24 @@ function updateMapBackground(myX, myY) {
     return;
   }
 
-  const containerSize = container.offsetWidth;
-  const fullMapSize = containerSize * 7.14;
-  const cellSize = fullMapSize / 50;
+  // 🔥 Разделяем ширину и высоту
+  const containerWidth = container.offsetWidth;
+  const containerHeight = container.offsetHeight;
 
-  const playerCenterX = myX * cellSize + cellSize / 2;
-  const playerCenterY = myY * cellSize + cellSize / 2;
+  const fullMapWidth = containerWidth * 7.14;
+  const fullMapHeight = containerHeight * 7.14;
 
-  const offsetX = containerSize / 2 - playerCenterX;
-  const offsetY = containerSize / 2 - playerCenterY;
+  const cellWidth = fullMapWidth / 50;
+  const cellHeight = fullMapHeight / 50;
 
-  const minOffsetX = containerSize - fullMapSize;
-  const minOffsetY = containerSize - fullMapSize;
+  const playerCenterX = myX * cellWidth + cellWidth / 2;
+  const playerCenterY = myY * cellHeight + cellHeight / 2;
+
+  const offsetX = containerWidth / 2 - playerCenterX;
+  const offsetY = containerHeight / 2 - playerCenterY;
+
+  const minOffsetX = containerWidth - fullMapWidth;
+  const minOffsetY = containerHeight - fullMapHeight;
 
   const clampedX = Math.max(minOffsetX, Math.min(0, offsetX));
   const clampedY = Math.max(minOffsetY, Math.min(0, offsetY));
@@ -556,18 +562,25 @@ function centerMapOnPlayer() {
 
   const container = document.getElementById('world-map-container');
   if (!container) return;
-  const containerSize = container.offsetWidth;
-  const fullMapSize = containerSize * 7.14;
-  const cellSize = fullMapSize / 50;
 
-  const playerCenterX = currentMapData.myX * cellSize + cellSize / 2;
-  const playerCenterY = currentMapData.myY * cellSize + cellSize / 2;
+  // 🔥 Берём ОБЕ координаты
+  const containerWidth = container.offsetWidth;
+  const containerHeight = container.offsetHeight;
 
-  const offsetX = containerSize / 2 - playerCenterX;
-  const offsetY = containerSize / 2 - playerCenterY;
+  const fullMapWidth = containerWidth * 7.14;
+  const fullMapHeight = containerHeight * 7.14;
 
-  const minOffsetX = containerSize - fullMapSize;
-  const minOffsetY = containerSize - fullMapSize;
+  const cellWidth = fullMapWidth / 50;
+  const cellHeight = fullMapHeight / 50;
+
+  const playerCenterX = currentMapData.myX * cellWidth + cellWidth / 2;
+  const playerCenterY = currentMapData.myY * cellHeight + cellHeight / 2;
+
+  const offsetX = containerWidth / 2 - playerCenterX;
+  const offsetY = containerHeight / 2 - playerCenterY;   // 🔥 Y от ВЫСОТЫ
+
+  const minOffsetX = containerWidth - fullMapWidth;
+  const minOffsetY = containerHeight - fullMapHeight;
 
   applyMapOffset(
     Math.max(minOffsetX, Math.min(0, offsetX)),
