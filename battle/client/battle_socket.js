@@ -7,16 +7,20 @@ window.BSocket = {
   // ==========================================================================
   // ИНИЦИАЛИЗАЦИЯ СОКЕТА
   // ==========================================================================
-  init(userId) {
+    init(userId) {
     if (typeof io === 'undefined') {
-      console.error('❌ Socket.io не подключён');
-      return;
+        console.error('❌ Socket.io не подключён');
+        return;
     }
 
     BState.socket = io('https://darkworld-server.onrender.com', {
-      transports: ['websocket', 'polling'],
-      auth: { userId: userId || null }
+        transports: ['websocket', 'polling'],
+        auth: { userId: userId || null }
     });
+
+    // 🔥 ВАЖНО: делаем сокет видимым для shared/ui.js
+    window.socket = BState.socket;
+    window.battleSocket = BState.socket;
 
     this.setupListeners();
 
