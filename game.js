@@ -4,21 +4,6 @@
 // ============================================================================
 
 window.player = null;
-// 🔥 Универсальный резолвер путей к ассетам
-window.getAssetPath = function(path) {
-  if (!path) return 'assets/avatars/hero1.png';
-  if (path.startsWith('http')) return path;
-
-  const clean = path.replace(/^(\.\.\/)+/, '').replace(/^\/+/, '');
-  const pathParts = window.location.pathname.split('/').filter(Boolean);
-  const currentDir = pathParts.slice(0, -1).pop() || '';
-  const subdirs = ['world', 'shop', 'tower', 'battle'];
-
-  if (subdirs.includes(currentDir)) {
-    return '../' + clean;
-  }
-  return clean;
-};
 // Утилита рандома
 window.rand = function(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;

@@ -8,6 +8,28 @@
   'use strict';
 
   // ============================================================================
+  // 🔥 УНИВЕРСАЛЬНЫЙ РЕЗОЛВЕР ПУТЕЙ К АССЕТАМ
+  // Работает и в корне (index.html), и в подпапках (world/, shop/, tower/, battle/)
+  // ============================================================================
+  window.getAssetPath = function(path) {
+    if (!path) return 'assets/avatars/hero1.png';
+    if (path.startsWith('http')) return path;
+
+    // Чистим ведущие слеши и ../
+    const clean = path.replace(/^\/+/, '').replace(/^(\.\.\/)+/, '');
+
+    // Определяем, в какой папке мы находимся
+    const parts = window.location.pathname.split('/').filter(Boolean);
+    const curDir = parts.slice(0, -1).pop() || '';
+    const subdirs = ['world', 'shop', 'tower', 'battle'];
+
+    if (subdirs.includes(curDir)) {
+      return '../' + clean;
+    }
+    return clean;
+  };
+
+  // ============================================================================
   // ВНУТРЕННЕЕ СОСТОЯНИЕ
   // ============================================================================
   const _state = {

@@ -364,14 +364,7 @@ function updateWorldHeader() {
 
 const avatarImg = document.getElementById('world-player-avatar');
 if (avatarImg) {
-  const avatarValue = localPlayer.avatar || 'assets/avatars/hero1.png';
-  // На карте мы всегда в подпапке world/ — значит нужен ../
-  const clean = avatarValue.replace(/^\/+/, '').replace(/^(\.\.\/)+/, '');
-  if (avatarValue.startsWith('http')) {
-    avatarImg.src = avatarValue;
-  } else {
-    avatarImg.src = '../' + clean;
-  }
+  avatarImg.src = window.getAssetPath(localPlayer.avatar || 'assets/avatars/hero1.png');
 }
 
   const nameEl = document.getElementById('world-player-name');
