@@ -1,5 +1,5 @@
 // ============================================================================
-// ===== 🎒 ЛОКАЛЬНЫЙ UI КАРТЫ МИРА (WORLD_UI.JS) =====
+// ===== 🎒 ЛОКАЛЬНЫЙ UI КАРТЫ МИРА (WORLD_UI.JS) — v2 =====
 // ===== Профиль + Инвентарь БЕЗ зависимости от game.js =====
 // ============================================================================
 
@@ -7,6 +7,36 @@ window.__worldCurrentTab = 'equipment';
 window.__worldProfileTab = 'main';
 window.__worldTempStatDistribution = { strength: 0, agility: 0, endurance: 0, luck: 0 };
 window.__worldTempStatPoints = 0;
+
+// ============================================================================
+// 🔥 РАСШИРЕННЫЙ ПОИСК ПРЕДМЕТА (GAME_ITEMS + ресурсы мира)
+// ============================================================================
+window.worldGetItemData = function(itemId) {
+  if (!itemId) return null;
+
+  // 1. Стандартная база предметов (экипировка, расходники)
+  if (window.getItemData) {
+    const baseData = window.getItemData(itemId);
+    if (baseData) return baseData;
+  }
+
+  // 2. Ресурсы мира (wood_pine, herb_clover и т.д.)
+  if (window.currentMapData && window.currentMapData.resourcesDB) {
+    const rData = window.currentMapData.resourcesDB[itemId];
+    if (rData) {
+      return {
+        name: rData.name,
+        icon: rData.icon,
+        desc: 'Ресурс для крафта',
+        slotType: 'resource',
+        price: 1,
+        level: 1
+      };
+    }
+  }
+
+  return null;
+};
 
 // ============================================================================
 // ХЕЛПЕРЫ
@@ -19,7 +49,7 @@ function worldGetEquipmentBonus(bonusKey) {
   slots.forEach(slot => {
     const itemId = window.player.equipped[slot];
     if (!itemId) return;
-    const itemData = window.getItemData ? window.getItemData(itemId) : null;
+    const itemData = window.worldGetItemData ? window.worldGetItemData(itemId) : null;
     if (itemData?.bonus) {
       if (itemData.bonus[bonusKey] !== undefined) total += itemData.bonus[bonusKey];
       if (itemData.bonus.stats && itemData.bonus.stats[bonusKey] !== undefined) total += itemData.bonus.stats[bonusKey];
@@ -29,7 +59,7 @@ function worldGetEquipmentBonus(bonusKey) {
   if (window.player.equipped.rings && Array.isArray(window.player.equipped.rings)) {
     window.player.equipped.rings.forEach(itemId => {
       if (!itemId) return;
-      const itemData = window.getItemData ? window.getItemData(itemId) : null;
+      const itemData = window.worldGetItemData ? window.worldGetItemData(itemId) : null;
       if (itemData?.bonus) {
         if (itemData.bonus[bonusKey] !== undefined) total += itemData.bonus[bonusKey];
         if (itemData.bonus.stats && itemData.bonus.stats[bonusKey] !== undefined) total += itemData.bonus.stats[bonusKey];
@@ -253,7 +283,7 @@ window.renderWorldInventory = function() {
     if (!el) return;
     const itemId = p.equipped?.[slotKey];
     if (itemId) {
-      const itemData = window.getItemData ? window.getItemData(itemId) : null;
+      const itemData = window.worldGetItemData ? window.worldGetItemData(itemId) : null;
       if (itemData) {
         el.textContent = itemData.icon || '📦';
         el.style.background = '#222f3e';
@@ -273,7 +303,7 @@ window.renderWorldInventory = function() {
     if (!el) continue;
     const ringId = p.equipped?.rings?.[i];
     if (ringId) {
-      const itemData = window.getItemData ? window.getItemData(ringId) : null;
+      const itemData = window.worldGetItemData ? window.worldGetItemData(ringId) : null;
       if (itemData) {
         el.textContent = itemData.icon || '💍';
         el.style.background = '#222f3e';
@@ -291,7 +321,7 @@ window.renderWorldInventory = function() {
     if (!el) return;
     const equippedData = p.equipped?.[slotKey];
     if (equippedData && typeof equippedData === 'object' && equippedData.id) {
-      const itemData = window.getItemData ? window.getItemData(equippedData.id) : null;
+      const itemData = window.worldGetItemData ? window.worldGetItemData(equippedData.id) : null;
       if (itemData) {
         el.innerHTML = (itemData.icon || '🧪') + '<span style="position:absolute; bottom:2px; right:4px; font-size:10px; font-weight:bold; background:rgba(0,0,0,0.7); padding:1px 3px; border-radius:4px; color:#2ecc71;">x' + equippedData.count + '</span>';
         el.style.background = '#222f3e';
@@ -305,8 +335,20 @@ window.renderWorldInventory = function() {
     }
   });
 
+  // 🔥 ФИКС АВАТАРА: поддержка путей из разных источников
   const avatar = document.getElementById('inv-hero-avatar');
-  if (avatar) avatar.src = p.avatar || '../assets/avatars/hero1.png';
+  if (avatar) {
+    const avatarValue = p.avatar || '';
+    if (avatarValue.startsWith('http') || avatarValue.startsWith('/')) {
+      avatar.src = avatarValue;
+    } else if (avatarValue.startsWith('assets/')) {
+      avatar.src = '../' + avatarValue;
+    } else if (avatarValue.startsWith('../')) {
+      avatar.src = avatarValue;
+    } else {
+      avatar.src = '../assets/avatars/hero1.png';
+    }
+  }
 
   const container = document.getElementById('inventory-content');
   if (!container) return;
@@ -331,8 +373,11 @@ window.renderWorldInventory = function() {
 
   items.forEach(item => {
     const itemId = item.id || item;
-    const fullData = window.getItemData ? window.getItemData(itemId) : null;
-    if (!fullData) return;
+    const fullData = window.worldGetItemData ? window.worldGetItemData(itemId) : null;
+    if (!fullData) {
+      console.warn(`⚠️ Предмет с ID "${itemId}" не найден ни в одной базе данных.`);
+      return;
+    }
 
     const slot = document.createElement('div');
     slot.className = 'inv-slot';
@@ -375,7 +420,7 @@ window.showWorldItemInfo = function(itemUuidOrId) {
     if (parts.length > 2) cleanId = parts.slice(0, -2).join('_');
   }
 
-  const itemData = window.getItemData ? window.getItemData(cleanId) : null;
+  const itemData = window.worldGetItemData ? window.worldGetItemData(cleanId) : null;
   if (!itemData) return;
 
   const popover = document.getElementById('item-info-popover');
@@ -423,16 +468,25 @@ window.showWorldItemInfo = function(itemUuidOrId) {
 
   pDesc.textContent = text;
 
-  pBtn.textContent = '🛡️ Экипировать';
-  pBtn.style.background = '#6c5ce7';
-  pBtn.onclick = () => {
-    popover.style.display = 'none';
-    if (window.worldSocket && window.worldSocket.connected) {
-      window.worldSocket.emit('equip_item_secure', { userId: window.player.id, itemId: itemUuidOrId });
-    } else {
-      alert('⚠️ Нет соединения');
-    }
-  };
+  // 🔥 Для ресурсов — другой текст кнопки
+  if (itemData.slotType === 'resource') {
+    pBtn.textContent = '📦 Ресурс';
+    pBtn.style.background = '#555';
+    pBtn.disabled = true;
+    pBtn.onclick = null;
+  } else {
+    pBtn.textContent = '🛡️ Экипировать';
+    pBtn.style.background = '#6c5ce7';
+    pBtn.disabled = false;
+    pBtn.onclick = () => {
+      popover.style.display = 'none';
+      if (window.worldSocket && window.worldSocket.connected) {
+        window.worldSocket.emit('equip_item_secure', { userId: window.player.id, itemId: itemUuidOrId });
+      } else {
+        alert('⚠️ Нет соединения');
+      }
+    };
+  }
 
   popover.style.display = 'flex';
 };

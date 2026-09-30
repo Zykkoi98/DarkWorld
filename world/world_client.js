@@ -378,13 +378,19 @@ function attachHandlers() {
 function updateWorldHeader() {
   if (!localPlayer) return;
 
-  const avatarImg = document.getElementById('world-player-avatar');
-  if (avatarImg) {
-    const avatarValue = localPlayer.avatar || '../assets/avatars/hero1.png';
-    avatarImg.src = (avatarValue.includes('.') || avatarValue.includes('/'))
-      ? avatarValue
-      : '../assets/avatars/hero1.png';
+const avatarImg = document.getElementById('world-player-avatar');
+if (avatarImg) {
+  const avatarValue = localPlayer.avatar || '';
+  if (avatarValue.startsWith('http') || avatarValue.startsWith('/')) {
+    avatarImg.src = avatarValue;
+  } else if (avatarValue.startsWith('assets/')) {
+    avatarImg.src = '../' + avatarValue;   // 🔥 Фикс: ../assets/avatars/hero1.png
+  } else if (avatarValue.startsWith('../')) {
+    avatarImg.src = avatarValue;
+  } else {
+    avatarImg.src = '../assets/avatars/hero1.png';
   }
+}
 
   const nameEl = document.getElementById('world-player-name');
   if (nameEl) nameEl.textContent = localPlayer.name || 'Герой';
@@ -425,7 +431,7 @@ function getPlayerMaxHp() {
     const slots = ['head', 'body', 'legs', 'gloves', 'neck', 'mainHand', 'offHand', 'extra'];
     const proc = (id) => {
       if (!id || !window.getItemData) return;
-      const d = window.getItemData(id);
+      const d = window.worldGetItemData ? window.worldGetItemData(id) : null;   // ✅ стало
       if (d?.bonus) {
         if (d.bonus.endurance) gearEnd += d.bonus.endurance;
         if (d.bonus.stats?.endurance) gearEnd += d.bonus.stats.endurance;
