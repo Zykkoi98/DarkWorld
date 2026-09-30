@@ -403,7 +403,7 @@ window.renderWorldInventory = function() {
       slot.appendChild(cnt);
     }
 
-    slot.onclick = () => window.showWorldItemInfo(item.uuid || item.id || item);
+    slot.onclick = () => window.showWorldItemInfo(item.uuid || item.id || item, false);
     container.appendChild(slot);
   });
 };
@@ -411,7 +411,7 @@ window.renderWorldInventory = function() {
 // ============================================================================
 // 🪟 ПОПОВЕР ПРЕДМЕТА
 // ============================================================================
-window.showWorldItemInfo = function(itemUuidOrId) {
+window.showWorldItemInfo = function(itemUuidOrId, isEquipped, slotKey, ringIndex) {
   if (!itemUuidOrId || !window.player) return;
 
   let cleanId = itemUuidOrId;
@@ -468,13 +468,34 @@ window.showWorldItemInfo = function(itemUuidOrId) {
 
   pDesc.textContent = text;
 
-  // 🔥 Для ресурсов — другой текст кнопки
+  // 🔥 УПРАВЛЕНИЕ КНОПКОЙ: Снять / Экипировать / Ресурс
   if (itemData.slotType === 'resource') {
-    pBtn.textContent = '📦 Ресурс';
+    pBtn.textContent = '📦 Ресурс (не экипируется)';
     pBtn.style.background = '#555';
     pBtn.disabled = true;
     pBtn.onclick = null;
+
+  } else if (isEquipped) {
+    // 🔥 Вещь НАДЕТА → кнопка СНЯТЬ
+    pBtn.textContent = '❌ Снять';
+    pBtn.style.background = '#e74c3c';
+    pBtn.disabled = false;
+    pBtn.onclick = () => {
+      popover.style.display = 'none';
+      if (!window.worldSocket || !window.worldSocket.connected) {
+        alert('⚠️ Нет соединения');
+        return;
+      }
+      console.log(`📤 [МИР] Снятие: slot=${slotKey}, ringIndex=${ringIndex}`);
+      window.worldSocket.emit('unequip_item_secure', {
+        userId: window.player.id,
+        slotKey: slotKey,
+        ringIndex: (ringIndex !== undefined && ringIndex !== null) ? ringIndex : null
+      });
+    };
+
   } else {
+    // 🔥 Вещь В РЮКЗАКЕ → кнопка ЭКИПИРОВАТЬ
     pBtn.textContent = '🛡️ Экипировать';
     pBtn.style.background = '#6c5ce7';
     pBtn.disabled = false;
@@ -495,6 +516,7 @@ window.showWorldItemInfo = function(itemUuidOrId) {
 // ПРИВЯЗКА КНОПОК
 // ============================================================================
 document.addEventListener('DOMContentLoaded', () => {
+  // Вкладки инвентаря
   document.querySelectorAll('.inv-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-tab');
@@ -502,13 +524,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // 🔥 Основные слоты (голова, тело, оружие и т.д.)
   const slotKeys = ['head', 'neck', 'gloves', 'mainHand', 'body', 'legs', 'extra', 'offHand'];
   slotKeys.forEach(slotKey => {
     const el = document.getElementById('eslot-' + slotKey);
     if (el) {
       el.addEventListener('click', () => {
         const itemId = window.player?.equipped?.[slotKey];
-        if (itemId) window.showWorldItemInfo(itemId);
+        if (itemId) window.showWorldItemInfo(itemId, true, slotKey);
+      });
+    }
+  });
+
+  // 🔥 КОЛЬЦА (3 слота)
+  for (let i = 0; i < 3; i++) {
+    const el = document.getElementById('eslot-ring-' + i);
+    if (el) {
+      el.addEventListener('click', () => {
+        const ringId = window.player?.equipped?.rings?.[i];
+        if (ringId) window.showWorldItemInfo(ringId, true, 'ring', i);
+      });
+    }
+  }
+
+  // 🔥 ЗЕЛЬЕ И СВИТОК
+  ['potion', 'scroll'].forEach(slotKey => {
+    const el = document.getElementById('eslot-' + slotKey);
+    if (el) {
+      el.addEventListener('click', () => {
+        const equippedData = window.player?.equipped?.[slotKey];
+        const itemId = equippedData && typeof equippedData === 'object' ? equippedData.id : equippedData;
+        if (itemId) window.showWorldItemInfo(itemId, true, slotKey);
       });
     }
   });

@@ -143,6 +143,20 @@ function startWorldAfterSocket() {
       window.player = data.player;
       updateWorldHeader();
       try { localStorage.setItem('rpg_save', JSON.stringify({ player: data.player })); } catch(e) {}
+
+      // 🔥 ОБНОВЛЯЕМ ОТКРЫТЫЕ МОДАЛКИ
+      const invModal = document.getElementById('inventory-modal');
+      if (invModal && invModal.style.display === 'flex') {
+        if (typeof window.renderWorldInventory === 'function') {
+          window.renderWorldInventory();
+        }
+      }
+      const profModal = document.getElementById('profile-modal');
+      if (profModal && profModal.style.display === 'flex') {
+        if (typeof window.openProfile === 'function') {
+          window.openProfile();
+        }
+      }
     }
   });
 
