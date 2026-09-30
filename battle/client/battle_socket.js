@@ -61,10 +61,30 @@ window.BSocket = {
     }
 
     // === РОЛЬ 2: РЕКОННЕКТ ===
-    if (roomId && userId) {
+    if (roomId) {
+    // 🔥 Если userId не в URL — берём из localStorage
+    let reconnectUserId = userId;
+    if (!reconnectUserId) {
+        try {
+        const tg = window.Telegram?.WebApp?.initDataUnsafe?.user;
+        if (tg?.id) reconnectUserId = tg.id;
+        } catch(e) {}
+        if (!reconnectUserId) {
+        try {
+            const ls = localStorage.getItem('rpg_save');
+            if (ls) reconnectUserId = JSON.parse(ls)?.player?.id;
+        } catch(e) {}
+        }
+    }
+
+    if (reconnectUserId) {
         BState.roomId = roomId;
-        BState.socket.emit('battle_reconnect', { roomId, userId });
+        BState.socket.emit('battle_reconnect', { roomId, userId: reconnectUserId });
         return;
+    } else {
+        BToasts.showConnectionToast('❌ Профиль не найден для реконнекта', 'warning');
+        return;
+    }
     }
 
     // === РОЛЬ 3: НОВЫЙ БОЙ ===

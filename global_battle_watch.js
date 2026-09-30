@@ -50,7 +50,20 @@
     }
 
     // projectRoot для GitHub Pages = /DarkWorld (или '' если репо в корне домена)
-    const battleUrl = `${projectRoot}/battle/battle.html?roomId=${roomId}`;
+    // 🔥 Достаём userId из localStorage / Telegram
+let userId = null;
+try {
+  const tg = window.Telegram?.WebApp?.initDataUnsafe?.user;
+  if (tg?.id) userId = tg.id;
+} catch(e) {}
+if (!userId) {
+  try {
+    const ls = localStorage.getItem('rpg_save');
+    if (ls) userId = JSON.parse(ls)?.player?.id;
+  } catch(e) {}
+}
+
+const battleUrl = `${projectRoot}/battle/battle.html?roomId=${roomId}${userId ? `&userId=${userId}` : ''}`;
 
     console.log(`🌐 [GLOBAL WATCH] Абсолютный путь до боя: ${battleUrl}`);
     window.location.replace(battleUrl);
