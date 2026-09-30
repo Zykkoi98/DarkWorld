@@ -6,25 +6,20 @@
   <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
   <title>Карта мира — Dark World</title>
 
-  <!-- 1. Библиотеки -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Библиотеки -->
   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
 
-  <!-- 2. Стили -->
+  <!-- Стили -->
   <link rel="stylesheet" href="../style.css?v=192">
-  <link rel="stylesheet" href="world.css?v=32">
+  <link rel="stylesheet" href="world.css?v=30">
 
-  <!-- 3. Конфиги и утилиты (порядок как в index.html) -->
+  <!-- Конфиги (для getItemData) -->
   <script src="../config.js?v=77" defer></script>
-  <script src="../equipment.js?v=77" defer></script>
-  <script src="../game.js?v=77" defer></script>
-  <script src="../telegram.js?v=77" defer></script>
   <script src="../shop/shop_items_config.js"></script>
 </head>
 <body>
 
-  <!-- ЗАГРУЗКА -->
+  <!-- ======================= ЗАГРУЗКА ======================= -->
   <div id="world-loader" style="
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: #0b0c10; z-index: 9999;
@@ -36,7 +31,7 @@
     <div style="margin-top: 16px; font-size: 14px; color: #9aa0b5;">Загрузка карты мира...</div>
   </div>
 
-  <!-- ШАПКА (как на главной) -->
+  <!-- ======================= ШАПКА (как на главной) ======================= -->
   <div class="player-header card" id="world-player-header">
     <div class="player-avatar-slot" id="world-avatar-slot">
       <img id="world-player-avatar" src="../assets/avatars/hero1.png" alt="Аватар">
@@ -53,13 +48,13 @@
         <span class="player-meta-name" id="world-player-name">Загрузка...</span>
         <span class="player-meta-level" id="world-player-level">Lv. 1</span>
       </div>
-      <div class="player-meta-title" id="world-map-title">🗺️ Ашенваль · Клетка (25, 25)</div>
+      <div class="player-meta-title" id="world-map-title">🗺️ Ашенваль</div>
     </div>
 
     <button class="inv-toggle-btn" id="world-inventory-btn">🎒</button>
   </div>
 
-  <!-- КАРТА -->
+  <!-- ======================= КАРТА ======================= -->
   <div id="world-map-container">
     <div id="world-map-inner">
       <img id="world-map-img" src="../assets/maps/world_ashenval_background.jpg" alt="">
@@ -68,7 +63,7 @@
     <button id="center-map-btn">🎯</button>
   </div>
 
-  <!-- ИНФО-ПАНЕЛЬ -->
+  <!-- ======================= ИНФО-ПАНЕЛЬ (2 КОЛОНКИ) ======================= -->
   <div id="world-info-panel">
     <div class="info-column" id="my-cell-panel">
       <div class="info-column-title">
@@ -90,110 +85,112 @@
   </div>
 
   <!-- ============================================================================
-       ===== 🪟 МОДАЛЬНЫЕ ОКНА (из index.html, чтобы работали профиль и инвентарь) =====
+       ===== 🪟 МОДАЛКА ПРОФИЛЯ =====
        ============================================================================ -->
-
-  <!-- Профиль -->
   <div id="profile-modal" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
         <h3>📊 Профиль Героя</h3>
-        <button class="close-btn" id="profile-close-btn">✕</button>
+        <button class="close-btn" onclick="window.closeProfile()">✕</button>
       </div>
-      <div class="modal-body-stats"></div>
+      <div class="modal-body-stats" id="world-profile-body"></div>
     </div>
   </div>
 
-  <!-- Инвентарь -->
-  <div id="inventory-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;">
-    <div class="modal-content" style="display: flex; flex-direction: column; width: 100%; max-width: 480px; margin: 0 auto; height: auto;">
+  <!-- ============================================================================
+       ===== 🎒 МОДАЛКА ИНВЕНТАРЯ =====
+       ============================================================================ -->
+  <div id="inventory-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="display: flex; flex-direction: column; max-width: 480px; height: auto;">
 
       <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <h3 style="margin: 0; font-size: 18px;">🎒 Инвентарь и Снаряжение</h3>
-        <button id="inventory-close-btn" class="close-btn">✕</button>
+        <button class="close-btn" onclick="window.closeInventory()">✕</button>
       </div>
 
+      <!-- Кукла -->
       <div class="inventory-top-doll-section" style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 0 auto 8px;">
         <div class="inv-equipment-doll" style="display: grid; grid-template-columns: 44px 160px 44px; gap: 12px; align-items: center; justify-content: center; width: 100%; max-width: 280px;">
 
           <div style="display: flex; flex-direction: column; gap: 8px;">
-            <div id="eslot-head" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🪖</div>
-            <div id="eslot-neck" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">📿</div>
-            <div id="eslot-gloves" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🧤</div>
-            <div id="eslot-mainHand" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">⚔️</div>
+            <div id="eslot-head" class="inv-slot" style="width:44px; height:44px; padding:0; display:flex; align-items:center; justify-content:center;">🪖</div>
+            <div id="eslot-neck" class="inv-slot" style="width:44px; height:44px; padding:0; display:flex; align-items:center; justify-content:center;">📿</div>
+            <div id="eslot-gloves" class="inv-slot" style="width:44px; height:44px; padding:0; display:flex; align-items:center; justify-content:center;">🧤</div>
+            <div id="eslot-mainHand" class="inv-slot" style="width:44px; height:44px; padding:0; display:flex; align-items:center; justify-content:center;">⚔️</div>
           </div>
 
-          <div id="inv-avatar-frame" style="display: flex; justify-content: center; align-items: center; overflow: hidden; border-radius: 14px; border: 2px solid var(--btn); width: 160px; height: 160px; max-width: 160px; max-height: 160px; padding: 0; margin: 0 auto;">
-            <img id="inv-hero-avatar" src="../assets/avatars/hero5.jpg" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;">
+          <div id="inv-avatar-frame" style="display: flex; justify-content: center; align-items: center; overflow: hidden; border-radius: 14px; border: 2px solid var(--btn); width: 160px; height: 160px; padding: 0; margin: 0 auto;">
+            <img id="inv-hero-avatar" src="../assets/avatars/hero1.png" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;">
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 8px;">
-            <div id="eslot-body" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">👕</div>
-            <div id="eslot-legs" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🥾</div>
-            <div id="eslot-extra" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">✨</div>
-            <div id="eslot-offHand" class="inv-slot" style="width:44px; height:44px; font-size:18px; padding:0; display:flex; align-items:center; justify-content:center;">🛡️</div>
+            <div id="eslot-body" class="inv-slot" style="width:44px; height:44px; padding:0; display:flex; align-items:center; justify-content:center;">👕</div>
+            <div id="eslot-legs" class="inv-slot" style="width:44px; height:44px; padding:0; display:flex; align-items:center; justify-content:center;">🥾</div>
+            <div id="eslot-extra" class="inv-slot" style="width:44px; height:44px; padding:0; display:flex; align-items:center; justify-content:center;">✨</div>
+            <div id="eslot-offHand" class="inv-slot" style="width:44px; height:44px; padding:0; display:flex; align-items:center; justify-content:center;">🛡️</div>
           </div>
-
         </div>
       </div>
 
+      <!-- Бижутерия и быстрые слоты -->
       <div style="display: flex; justify-content: space-between; gap: 6px; width: 100%; max-width: 280px; margin: 0 auto 10px;">
-        <div id="eslot-potion" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">🧪</div>
-        <div id="eslot-ring-0" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
-        <div id="eslot-ring-1" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
-        <div id="eslot-ring-2" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
-        <div id="eslot-scroll" class="inv-slot" style="flex: 1; height: 40px; font-size: 18px; padding:0; display:flex; align-items:center; justify-content:center;">📜</div>
+        <div id="eslot-potion" class="inv-slot" style="flex: 1; height: 40px; padding:0; display:flex; align-items:center; justify-content:center;">🧪</div>
+        <div id="eslot-ring-0" class="inv-slot" style="flex: 1; height: 40px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
+        <div id="eslot-ring-1" class="inv-slot" style="flex: 1; height: 40px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
+        <div id="eslot-ring-2" class="inv-slot" style="flex: 1; height: 40px; padding:0; display:flex; align-items:center; justify-content:center;">💍</div>
+        <div id="eslot-scroll" class="inv-slot" style="flex: 1; height: 40px; padding:0; display:flex; align-items:center; justify-content:center;">📜</div>
       </div>
 
+      <!-- Вкладки -->
       <div class="inv-tabs" style="margin-bottom: 10px;">
-        <button id="tab-btn-equipment" class="inv-tab active">Амуниция</button>
-        <button id="tab-btn-resources" class="inv-tab">Ресурсы</button>
-        <button id="tab-btn-consumables" class="inv-tab">Расходники</button>
+        <button id="tab-btn-equipment" class="inv-tab active" data-tab="equipment">Амуниция</button>
+        <button id="tab-btn-resources" class="inv-tab" data-tab="resources">Ресурсы</button>
+        <button id="tab-btn-consumables" class="inv-tab" data-tab="consumables">Расходники</button>
       </div>
 
+      <!-- Сетка предметов -->
       <div id="inventory-content" class="inv-content" style="
         display: grid !important;
-        grid-template-columns: repeat(4, 1fr) !important;
-        gap: 10px !important;
-        max-height: 350px !important;
+        grid-template-columns: repeat(5, 46px) !important;
+        gap: 8px !important;
+        justify-content: center !important;
+        max-height: 220px !important;
         overflow-y: auto !important;
         width: 100% !important;
+        padding: 8px 0 16px 0 !important;
       "></div>
     </div>
   </div>
 
   <!-- ============================================================================
-       ===== 🪟 ПОПОВЕР ИНФОРМАЦИИ О ПРЕДМЕТЕ (для инвентаря) =====
+       ===== 🪟 ПОПОВЕР ИНФОРМАЦИИ О ПРЕДМЕТЕ =====
        ============================================================================ -->
   <div id="item-info-popover" style="
     display: none;
-    position: fixed;
-    top: 50%;
-    left: 50%;
+    position: fixed; top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    width: 88%;
-    max-width: 330px;
+    width: 88%; max-width: 330px;
     background: #111111;
     border: 2px solid var(--btn);
     border-radius: 16px;
     padding: 16px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85), 0 0 0 1000px rgba(0,0,0,0.65);
     z-index: 3500;
-    flex-direction: column;
-    gap: 14px;
+    flex-direction: column; gap: 14px;
   ">
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px;">
-      <h4 id="popover-item-name" style="margin: 0; font-size: 16px; font-weight: bold; color: #ffffff;">Название предмета</h4>
+      <h4 id="popover-item-name" style="margin: 0; font-size: 16px; font-weight: bold; color: #ffffff;">Название</h4>
       <button onclick="document.getElementById('item-info-popover').style.display = 'none'" style="background: transparent; border: none; color: var(--hint); font-size: 20px; cursor: pointer; padding: 2px 6px;">✕</button>
     </div>
-    <div style="display: flex; gap: 14px; align-items: center; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.04);">
-      <div id="popover-item-icon" style="font-size: 34px; min-width: 55px; height: 55px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; display: flex; align-items: center; justify-content: center;">🗡️</div>
-      <div id="popover-item-desc" style="font-size: 13px; color: var(--hint); line-height: 1.5; white-space: pre-line; font-family: sans-serif;">Описание характеристик...</div>
+    <div style="display: flex; gap: 14px; align-items: center; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+      <div id="popover-item-icon" style="font-size: 34px; min-width: 55px; height: 55px; background: rgba(0,0,0,0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center;">🗡️</div>
+      <div id="popover-item-desc" style="font-size: 13px; color: var(--hint); line-height: 1.5; white-space: pre-line;">Описание...</div>
     </div>
-    <button id="popover-item-action-btn" class="battle-btn-finish" style="margin: 4px 0 0 0; padding: 12px; font-size: 14px; font-weight: bold; width: 100%; border-radius: 10px; cursor: pointer; border: none; color: #fff;"></button>
+    <button id="popover-item-action-btn" class="battle-btn-finish" style="padding: 12px; font-size: 14px; font-weight: bold; width: 100%; border-radius: 10px; cursor: pointer; border: none; color: #fff;"></button>
   </div>
 
-  <!-- 🗺️ Скрипт клиента карты — ПОСЛЕ game.js / telegram.js -->
-  <script src="world_client.js?v=32"></script>
+  <!-- Скрипты -->
+  <script src="world_client.js?v=35"></script>
+  <script src="world_ui.js?v=1"></script>
 </body>
 </html>
