@@ -116,8 +116,11 @@ function initShopPage() {
   });
 
   // 🔥 СЛУШАЕМ ОБНОВЛЕНИЕ ПРОФИЛЯ — обновляем золото и UI после покупки/продажи
-  shopSocket.off('load_game_success');
-  shopSocket.on('load_game_success', (data) => {
+  if (window.__shopLoadGameHandler) {
+    shopSocket.off('load_game_success', window.__shopLoadGameHandler);
+  }
+
+  window.__shopLoadGameHandler = (data) => {
     if (data && data.player) {
       console.log("☁️ [МАГАЗИН] Профиль обновлён. Золото:", data.player.gold);
       localPlayer = data.player;
@@ -125,7 +128,9 @@ function initShopPage() {
       try { localStorage.setItem('rpg_save', JSON.stringify({ player: data.player })); } catch(e) {}
       window.updateShopUi();
     }
-  });
+  };
+
+  shopSocket.on('load_game_success', window.__shopLoadGameHandler);
 
   // 🔥 НЕ отправляем load_game_secure — сокет уже зарегистрирован городом
   // Но запрашиваем свежий профиль для магазина
