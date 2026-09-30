@@ -116,15 +116,15 @@
       }
 
       // Создаём новый обработчик с актуальной ссылкой на localSocket
-      window.__globalBattleVisibilityHandler = () => {
-        if (!document.hidden && localSocket.connected) {
-          localSocket.emit('check_active_battle', { 
-            userId: (window.player && window.player.id) 
-                 || (localSocket.userId) 
-                 || 0 
-          });
-        }
-      };
+        window.__globalBattleVisibilityHandler = () => {
+          if (!document.hidden && localSocket.connected) {
+            localSocket.emit('battle_check_active', { 
+              userId: (window.player && window.player.id) 
+                  || (localSocket.userId) 
+                  || 0 
+            });
+          }
+        };
 
       document.addEventListener('visibilitychange', window.__globalBattleVisibilityHandler);
       

@@ -106,15 +106,19 @@ window.BSocket = {
       BState.allLogs = data.allLogs || [];
       BState.spectatorCount = data.spectatorCount || 0;
 
-      // Авто-выбор цели (для участника)
-      if (!BState.isSpectator) {
+        // Авто-выбор цели (для участника)
+        if (!BState.isSpectator) {
         const me = BState.getMyFighter();
         if (me) {
-          const opp = BState.getOpposingTeam();
-          const firstAlive = opp.find(e => e.currentHp > 0);
-          BState.selectedTargetUuid = firstAlive ? firstAlive.uuid : null;
+            const opp = BState.getOpposingTeam();
+            const firstAlive = opp.find(e => e.currentHp > 0);
+            BState.selectedTargetUuid = firstAlive ? firstAlive.uuid : null;
         }
-      }
+        } else {
+        // 🔥 Зритель — авто-выбор первой живой цели из teamB
+        const firstAliveB = BState.teamB.find(e => e.currentHp > 0);
+        BState.selectedTargetUuid = firstAliveB ? firstAliveB.uuid : null;
+        }
 
       // Обновляем заголовок
       const header = document.getElementById('battle-round-indicator');

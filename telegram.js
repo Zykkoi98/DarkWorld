@@ -135,7 +135,7 @@ function setupSecureDataListeners(callback) {
       // 🔥 Проверка активного боя
       console.log(`📡 [БОЙ] Проверка активного боя для ID: ${window.player.id}`);
 
-      socket.emit('check_active_battle_directly', { userId: String(window.player.id) }, (response) => {
+      socket.emit('battle_check_active', { userId: String(window.player.id) }, (response) => {
         try {
           if (response && response.activeRoomId) {
             console.log(`⚔️ [ПЕРЕХВАТ] Найден бой ${response.activeRoomId}. Уходим!`);
