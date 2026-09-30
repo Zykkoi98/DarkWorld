@@ -275,24 +275,23 @@ function runCooldownTimer() {
 window.triggerTowerFight = function(btnElement, floorNumber) {
   console.log(`==================================================`);
   console.log(`🎯 [КЛИК] Игрок инициировал штурм. Этаж: ${floorNumber}`);
-  
-  // 1. МГНОВЕННЫЙ АНТИ-СПАМ БАРЬЕР
+
+  // 1. АНТИ-СПАМ
   if (!btnElement || btnElement.disabled || btnElement.textContent === "⏳...") {
-    console.log("🚫 [АНТИ-СПАМ] Повторный клик заблокирован на лету!");
+    console.log("🚫 [АНТИ-СПАМ] Повторный клик заблокирован");
     return;
   }
 
-  // Насильно отключаем кнопку
+  // Блокируем кнопку
   btnElement.disabled = true;
   btnElement.textContent = "⏳...";
   btnElement.style.background = "#222";
   btnElement.style.boxShadow = "none";
   btnElement.style.pointerEvents = "none";
 
-  if (!towerSocket || !towerSocket.connected) {
-    console.error("🚨 [КЛИК ОШИБКА] Нет активного сокет-соединения!");
-    updateTowerLog("❌ Нет соединения с сервером!", true);
-    
+  // 2. Проверка КД
+  if (activeCooldownEnd && new Date(activeCooldownEnd) > new Date()) {
+    updateTowerLog("❌ Башня ещё заблокирована!", true);
     btnElement.disabled = false;
     btnElement.textContent = "В БОЙ";
     btnElement.style.background = "#6c5ce7";
@@ -300,13 +299,20 @@ window.triggerTowerFight = function(btnElement, floorNumber) {
     return;
   }
 
-  updateTowerLog("⏳ Отправка отряда на этаж...");
-  
-  console.log("📤 [ОТПРАВКА] Улетает эвент start_tower_battle_secure на бэкенд...");
-  towerSocket.emit('start_tower_battle_secure', { 
-    userId: localPlayer.id, 
-    currentFloor: floorNumber 
-  });
+  // 3. РЕДИРЕКТ В БОЙ
+  updateTowerLog("⚔️ Переход на этаж...");
+
+  const projectRoot = window.location.pathname.includes('/tower/')
+    ? window.location.pathname.split('/tower/')[0]
+    : '';
+
+  const battleUrl = `${projectRoot}/battle/battle.html?battleType=tower&floor=${floorNumber}`;
+
+  console.log(`🚀 [РЕДИРЕКТ] Уходим в бой: ${battleUrl}`);
+
+  setTimeout(() => {
+    window.location.href = battleUrl;
+  }, 200);
 };
 
 window.triggerTowerBuy = function(itemId) {

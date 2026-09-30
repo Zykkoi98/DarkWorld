@@ -38,7 +38,7 @@ window.BSocket = {
   // ==========================================================================
   // ДЕЙСТВИЯ ПРИ ПОДКЛЮЧЕНИИ — в зависимости от роли
   // ==========================================================================
-  onConnect() {
+    onConnect() {
     const urlParams = new URLSearchParams(window.location.search);
     const spectateRoom = urlParams.get('spectate');
     const roomId = urlParams.get('roomId');
@@ -46,49 +46,58 @@ window.BSocket = {
     const battleType = urlParams.get('battleType');
     const monsters = urlParams.get('monsters');
     const count = urlParams.get('count');
+    const floor = urlParams.get('floor');   // 🔥 для башни
 
     // === РОЛЬ 1: ЗРИТЕЛЬ ===
     if (spectateRoom) {
-      BState.isSpectator = true;
-      BState.roomId = spectateRoom;
-      BState.socket.emit('battle_spectate', { roomId: spectateRoom });
-      return;
+        BState.isSpectator = true;
+        BState.roomId = spectateRoom;
+        BState.socket.emit('battle_spectate', { roomId: spectateRoom });
+        return;
     }
 
     // === РОЛЬ 2: РЕКОННЕКТ ===
     if (roomId && userId) {
-      BState.roomId = roomId;
-      BState.socket.emit('battle_reconnect', { roomId, userId });
-      return;
+        BState.roomId = roomId;
+        BState.socket.emit('battle_reconnect', { roomId, userId });
+        return;
     }
 
     // === РОЛЬ 3: НОВЫЙ БОЙ ===
     if (battleType) {
-      const localSave = localStorage.getItem('rpg_save');
-      let localPlayer = null;
-      try { localPlayer = JSON.parse(localSave)?.player; } catch(e) {}
+        const localSave = localStorage.getItem('rpg_save');
+        let localPlayer = null;
+        try { localPlayer = JSON.parse(localSave)?.player; } catch(e) {}
 
-      if (!localPlayer) {
+        if (!localPlayer) {
         BToasts.showConnectionToast('❌ Профиль не найден', 'warning');
         return;
-      }
+        }
 
-      const monsterIds = monsters ? monsters.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const params = {};
 
-      BState.socket.emit('battle_start', {
+        // Для мира: список мобов
+        if (battleType === 'world') {
+        params.monsterIds = monsters ? monsters.split(',').map(s => s.trim()).filter(Boolean) : [];
+        params.count = Number(count || params.monsterIds.length || 1);
+        }
+
+        // 🔥 Для башни: этаж
+        if (battleType === 'tower') {
+        params.currentFloor = Number(floor || 1);
+        }
+
+        BState.socket.emit('battle_start', {
         battleType,
         playerData: localPlayer,
-        params: {
-          monsterIds,
-          count: Number(count || monsterIds.length || 1)
-        }
-      });
-      return;
+        params
+        });
+        return;
     }
 
     // === НЕТ ПАРАМЕТРОВ ===
     BToasts.showConnectionToast('❌ Неверный URL боя', 'warning');
-  },
+    },
 
   // ==========================================================================
   // СЛУШАТЕЛИ СОБЫТИЙ
@@ -260,26 +269,29 @@ window.BSocket = {
   // ФИНАЛ БОЯ
   // ==========================================================================
   handleBattleOver(data) {
-    const strikeBtn = document.getElementById('strike-action-btn');
-    const randBtn = document.getElementById('random-strike-btn');
-    if (randBtn) randBtn.style.display = 'none';
+  const strikeBtn = document.getElementById('strike-action-btn');
+  const randBtn = document.getElementById('random-strike-btn');
+  if (randBtn) randBtn.style.display = 'none';
 
-    if (!strikeBtn) return;
+  if (!strikeBtn) return;
 
-    // Для зрителя — только закрытие
-    if (BState.isSpectator) {
-      strikeBtn.style.display = 'none';
-      return;
-    }
+  // Для зрителя — только закрытие
+  if (BState.isSpectator) {
+    strikeBtn.style.display = 'none';
+    return;
+  }
 
-    // Для башни
-    if (BState.battleType === 'tower' && data.resultType === 'win') {
+  // 🔥 БАШНЯ
+  if (BState.battleType === 'tower') {
+    // Победа — следующий этаж
+    if (data.resultType === 'win') {
       strikeBtn.textContent = '⚔️ СЛЕДУЮЩИЙ ЭТАЖ';
       strikeBtn.disabled = false;
       strikeBtn.style.background = '#6c5ce7';
       strikeBtn.style.boxShadow = '0 4px 12px rgba(108, 92, 231, 0.4)';
 
       strikeBtn.onclick = () => {
+        // Сброс кэша банок (чтобы обновились)
         const localSave = localStorage.getItem('rpg_save');
         if (localSave) {
           try {
@@ -290,21 +302,36 @@ window.BSocket = {
             }
           } catch(e) {}
         }
+
+        // 🔥 Редирект в Башню (для выбора этажа)
         if (BState.socket) BState.socket.disconnect();
         window.location.replace('../tower/tower.html');
       };
       return;
     }
 
-    // Стандартный финал
-    strikeBtn.textContent = 'ВЕРНУТЬСЯ В ГОРОД';
+    // Поражение — вернуться в Башню (КД 3 часа)
+    strikeBtn.textContent = '🏰 ВЕРНУТЬСЯ В БАШНЮ';
     strikeBtn.disabled = false;
-    strikeBtn.style.background = '#2ecc71';
-    strikeBtn.style.boxShadow = '0 4px 12px rgba(46, 204, 113, 0.3)';
+    strikeBtn.style.background = '#e74c3c';
+    strikeBtn.style.boxShadow = '0 4px 12px rgba(231, 76, 60, 0.3)';
 
     strikeBtn.onclick = () => {
       if (BState.socket) BState.socket.disconnect();
-      window.location.replace('../index.html');
+      window.location.replace('../tower/tower.html');
     };
+    return;
   }
+
+  // 🔥 ОСТАЛЬНЫЕ РЕЖИМЫ — стандартный финал
+  strikeBtn.textContent = 'ВЕРНУТЬСЯ В ГОРОД';
+  strikeBtn.disabled = false;
+  strikeBtn.style.background = '#2ecc71';
+  strikeBtn.style.boxShadow = '0 4px 12px rgba(46, 204, 113, 0.3)';
+
+  strikeBtn.onclick = () => {
+    if (BState.socket) BState.socket.disconnect();
+    window.location.replace('../index.html');
+  };
+}
 };
