@@ -11,10 +11,16 @@ window.BRenderer = {
   // ГЛАВНЫЙ РЕНДЕР
   // ==========================================================================
   render() {
-    this.renderMainCards();
-    this.renderReserveLists();
-    if (window.BUI) window.BUI.updateStrikeButtonState();
-  },
+      this.renderMainCards();
+      this.renderReserveLists();
+      if (window.BUI) {
+        window.BUI.updateStrikeButtonState();
+        // 🔥 Синхронизируем кнопку банки при каждой перерисовке
+        if (!BState.isSpectator && typeof BUI.updatePotionButton === 'function') {
+          BUI.updatePotionButton();
+        }
+      }
+    },
 
   // ==========================================================================
   // БОЛЬШИЕ КАРТОЧКИ

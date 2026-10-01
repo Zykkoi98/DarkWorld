@@ -231,16 +231,22 @@ onConnect() {
         header.textContent = `⚔️ Раунд ${data.turnCount}`;
       }
 
-      // UI
-      if (window.BUI) BUI.init();
+     
+    // UI
+        if (window.BUI) BUI.init();
 
-      // Если зритель — рисуем архив логов
-      if (BState.isSpectator && BState.allLogs.length > 0) {
-        BRenderer.renderAllLogs(BState.allLogs);
-      }
+        // 🔥 ФИКС: сразу обновляем состояние кнопки банки (иначе она появляется только после 1-го хода)
+        if (window.BUI && !BState.isSpectator && typeof BUI.updatePotionButton === 'function') {
+          BUI.updatePotionButton();
+        }
 
-      // Рендер
-      BRenderer.render();
+        // Если зритель — рисуем архив логов
+        if (BState.isSpectator && BState.allLogs.length > 0) {
+          BRenderer.renderAllLogs(BState.allLogs);
+        }
+
+        // Рендер
+        BRenderer.render();
 
       // Скрываем лоадер
       const overlay = document.getElementById('battle-loading-overlay');
