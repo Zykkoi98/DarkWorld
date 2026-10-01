@@ -334,6 +334,14 @@ onConnect() {
         if (data.equipped) f.equipped = data.equipped;
       }
 
+      // 🔥 Если бой завершён — обновляем только HP и логи, не трогаем кнопки
+      if (BState.isBattleOver) {
+        BRenderer.renderMainCards();
+        if (!BState.isSpectator) BUI.updatePotionButton();
+        if (data.logMsg) BRenderer.appendSingleLog(data.logMsg);
+        return;
+      }
+
       BRenderer.render();
       if (!BState.isSpectator) BUI.updatePotionButton();
 

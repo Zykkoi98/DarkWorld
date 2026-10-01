@@ -178,21 +178,24 @@ window.BUI = {
   // КНОПКА «АТАКОВАТЬ» — состояние
   // ==========================================================================
   updateStrikeButtonState() {
-    const btn = document.getElementById('strike-action-btn');
-    if (!btn) return;
-    if (BState.isBattleOver) { btn.disabled = true; return; }
+      const btn = document.getElementById('strike-action-btn');
+      if (!btn) return;
 
-    const { maxAttacks, maxDefends } = this.getLimits();
+      // 🔥 ФИКС: если бой завершён — НЕ трогаем кнопку.
+      // handleBattleOver() уже настроил её на "ВЕРНУТЬСЯ В БАШНЮ/ГОРОД" с нужным onclick.
+      if (BState.isBattleOver) return;
 
-    const hasAttack = (maxAttacks === 2)
-      ? (Array.isArray(BState.selectedAttackZone) && BState.selectedAttackZone.length === 2)
-      : !!BState.selectedAttackZone;
+      const { maxAttacks, maxDefends } = this.getLimits();
 
-    const hasDefend = BState.selectedDefendZones.length === maxDefends;
-    const hasTarget = !!BState.selectedTargetUuid;
+      const hasAttack = (maxAttacks === 2)
+        ? (Array.isArray(BState.selectedAttackZone) && BState.selectedAttackZone.length === 2)
+        : !!BState.selectedAttackZone;
 
-    btn.disabled = !(hasAttack && hasDefend && hasTarget);
-  },
+      const hasDefend = BState.selectedDefendZones.length === maxDefends;
+      const hasTarget = !!BState.selectedTargetUuid;
+
+      btn.disabled = !(hasAttack && hasDefend && hasTarget);
+    },
 
   // ==========================================================================
   // ОТПРАВКА ХОДА
@@ -284,6 +287,8 @@ window.BUI = {
 
     btn.onclick = () => {
       if (btn.disabled) return;
+      // 🔥 Банку нельзя пить после победы/поражения
+      if (BState.isBattleOver) return;
       btn.disabled = true;
       BState.socket.emit('battle_use_potion', { roomId: BState.roomId });
     };
@@ -291,25 +296,43 @@ window.BUI = {
 
   // Обновить состояние кнопки банки
   updatePotionButton() {
-    const btn = document.getElementById('quick-potion-btn');
-    if (!btn) return;
+      const btn = document.getElementById('quick-potion-btn');
+      if (!btn) return;
 
-    const me = BState.getMyFighter();
-    const potion = me?.equipped?.potion;
+      const me = BState.getMyFighter();
+      const potion = me?.equipped?.potion;
 
-    if (potion && typeof potion === 'object' && potion.id && potion.count > 0) {
-      const d = window.getItemData ? window.getItemData(potion.id) : null;
-      btn.disabled = false;
-      btn.innerHTML = `${d?.icon || '🧪'} <span style="color:#2ecc71; font-size:11px; font-weight:bold;">x${potion.count}</span>`;
-      btn.style.border = '1px solid #2ecc71';
-      btn.style.boxShadow = '0 0 8px rgba(46, 204, 113, 0.4)';
-    } else {
-      btn.disabled = true;
-      btn.innerHTML = '🧪';
-      btn.style.border = '1px solid rgba(255,255,255,0.08)';
-      btn.style.boxShadow = 'none';
-    }
-  },
+      // 🔥 Если бой завершён — блокируем кнопку, но показываем остаток
+      if (BState.isBattleOver) {
+        btn.disabled = true;
+        if (potion && typeof potion === 'object' && potion.id && potion.count > 0) {
+          const d = window.getItemData ? window.getItemData(potion.id) : null;
+          btn.innerHTML = `${d?.icon || '🧪'} <span style="color:#7f8c8d; font-size:11px; font-weight:bold;">x${potion.count}</span>`;
+        } else {
+          btn.innerHTML = '🧪';
+        }
+        btn.style.border = '1px solid rgba(255,255,255,0.08)';
+        btn.style.boxShadow = 'none';
+        btn.style.opacity = '0.4';
+        return;
+      }
+
+      // Обычное состояние — бой активен
+      btn.style.opacity = '1';
+
+      if (potion && typeof potion === 'object' && potion.id && potion.count > 0) {
+        const d = window.getItemData ? window.getItemData(potion.id) : null;
+        btn.disabled = false;
+        btn.innerHTML = `${d?.icon || '🧪'} <span style="color:#2ecc71; font-size:11px; font-weight:bold;">x${potion.count}</span>`;
+        btn.style.border = '1px solid #2ecc71';
+        btn.style.boxShadow = '0 0 8px rgba(46, 204, 113, 0.4)';
+      } else {
+        btn.disabled = true;
+        btn.innerHTML = '🧪';
+        btn.style.border = '1px solid rgba(255,255,255,0.08)';
+        btn.style.boxShadow = 'none';
+      }
+    },
 
   // ==========================================================================
   // ПОСЛЕ РАУНДА — сброс выбора
