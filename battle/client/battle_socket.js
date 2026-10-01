@@ -440,7 +440,21 @@ onConnect() {
     };
     return;
   }
+   // 🔥 PVP АРЕНА — возвращаемся НА АРЕНУ
+  if (BState.battleType === 'arena_pvp') {
+    strikeBtn.textContent = '🏆 ВЕРНУТЬСЯ НА АРЕНУ';
+    strikeBtn.disabled = false;
+    strikeBtn.style.background = '#6c5ce7';
+    strikeBtn.style.boxShadow = '0 4px 12px rgba(108, 92, 231, 0.4)';
 
+    strikeBtn.onclick = () => {
+      // 🔥 Ставим флаг чтобы город сразу открыл Арену
+      try { localStorage.setItem('arena_active', 'true'); } catch(e) {}
+      if (BState.socket) BState.socket.disconnect();
+      window.location.replace('../index.html');
+    };
+    return;
+  }
   // 🔥 ОСТАЛЬНЫЕ РЕЖИМЫ — стандартный финал
   strikeBtn.textContent = 'ВЕРНУТЬСЯ В ГОРОД';
   strikeBtn.disabled = false;
