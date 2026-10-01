@@ -39,6 +39,7 @@ function initArenaPage() {
       console.log('✅ [ARENA] Привязан к сокету города');
       setupSocketListeners();
       refreshLobby();
+      socket.emit('arena_check_my_request');   // ← ДОБАВЛЕНО: проверяем, я в лобби?
       return true;
     }
     return false;
@@ -75,12 +76,25 @@ const onRequestCancelled = (data) => {
   console.log('❌ [ARENA] Заявка отменена:', data.reason || '');
   showToast(data.reason || 'Заявка отменена', 'warning');
   myActiveRequest = null;
+  window.__myRequestJustCreated = false;   // 🔥 снимаем флаг
   refreshLobby();
 };
-
+const onLobbyUpdatedSelf = (data) => {
+  if (data && data.restored) {
+    console.log('✅ [ARENA] Заявка восстановлена после F5');
+    showToast('✅ Ваша заявка восстановлена', 'success');
+    window.__myRequestJustCreated = true;
+  } else {
+    console.log('ℹ️ [ARENA] Активной заявки не найдено');
+    window.__myRequestJustCreated = false;
+  }
+  refreshLobby();
+};
 const onArenaError = (msg) => {
   console.error('🚨 [ARENA]', msg);
   showToast(msg, 'error');
+  // 🔥 Если ошибка — сбрасываем флаг создания
+  window.__myRequestJustCreated = false;
 };
 
 const onRedirectToBattle = (data) => {
@@ -110,6 +124,7 @@ function setupSocketListeners() {
   socket.off('arena_request_cancelled', onRequestCancelled);
   socket.off('arena_error', onArenaError);
   socket.off('arena_redirect_to_battle', onRedirectToBattle);
+  socket.off('arena_lobby_updated_self', onLobbyUpdatedSelf);   // ← ДОБАВЛЕНО
 
   socket.on('arena_lobby_updated', onLobbyUpdated);
   socket.on('arena_lobby_data', onLobbyData);
@@ -117,6 +132,7 @@ function setupSocketListeners() {
   socket.on('arena_request_cancelled', onRequestCancelled);
   socket.on('arena_error', onArenaError);
   socket.on('arena_redirect_to_battle', onRedirectToBattle);
+  socket.on('arena_lobby_updated_self', onLobbyUpdatedSelf);    // ← ДОБАВЛЕНО
 }
 
 // ============================================================================
@@ -137,8 +153,8 @@ function setupClickListeners() {
   document.getElementById('back-btn')?.addEventListener('click', (e) => {
     e.preventDefault();
 
-    // 🔥 БЛОКИРОВКА: пока заявка активна — нельзя выйти
-    if (myActiveRequest) {
+    // 🔥 БЛОКИРОВКА: заявка есть в памяти ИЛИ создана локально
+    if (myActiveRequest || window.__myRequestJustCreated) {
       showToast('❌ Нельзя выйти с Арены! Сначала отмените заявку.', 'warning');
       return;
     }
@@ -172,6 +188,10 @@ function setupModeModal() {
 
       console.log('🎲 [ARENA] Создаём заявку:', mode);
       if (!socket) return;
+
+      // 🔥 Ставим флаг СРАЗУ — блокируем выход до подтверждения сервера
+      window.__myRequestJustCreated = true;
+
       socket.emit('arena_create_request', { mode });
       modal.classList.remove('active');
     });
@@ -371,6 +391,7 @@ function cleanup() {
     socket.off('arena_request_cancelled', onRequestCancelled);
     socket.off('arena_error', onArenaError);
     socket.off('arena_redirect_to_battle', onRedirectToBattle);
+    socket.off('arena_lobby_updated_self', onLobbyUpdatedSelf);   // ← ДОБАВЛЕНО
   }
 }
 
