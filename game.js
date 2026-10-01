@@ -183,10 +183,10 @@ function renderTown() {
         const wrapper = document.getElementById('arena-iframe-wrapper');
         const frame = document.getElementById('arena-iframe-frame');
         if (wrapper && frame) {
-          frame.src = 'arena.html';
+          frame.src = 'arena/arena.html';      // ← теперь в папке
           wrapper.style.display = 'flex';
         }
-      }
+}
       // БАШНЯ
       else if (loc.name === "Тёмная Башня" || loc.name === "Башня") {
         if (!window.player) return;

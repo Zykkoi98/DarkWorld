@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Арена Чести — Dark World</title>
+
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --text: #ffffff;
+      --hint: #9aa0b5;
+      --btn: #6c5ce7;
+      --danger: #e74c3c;
+      --success: #2ecc71;
+      --gold: #f1c40f;
+      --card: rgba(255, 255, 255, 0.05);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; padding: 16px;
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh;
+    }
+    .arena-container { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+    .arena-header {
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;
+    }
+    .back-btn {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      color: #fff; padding: 8px 16px; border-radius: 10px; font-weight: bold;
+      cursor: pointer; font-size: 13px;
+    }
+
+    .arena-tabs { display: flex; gap: 6px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 12px; }
+    .arena-tab {
+      flex: 1; background: transparent; border: none; color: var(--hint);
+      padding: 10px; font-weight: bold; font-size: 13px; border-radius: 8px;
+      cursor: pointer; text-align: center;
+    }
+    .arena-tab.active { background: var(--btn); color: #fff; }
+    .arena-tab.disabled { opacity: 0.4; cursor: not-allowed; font-weight: normal; }
+
+    /* Панель своей заявки */
+    .my-request-box {
+      background: rgba(108, 92, 231, 0.08);
+      border: 2px dashed var(--btn);
+      border-radius: 16px; padding: 16px; text-align: center;
+      box-shadow: 0 0 15px rgba(108, 92, 231, 0.15);
+    }
+    .pulse-icon { font-size: 26px; animation: arenaPulse 1.5s infinite; margin-bottom: 4px; }
+    .timer-text {
+      font-size: 24px; font-family: monospace; font-weight: bold;
+      color: #ffc048; margin: 6px 0 12px;
+    }
+    .progress-text {
+      font-size: 13px; color: #a29bfe; margin: 8px 0;
+      font-weight: bold; letter-spacing: 0.5px;
+    }
+
+    .action-btn {
+      width: 100%; border: none; color: #fff; padding: 14px;
+      font-weight: bold; font-size: 15px; border-radius: 12px;
+      cursor: pointer; transition: transform 0.1s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .action-btn:active { transform: scale(0.98); }
+    .btn-create { background: var(--success); box-shadow: 0 4px 12px rgba(46,204,113,0.2); }
+    .btn-cancel { background: var(--danger); }
+    .btn-accept { background: var(--btn); padding: 8px 14px; font-size: 13px; border-radius: 8px; width: auto; }
+
+    .lobby-list { display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow-y: auto; }
+    .user-card {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--card); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px; padding: 12px 14px;
+    }
+    .empty-msg {
+      text-align: center; color: var(--hint); font-size: 14px;
+      padding: 32px 0; border: 1px dashed rgba(255,255,255,0.05);
+      border-radius: 14px;
+    }
+
+    /* Модалка выбора режима */
+    .mode-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+      z-index: 5000; align-items: center; justify-content: center; padding: 16px;
+    }
+    .mode-modal.active { display: flex; }
+    .mode-modal-content {
+      background: #1a1a2e; border-radius: 20px; padding: 20px;
+      width: 100%; max-width: 400px;
+      border-top: 3px solid var(--btn);
+    }
+    .mode-option {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px; border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 8px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .mode-option:hover { background: rgba(108, 92, 231, 0.1); border-color: var(--btn); }
+    .mode-option.disabled { opacity: 0.4; cursor: not-allowed; }
+    .mode-option.disabled:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
+    .mode-option-info { display: flex; flex-direction: column; gap: 2px; }
+    .mode-option-title { font-weight: bold; font-size: 15px; }
+    .mode-option-sub { font-size: 11px; color: var(--hint); }
+    .mode-option-badge {
+      font-size: 11px; font-weight: bold; padding: 3px 8px;
+      border-radius: 6px; background: rgba(241, 196, 15, 0.15); color: var(--gold);
+    }
+
+    @keyframes arenaPulse {
+      0% { transform: scale(1); opacity: 0.7; }
+      50% { transform: scale(1.12); opacity: 1; }
+      100% { transform: scale(1); opacity: 0.7; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="arena-container">
+
+    <!-- Шапка -->
+    <div class="arena-header">
+      <div>
+        <h3 style="margin: 0; color: #f1c40f; font-size: 20px;">🏆 АРЕНА PvP</h3>
+        <span style="font-size: 12px; color: var(--hint);">Доска гладиаторских вызовов</span>
+      </div>
+      <button class="back-btn" id="back-btn">🔙 В город</button>
+    </div>
+
+    <!-- Табы режимов -->
+    <div class="arena-tabs">
+      <button class="arena-tab active" data-tab="duel">⚔️ Дуэли 1×1</button>
+      <button class="arena-tab disabled" disabled>👥 Групповые</button>
+      <button class="arena-tab disabled" disabled>🌀 Хаос</button>
+    </div>
+
+    <!-- Панель своей заявки -->
+    <div id="my-search-panel" class="my-request-box" style="display: none;">
+      <div class="pulse-icon">👁️‍🗨️</div>
+      <div style="font-weight: bold; font-size: 14px; letter-spacing: 0.5px;">ВАША ЗАЯВКА ОПУБЛИКОВАНА</div>
+      <div id="my-mode-text" class="progress-text">⚔️ Дуэль 1×1</div>
+      <div id="my-progress-text" class="progress-text" style="color: #f1c40f;">Ожидание: 1 / 2</div>
+      <div id="my-timer-display" class="timer-text">⏱️ 05:00</div>
+      <button id="cancel-request-btn" class="action-btn btn-cancel">✕ ОТМЕНИТЬ ЗАЯВКУ</button>
+    </div>
+
+    <!-- Кнопка создания -->
+    <div id="my-create-panel">
+      <button id="create-request-btn" class="action-btn btn-create">
+        <span>⚔️</span> СОЗДАТЬ ЗАЯВКУ
+      </button>
+    </div>
+
+    <!-- Заголовок списка -->
+    <div style="font-weight: bold; font-size: 13px; color: var(--hint); display: flex; justify-content: space-between; padding: 0 4px; margin-top: 4px;">
+      <span>ОТКРЫТЫЕ ВЫЗОВЫ:</span>
+      <span id="total-requests-counter" style="color: var(--btn);">Всего: 0</span>
+    </div>
+
+    <!-- Список заявок -->
+    <div id="lobby-list-viewport" class="lobby-list">
+      <div class="empty-msg">🏰 На Арене тишина... Будь первым, брось вызов!</div>
+    </div>
+
+  </div>
+
+  <!-- Модалка выбора режима -->
+  <div id="mode-modal" class="mode-modal">
+    <div class="mode-modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="margin: 0; font-size: 17px;">Выберите режим</h3>
+        <button id="close-mode-modal" style="background: rgba(255,255,255,0.08); border: none; color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 14px;">✕</button>
+      </div>
+
+      <div class="mode-option" data-mode="duel_1v1">
+        <div class="mode-option-info">
+          <div class="mode-option-title">⚔️ Дуэль 1×1</div>
+          <div class="mode-option-sub">Классический бой один на один</div>
+        </div>
+        <div class="mode-option-badge">ДОСТУПНО</div>
+      </div>
+
+      <div class="mode-option disabled" data-mode="group_2v2">
+        <div class="mode-option-info">
+          <div class="mode-option-title">👥 Групповой 2×2</div>
+          <div class="mode-option-sub">4 игрока, 2 команды</div>
+        </div>
+        <div class="mode-option-badge" style="background: rgba(155,155,155,0.15); color: #7f8c8d;">СКОРО</div>
+      </div>
+
+      <div class="mode-option disabled" data-mode="group_3v3">
+        <div class="mode-option-info">
+          <div class="mode-option-title">👥 Групповой 3×3</div>
+          <div class="mode-option-sub">6 игроков, 2 команды</div>
+        </div>
+        <div class="mode-option-badge" style="background: rgba(155,155,155,0.15); color: #7f8c8d;">СКОРО</div>
+      </div>
+
+      <div class="mode-option disabled" data-mode="group_5v5">
+        <div class="mode-option-info">
+          <div class="mode-option-title">👥 Групповой 5×5</div>
+          <div class="mode-option-sub">10 игроков, 2 команды</div>
+        </div>
+        <div class="mode-option-badge" style="background: rgba(155,155,155,0.15); color: #7f8c8d;">СКОРО</div>
+      </div>
+
+      <div class="mode-option disabled" data-mode="chaos_10">
+        <div class="mode-option-info">
+          <div class="mode-option-title">🌀 Хаос</div>
+          <div class="mode-option-sub">10 игроков, каждый сам за себя</div>
+        </div>
+        <div class="mode-option-badge" style="background: rgba(155,155,155,0.15); color: #7f8c8d;">СКОРО</div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="arena_core.js?v=1"></script>
+</body>
+</html>

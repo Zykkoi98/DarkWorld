@@ -84,7 +84,7 @@ function setupSecureDataListeners(callback) {
   window.socket.off('load_game_failed');
   window.socket.off('stat_distribution_error');
   window.socket.off('arena_redirect_to_battle');
-
+  /*
   // 🔥 ГЛОБАЛЬНЫЙ РЕДИРЕКТ В БОЙ
   window.socket.on('arena_redirect_to_battle', (data) => {
     console.log("⚔️ [ГЛОБАЛЬНЫЙ ПЕРЕХВАТ] Оппонент принял вызов!");
@@ -101,7 +101,7 @@ function setupSecureDataListeners(callback) {
     else if (currentPath.includes('/battle/')) projectRoot = currentPath.split('/battle/')[0];
 
     window.location.href = `${projectRoot}/battle/battle.html?roomId=${data.roomId}`;
-  });
+  });*/
 
   // Ошибки распределения статов
   window.socket.on('stat_distribution_error', (msg) => {

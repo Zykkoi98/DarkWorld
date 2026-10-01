@@ -34,34 +34,36 @@
 
     // 🔥 ФИКС 404: определяем корень проекта (папка DarkWorld) и строим путь от него
     // Это работает в любом окружении: GitHub Pages, localhost, iframe, прямая ссылка
-    const currentPath = window.location.pathname;
+      const currentPath = window.location.pathname;
 
-    // Ищем корень проекта: до первой известной подпапки (shop/tower/battle) или до конца
-    let projectRoot;
-    if (currentPath.includes('/shop/')) {
-      projectRoot = currentPath.split('/shop/')[0];
-    } else if (currentPath.includes('/tower/')) {
-      projectRoot = currentPath.split('/tower/')[0];
-    } else if (currentPath.includes('/battle/')) {
-      projectRoot = currentPath.split('/battle/')[0];
-    } else {
-      // Мы в корне (index.html)
-      projectRoot = currentPath.replace(/\/[^/]*$/, '');
-    }
+      // Ищем корень проекта: до первой известной подпапки (shop/tower/battle) или до конца
+      let projectRoot;
+      if (currentPath.includes('/shop/')) {
+        projectRoot = currentPath.split('/shop/')[0];
+      } else if (currentPath.includes('/tower/')) {
+        projectRoot = currentPath.split('/tower/')[0];
+      } else if (currentPath.includes('/battle/')) {
+        projectRoot = currentPath.split('/battle/')[0];
+      } else if (currentPath.includes('/arena/')) {
+        projectRoot = currentPath.split('/arena/')[0];     // ← НОВОЕ
+      } else {
+        // Мы в корне (index.html)
+        projectRoot = currentPath.replace(/\/[^/]*$/, '');
+      }
 
-    // projectRoot для GitHub Pages = /DarkWorld (или '' если репо в корне домена)
-    // 🔥 Достаём userId из localStorage / Telegram
-let userId = null;
-try {
-  const tg = window.Telegram?.WebApp?.initDataUnsafe?.user;
-  if (tg?.id) userId = tg.id;
-} catch(e) {}
-if (!userId) {
+      // projectRoot для GitHub Pages = /DarkWorld (или '' если репо в корне домена)
+      // 🔥 Достаём userId из localStorage / Telegram
+  let userId = null;
   try {
-    const ls = localStorage.getItem('rpg_save');
-    if (ls) userId = JSON.parse(ls)?.player?.id;
+    const tg = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (tg?.id) userId = tg.id;
   } catch(e) {}
-}
+  if (!userId) {
+    try {
+      const ls = localStorage.getItem('rpg_save');
+      if (ls) userId = JSON.parse(ls)?.player?.id;
+    } catch(e) {}
+  }
 
 const battleUrl = `${projectRoot}/battle/battle.html?roomId=${roomId}${userId ? `&userId=${userId}` : ''}`;
 
