@@ -242,22 +242,47 @@
   // ПРОФИЛЬ
   // ============================================================================
   function openProfile() {
-    const modal = document.getElementById('profile-modal');
-    if (!modal || !window.player) return;
+  const modal = document.getElementById('profile-modal');
+  if (!modal || !window.player) return;
 
-    const statsBody = modal.querySelector('.modal-body-stats');
-    if (!statsBody) return;
+  const statsBody = modal.querySelector('.modal-body-stats');
+  if (!statsBody) return;
 
-    // 🔥 Сброс буфера ТОЛЬКО при первом открытии, а не при перерисовке
-    const wasOpen = modal.classList.contains('active');
-    if (!wasOpen) {
+  // 🔥 ЛЕНИВАЯ ПОДПИСКА на load_game_success (один раз)
+  if (window.socket && !window.__uiLoadGameBound) {
+    window.__uiLoadGameBound = true;
+    window.socket.on('load_game_success', (data) => {
+      if (!data || !data.player) return;
+      console.log('☁️ [UI] Профиль обновлён — сброс буфера');
+
+      // Сброс буфера статов
       _state.tempStatDistribution = { strength: 0, agility: 0, endurance: 0, luck: 0 };
-      _state.tempStatPoints = window.player.statPoints || 0;
-    }
+      _state.tempStatPoints = data.player.statPoints || 0;
 
-    modal.classList.add('active');
-    modal.style.display = 'flex';
-    statsBody.innerHTML = '';
+      // Обновляем открытый профиль
+      const m = document.getElementById('profile-modal');
+      if (m && m.classList.contains('active')) {
+        openProfile();
+      }
+
+      // Обновляем открытый инвентарь
+      const im = document.getElementById('inventory-modal');
+      if (im && im.style.display === 'flex') {
+        renderInventory();
+      }
+    });
+  }
+
+  // 🔥 Сброс буфера ТОЛЬКО при первом открытии
+  const wasOpen = modal.classList.contains('active');
+  if (!wasOpen) {
+    _state.tempStatDistribution = { strength: 0, agility: 0, endurance: 0, luck: 0 };
+    _state.tempStatPoints = window.player.statPoints || 0;
+  }
+
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+  statsBody.innerHTML = '';
 
     const p = window.player;
     const nextXp = xpToNext(p.level);
@@ -446,20 +471,24 @@
     openProfile();
   }
 
-  function submitStatDistribution() {
-    const s = getSocket();
-    if (!s || !s.connected) return alert('⚠️ Нет соединения с сервером!');
+function submitStatDistribution() {
+  const s = getSocket();
+  if (!s || !s.connected) return alert('⚠️ Нет соединения с сервером!');
 
-    const btn = document.getElementById('stat-save-btn');
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = '⏳ Сохранение в облаке...';
-    }
-    s.emit('confirm_stat_distribution_secure', {
-      userId: window.player.id,
-      distribution: _state.tempStatDistribution
-    });
+  const btn = document.getElementById('stat-save-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Сохранение в облаке...';
   }
+
+  // 🔥 Копия буфера — отправляем снимок
+  const distribution = { ..._state.tempStatDistribution };
+
+  s.emit('confirm_stat_distribution_secure', {
+    userId: window.player.id,
+    distribution: distribution
+  });
+}
 
   // ============================================================================
   // ИНВЕНТАРЬ
