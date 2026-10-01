@@ -242,6 +242,7 @@ function startGame() {
       const frame = document.getElementById('arena-iframe-frame');
       if (wrapper) wrapper.style.display = 'none';
       if (frame) frame.src = 'about:blank';
+      try { localStorage.removeItem('arena_active'); } catch(e) {}
       if (typeof window.render === 'function') window.render();
     }
 
@@ -266,6 +267,18 @@ function startGame() {
     }
   });
 
+  // 🔥 ГЛАВНОЕ: если игрок в заявке Арены — сразу открываем iframe
+  const wasInArena = localStorage.getItem('arena_active') === 'true';
+  if (wasInArena) {
+    console.log('🏆 [GAME] Игрок в заявке Арены — восстанавливаем iframe');
+    const wrapper = document.getElementById('arena-iframe-wrapper');
+    const frame = document.getElementById('arena-iframe-frame');
+    if (wrapper && frame) {
+      wrapper.style.display = 'flex';
+      frame.src = 'arena/arena.html';
+    }
+  }
+
   // Загрузка профиля
   if (typeof window.loadGame === 'function') {
     window.loadGame((error) => {
@@ -274,28 +287,27 @@ function startGame() {
       if (typeof render === 'function') render();
       console.log(`✅ ИГРА ГОТОВА. Персонаж: ${window.player.name}`);
 
-      // 🔥 ПРОВЕРКА: не в лобби Арены ли игрок? (восстановление после F5)
+      // 🔥 СТРАХОВКА: серверная проверка на случай если флага не было
       setTimeout(() => {
-        if (!window.socket || !window.socket.connected) {
-          console.warn('⚠️ [GAME] Socket не готов — пропускаем проверку Арены');
-          return;
-        }
+        if (!window.socket || !window.socket.connected) return;
+        if (localStorage.getItem('arena_active') === 'true') return;
 
         console.log('🔍 [GAME] Проверяем, не в лобби ли Арены игрок...');
         window.socket.emit('arena_check_my_request', (response) => {
           if (response && response.restored) {
-            console.log('🏆 [GAME] Игрок в лобби Арены — открываем iframe');
+            console.log('🏆 [GAME] Сервер подтвердил — открываем Арену');
+            try { localStorage.setItem('arena_active', 'true'); } catch(e) {}
             const wrapper = document.getElementById('arena-iframe-wrapper');
             const frame = document.getElementById('arena-iframe-frame');
             if (wrapper && frame) {
-              frame.src = 'arena/arena.html';
               wrapper.style.display = 'flex';
+              frame.src = 'arena/arena.html';
             }
           } else {
             console.log('ℹ️ [GAME] Игрок не в лобби Арены');
           }
         });
-      }, 800);
+      }, 1500);
     });
   }
 }

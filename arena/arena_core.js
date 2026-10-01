@@ -1,13 +1,13 @@
 // ============================================================================
 // ===== 🏆 КЛИЕНТ АРЕНЫ (ARENA_CORE.JS) =====
-// ===== Лобби, заявки, редирект в бой =====
+// ===== Лобби, заявки, редирект в бой + F5-восстановление =====
 // ============================================================================
 
 let socket = null;
 let localPlayer = null;
 let myTimerInterval = null;
 let globalLobbyInterval = null;
-let myActiveRequest = null;   // моя текущая заявка (если есть)
+let myActiveRequest = null;
 
 // ============================================================================
 // ИНИЦИАЛИЗАЦИЯ
@@ -39,7 +39,7 @@ function initArenaPage() {
       console.log('✅ [ARENA] Привязан к сокету города');
       setupSocketListeners();
       refreshLobby();
-      socket.emit('arena_check_my_request');   // ← ДОБАВЛЕНО: проверяем, я в лобби?
+      socket.emit('arena_check_my_request');
       return true;
     }
     return false;
@@ -54,7 +54,7 @@ function initArenaPage() {
   setupClickListeners();
   setupModeModal();
 
-  // Автообновление каждые 5 сек (страховка на случай пропущенных событий)
+  // Автообновление каждые 5 сек
   globalLobbyInterval = setInterval(refreshLobby, 5000);
 }
 
@@ -76,25 +76,30 @@ const onRequestCancelled = (data) => {
   console.log('❌ [ARENA] Заявка отменена:', data.reason || '');
   showToast(data.reason || 'Заявка отменена', 'warning');
   myActiveRequest = null;
-  window.__myRequestJustCreated = false;   // 🔥 снимаем флаг
+  window.__myRequestJustCreated = false;
+  try { localStorage.removeItem('arena_active'); } catch(e) {}
   refreshLobby();
 };
+
+const onArenaError = (msg) => {
+  console.error('🚨 [ARENA]', msg);
+  showToast(msg, 'error');
+  window.__myRequestJustCreated = false;
+  try { localStorage.removeItem('arena_active'); } catch(e) {}
+};
+
 const onLobbyUpdatedSelf = (data) => {
   if (data && data.restored) {
     console.log('✅ [ARENA] Заявка восстановлена после F5');
     showToast('✅ Ваша заявка восстановлена', 'success');
     window.__myRequestJustCreated = true;
+    try { localStorage.setItem('arena_active', 'true'); } catch(e) {}
   } else {
     console.log('ℹ️ [ARENA] Активной заявки не найдено');
     window.__myRequestJustCreated = false;
+    try { localStorage.removeItem('arena_active'); } catch(e) {}
   }
   refreshLobby();
-};
-const onArenaError = (msg) => {
-  console.error('🚨 [ARENA]', msg);
-  showToast(msg, 'error');
-  // 🔥 Если ошибка — сбрасываем флаг создания
-  window.__myRequestJustCreated = false;
 };
 
 const onRedirectToBattle = (data) => {
@@ -106,7 +111,7 @@ const onRedirectToBattle = (data) => {
   else if (currentPath.includes('/shop/'))   projectRoot = currentPath.split('/shop/')[0];
   else if (currentPath.includes('/tower/'))  projectRoot = currentPath.split('/tower/')[0];
   else if (currentPath.includes('/world/'))  projectRoot = currentPath.split('/world/')[0];
-  else if (currentPath.includes('/arena/'))  projectRoot = currentPath.split('/arena/')[0];   // ← НОВОЕ
+  else if (currentPath.includes('/arena/'))  projectRoot = currentPath.split('/arena/')[0];
 
   const userId = localPlayer?.id || '';
   const url = `${projectRoot}/battle/battle.html?roomId=${data.roomId}&battleType=arena_pvp&userId=${userId}`;
@@ -124,7 +129,7 @@ function setupSocketListeners() {
   socket.off('arena_request_cancelled', onRequestCancelled);
   socket.off('arena_error', onArenaError);
   socket.off('arena_redirect_to_battle', onRedirectToBattle);
-  socket.off('arena_lobby_updated_self', onLobbyUpdatedSelf);   // ← ДОБАВЛЕНО
+  socket.off('arena_lobby_updated_self', onLobbyUpdatedSelf);
 
   socket.on('arena_lobby_updated', onLobbyUpdated);
   socket.on('arena_lobby_data', onLobbyData);
@@ -132,7 +137,7 @@ function setupSocketListeners() {
   socket.on('arena_request_cancelled', onRequestCancelled);
   socket.on('arena_error', onArenaError);
   socket.on('arena_redirect_to_battle', onRedirectToBattle);
-  socket.on('arena_lobby_updated_self', onLobbyUpdatedSelf);    // ← ДОБАВЛЕНО
+  socket.on('arena_lobby_updated_self', onLobbyUpdatedSelf);
 }
 
 // ============================================================================
@@ -153,11 +158,13 @@ function setupClickListeners() {
   document.getElementById('back-btn')?.addEventListener('click', (e) => {
     e.preventDefault();
 
-    // 🔥 БЛОКИРОВКА: заявка есть в памяти ИЛИ создана локально
+    // 🔥 БЛОКИРОВКА: пока заявка активна — нельзя выйти
     if (myActiveRequest || window.__myRequestJustCreated) {
       showToast('❌ Нельзя выйти с Арены! Сначала отмените заявку.', 'warning');
       return;
     }
+
+    try { localStorage.removeItem('arena_active'); } catch(e) {}
 
     cleanup();
     if (window.parent && window.parent !== window) {
@@ -189,8 +196,8 @@ function setupModeModal() {
       console.log('🎲 [ARENA] Создаём заявку:', mode);
       if (!socket) return;
 
-      // 🔥 Ставим флаг СРАЗУ — блокируем выход до подтверждения сервера
       window.__myRequestJustCreated = true;
+      try { localStorage.setItem('arena_active', 'true'); } catch(e) {}
 
       socket.emit('arena_create_request', { mode });
       modal.classList.remove('active');
@@ -223,7 +230,6 @@ function renderLobby(lobbyData) {
 
   const myId = Number(localPlayer.id);
 
-  // Находим свою заявку
   myActiveRequest = lobbyData.find(room =>
     room.members.some(m => Number(m.id) === myId)
   ) || null;
@@ -231,8 +237,10 @@ function renderLobby(lobbyData) {
   const sPanel = document.getElementById('my-search-panel');
   const cPanel = document.getElementById('my-create-panel');
 
-  // --- Режим: у меня есть активная заявка ---
   if (myActiveRequest) {
+    // 🔥 Игрок в заявке — ставим флаг для F5
+    try { localStorage.setItem('arena_active', 'true'); } catch(e) {}
+
     if (cPanel) cPanel.style.display = 'none';
     if (sPanel) sPanel.style.display = 'block';
 
@@ -249,6 +257,11 @@ function renderLobby(lobbyData) {
 
     startMyTimer(myActiveRequest.expiresAt);
   } else {
+    // 🔥 Заявки нет — снимаем флаг (если не «только что создана»)
+    if (!window.__myRequestJustCreated) {
+      try { localStorage.removeItem('arena_active'); } catch(e) {}
+    }
+
     if (myTimerInterval) clearInterval(myTimerInterval);
     if (sPanel) sPanel.style.display = 'none';
     if (cPanel) cPanel.style.display = 'block';
@@ -391,13 +404,14 @@ function cleanup() {
     socket.off('arena_request_cancelled', onRequestCancelled);
     socket.off('arena_error', onArenaError);
     socket.off('arena_redirect_to_battle', onRedirectToBattle);
-    socket.off('arena_lobby_updated_self', onLobbyUpdatedSelf);   // ← ДОБАВЛЕНО
+    socket.off('arena_lobby_updated_self', onLobbyUpdatedSelf);
   }
 }
 
-window.addEventListener('beforeunload', cleanup);
-// 🔥 Экспортируем myActiveRequest для родителя (game.js)
+// 🔥 Экспорт для родителя (game.js)
 Object.defineProperty(window, 'myActiveRequest', {
   get: () => myActiveRequest
-}); 
+});
+
+window.addEventListener('beforeunload', cleanup);
 window.addEventListener('DOMContentLoaded', initArenaPage);
