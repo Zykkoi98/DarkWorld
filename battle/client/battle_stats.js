@@ -42,18 +42,31 @@ window.BStats = {
   },
 
   _renderStats(body, response) {
-    if (response && response.success && Array.isArray(response.stats)) {
-      body.innerHTML = '';
-      response.stats.forEach(s => {
-        const row = document.createElement('div');
-        row.className = 'profile-row';
-        row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
-        body.appendChild(row);
-      });
-    } else {
+    if (!response || !response.success || !Array.isArray(response.stats)) {
       body.innerHTML = `<div style="color:#e74c3c; padding:10px;">❌ ${response?.error || 'Ошибка'}</div>`;
+      return;
     }
+
+    body.innerHTML = '';
+
+    response.stats.forEach((s) => {
+      // Визуальный разделитель перед блоком "Атака" и перед "Мф."
+      const isBeforeAtk = s.label.startsWith('⚔️ Атака');
+      const isBeforeMf  = s.label.startsWith('🏹 Мф.');
+
+      if (isBeforeAtk || isBeforeMf) {
+        const sep = document.createElement('div');
+        sep.style.cssText = 'height:1px; background:rgba(255,255,255,0.1); margin:8px 0 6px 0;';
+        body.appendChild(sep);
+      }
+
+      const row = document.createElement('div');
+      row.className = 'profile-row';
+      row.innerHTML = `<span>${s.label}</span><span style="color:#fff; font-weight:bold;">${s.value}</span>`;
+      body.appendChild(row);
+    });
   },
+
 
   closeAll() {
     const p = document.getElementById('player-stats-popover');
