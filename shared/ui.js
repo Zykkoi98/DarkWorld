@@ -248,9 +248,12 @@
     const statsBody = modal.querySelector('.modal-body-stats');
     if (!statsBody) return;
 
-    // Сброс буфера
-    _state.tempStatDistribution = { strength: 0, agility: 0, endurance: 0, luck: 0 };
-    _state.tempStatPoints = window.player.statPoints || 0;
+    // 🔥 Сброс буфера ТОЛЬКО при первом открытии, а не при перерисовке
+    const wasOpen = modal.classList.contains('active');
+    if (!wasOpen) {
+      _state.tempStatDistribution = { strength: 0, agility: 0, endurance: 0, luck: 0 };
+      _state.tempStatPoints = window.player.statPoints || 0;
+    }
 
     modal.classList.add('active');
     modal.style.display = 'flex';
