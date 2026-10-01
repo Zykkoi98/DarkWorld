@@ -14,7 +14,9 @@ window.BSocket = {
     }
 
     BState.socket = io('https://darkworld-server.onrender.com', {
-        transports: ['websocket', 'polling'],
+        transports: ['websocket'],
+        forceNew: true,
+        upgrade: false,
         auth: { userId: userId || null }
     });
 
