@@ -231,6 +231,13 @@ function startGame() {
     if (!event.data) return;
 
     if (event.data.type === 'CLOSE_ARENA_OVERLAY') {
+      // 🔥 Проверка: если игрок в заявке — не закрываем
+      const arenaFrame = document.getElementById('arena-iframe-frame');
+      if (arenaFrame && arenaFrame.contentWindow && arenaFrame.contentWindow.myActiveRequest) {
+        console.warn('🚫 [ARENA] Игрок в заявке — не закрываем iframe');
+        return;
+      }
+
       const wrapper = document.getElementById('arena-iframe-wrapper');
       const frame = document.getElementById('arena-iframe-frame');
       if (wrapper) wrapper.style.display = 'none';

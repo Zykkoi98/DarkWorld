@@ -136,6 +136,13 @@ function setupClickListeners() {
 
   document.getElementById('back-btn')?.addEventListener('click', (e) => {
     e.preventDefault();
+
+    // 🔥 БЛОКИРОВКА: пока заявка активна — нельзя выйти
+    if (myActiveRequest) {
+      showToast('❌ Нельзя выйти с Арены! Сначала отмените заявку.', 'warning');
+      return;
+    }
+
     cleanup();
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ type: 'CLOSE_ARENA_OVERLAY' }, '*');
@@ -368,4 +375,8 @@ function cleanup() {
 }
 
 window.addEventListener('beforeunload', cleanup);
+// 🔥 Экспортируем myActiveRequest для родителя (game.js)
+Object.defineProperty(window, 'myActiveRequest', {
+  get: () => myActiveRequest
+}); 
 window.addEventListener('DOMContentLoaded', initArenaPage);
