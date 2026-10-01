@@ -273,6 +273,29 @@ function startGame() {
       if (!window.player) window.player = createPlayer();
       if (typeof render === 'function') render();
       console.log(`✅ ИГРА ГОТОВА. Персонаж: ${window.player.name}`);
+
+      // 🔥 ПРОВЕРКА: не в лобби Арены ли игрок? (восстановление после F5)
+      setTimeout(() => {
+        if (!window.socket || !window.socket.connected) {
+          console.warn('⚠️ [GAME] Socket не готов — пропускаем проверку Арены');
+          return;
+        }
+
+        console.log('🔍 [GAME] Проверяем, не в лобби ли Арены игрок...');
+        window.socket.emit('arena_check_my_request', (response) => {
+          if (response && response.restored) {
+            console.log('🏆 [GAME] Игрок в лобби Арены — открываем iframe');
+            const wrapper = document.getElementById('arena-iframe-wrapper');
+            const frame = document.getElementById('arena-iframe-frame');
+            if (wrapper && frame) {
+              frame.src = 'arena/arena.html';
+              wrapper.style.display = 'flex';
+            }
+          } else {
+            console.log('ℹ️ [GAME] Игрок не в лобби Арены');
+          }
+        });
+      }, 800);
     });
   }
 }
