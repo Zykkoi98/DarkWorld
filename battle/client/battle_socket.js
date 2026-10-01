@@ -1,6 +1,6 @@
 // ============================================================================
-// ===== 🔌 SOCKET-СЛОЙ КЛИЕНТА (BATTLE_SOCKET.JS) — v13 =====
-// ===== Все socket.on / socket.emit + модалка наград PvP =====
+// ===== 🔌 SOCKET-СЛОЙ КЛИЕНТА (BATTLE_SOCKET.JS) — v14 =====
+// ===== Универсальная модалка наград для ВСЕХ режимов =====
 // ============================================================================
 
 window.BSocket = {
@@ -20,7 +20,6 @@ window.BSocket = {
       auth: { userId: userId || null }
     });
 
-    // 🔥 Делаем сокет видимым для shared/ui.js
     window.socket = BState.socket;
     window.battleSocket = BState.socket;
 
@@ -299,7 +298,7 @@ window.BSocket = {
       }
     });
 
-    // --- 🔥 ФИНАЛЬНЫЕ НАГРАДЫ PvP ---
+    // --- 🔥 ФИНАЛЬНЫЕ НАГРАДЫ (все режимы) ---
     BState.socket.on('battle_final_rewards', (data) => {
       console.log('🏆 [BATTLE REWARDS]', data);
       BState.finalRewards = data;
@@ -355,7 +354,7 @@ window.BSocket = {
   },
 
   // ==========================================================================
-  // ФИНАЛ БОЯ
+  // ФИНАЛ БОЯ (универсально для ВСЕХ режимов)
   // ==========================================================================
   handleBattleOver(data) {
     // Очищаем сохранённый roomId — бой завершён
@@ -371,101 +370,48 @@ window.BSocket = {
 
     if (!strikeBtn) return;
 
-    // Для зрителя — только закрытие
+    // Для зрителя — только закрытие (модалка покажет кнопку «ЗАКРЫТЬ»)
     if (BState.isSpectator) {
       strikeBtn.style.display = 'none';
+      // Если награды уже пришли — показываем для зрителя (но там нет наград)
+      // Зритель модалку не открывает — просто закрывает
       return;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 🔥 PVP АРЕНА — ждём награды с сервера, потом покажем модалку
+    // 🔥 УНИВЕРСАЛЬНО: показываем модалку наград для ЛЮБОГО режима
     // ═══════════════════════════════════════════════════════════════════════
-    if (BState.battleType === 'arena_pvp') {
-      // Если награды уже пришли — показываем
-      if (BState.finalRewards && !BState.rewardsShown) {
-        BState.rewardsShown = true;
-        setTimeout(() => {
-          if (window.BUI && typeof BUI.showFinalRewardsModal === 'function') {
-            BUI.showFinalRewardsModal(BState.finalRewards);
-          }
-        }, 500);
-      }
-
-      // Скрываем кнопки боя
-      strikeBtn.disabled = true;
-      strikeBtn.textContent = 'Расчёт наград...';
-      strikeBtn.style.background = '#2c3e50';
-      strikeBtn.style.boxShadow = 'none';
-
-      // 🔥 Таймаут: если награды не пришли за 3 сек — fallback
+    if (BState.finalRewards && !BState.rewardsShown) {
+      BState.rewardsShown = true;
       setTimeout(() => {
-        if (!BState.rewardsShown) {
-          BState.rewardsShown = true;
-          console.warn('⚠️ Награды не пришли — показываем fallback');
-          if (window.BUI && typeof BUI.showFinalRewardsModal === 'function') {
-            BUI.showFinalRewardsModal({
-              isWinner: data.resultType === 'win',
-              goldGained: 0,
-              xpGained: 0,
-              breakdown: []
-            });
-          }
+        if (window.BUI && typeof BUI.showFinalRewardsModal === 'function') {
+          BUI.showFinalRewardsModal(BState.finalRewards);
         }
-      }, 3000);
-
-      return;
+      }, 500);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🔥 БАШНЯ
-    // ═══════════════════════════════════════════════════════════════════════
-    if (BState.battleType === 'tower') {
-      if (data.resultType === 'win') {
-        strikeBtn.textContent = '⚔️ СЛЕДУЮЩИЙ ЭТАЖ';
-        strikeBtn.disabled = false;
-        strikeBtn.style.background = '#6c5ce7';
-        strikeBtn.style.boxShadow = '0 4px 12px rgba(108, 92, 231, 0.4)';
+    // Скрываем кнопку и показываем «Расчёт наград...»
+    strikeBtn.disabled = true;
+    strikeBtn.textContent = 'Расчёт наград...';
+    strikeBtn.style.background = '#2c3e50';
+    strikeBtn.style.boxShadow = 'none';
 
-        strikeBtn.onclick = () => {
-          const localSave = localStorage.getItem('rpg_save');
-          if (localSave) {
-            try {
-              const saveObj = JSON.parse(localSave);
-              if (saveObj?.player?.equipped) {
-                saveObj.player.equipped.potion = null;
-                localStorage.setItem('rpg_save', JSON.stringify(saveObj));
-              }
-            } catch(e) {}
-          }
-          if (BState.socket) BState.socket.disconnect();
-          window.location.replace('../tower/tower.html');
-        };
-        return;
+    // Fallback: если через 3 сек награды не пришли — показываем заглушку
+    setTimeout(() => {
+      if (!BState.rewardsShown) {
+        BState.rewardsShown = true;
+        console.warn('⚠️ Награды не пришли за 3 сек — показываем fallback');
+        if (window.BUI && typeof BUI.showFinalRewardsModal === 'function') {
+          BUI.showFinalRewardsModal({
+            battleType: BState.battleType,
+            isWinner: data.resultType === 'win',
+            goldGained: 0,
+            xpGained: 0,
+            items: [],
+            resources: []
+          });
+        }
       }
-
-      strikeBtn.textContent = '🏰 ВЕРНУТЬСЯ В БАШНЮ';
-      strikeBtn.disabled = false;
-      strikeBtn.style.background = '#e74c3c';
-      strikeBtn.style.boxShadow = '0 4px 12px rgba(231, 76, 60, 0.3)';
-
-      strikeBtn.onclick = () => {
-        if (BState.socket) BState.socket.disconnect();
-        window.location.replace('../tower/tower.html');
-      };
-      return;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🔥 ОСТАЛЬНЫЕ РЕЖИМЫ — стандартный финал (город)
-    // ═══════════════════════════════════════════════════════════════════════
-    strikeBtn.textContent = 'ВЕРНУТЬСЯ В ГОРОД';
-    strikeBtn.disabled = false;
-    strikeBtn.style.background = '#2ecc71';
-    strikeBtn.style.boxShadow = '0 4px 12px rgba(46, 204, 113, 0.3)';
-
-    strikeBtn.onclick = () => {
-      if (BState.socket) BState.socket.disconnect();
-      window.location.replace('../index.html');
-    };
+    }, 3000);
   }
 };
