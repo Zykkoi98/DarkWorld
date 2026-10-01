@@ -277,7 +277,143 @@ window.BUI = {
       }
     };
   },
+    // ==========================================================================
+  // 🔥 МОДАЛКА ФИНАЛЬНЫХ НАГРАД (PvP)
+  // ==========================================================================
+  showFinalRewardsModal(rewards) {
+    if (!rewards) return;
 
+    console.log('🏆 [BUI] Показ модалки наград:', rewards);
+
+    const isWinner = rewards.isWinner;
+    const headerColor = isWinner ? '#2ecc71' : '#e74c3c';
+    const headerBg = isWinner ? 'rgba(46,204,113,0.12)' : 'rgba(231,76,60,0.12)';
+    const headerText = isWinner ? '🏆 ПОБЕДА!' : '💀 ПОРАЖЕНИЕ';
+    const headerBorder = isWinner ? '2px solid #2ecc71' : '2px solid #e74c3c';
+
+    // Формируем breakdown
+    let breakdownHtml = '';
+    if (rewards.breakdown && rewards.breakdown.length > 0) {
+      breakdownHtml = '<div style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);">';
+      breakdownHtml += '<div style="font-size:11px;color:#9aa0b5;letter-spacing:0.5px;margin-bottom:8px;text-transform:uppercase;">Разбор по врагам</div>';
+
+      rewards.breakdown.forEach(b => {
+        breakdownHtml += `
+          <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;margin-bottom:8px;font-size:12px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+              <strong style="color:#fff;">⚔️ ${b.enemyName} (Lv ${b.enemyLevel})</strong>
+              <span style="color:#a29bfe;font-weight:bold;">${b.contribution * 100}%</span>
+            </div>
+            <div style="color:#9aa0b5;line-height:1.5;">
+              Урон: <strong style="color:#fff;">${b.myDamage}</strong> / ${b.enemyMaxHp} HP<br>
+              База: ${b.baseXp} XP × CP множ. ${b.cpMultiplier}<br>
+              <span style="color:#f1c40f;">→ ${b.xpEarned} XP</span>
+            </div>
+          </div>
+        `;
+      });
+
+      breakdownHtml += '</div>';
+    }
+
+    // Награды
+    let rewardsHtml = '';
+    if (rewards.goldGained > 0 || rewards.xpGained > 0) {
+      rewardsHtml = '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">';
+      if (rewards.goldGained > 0) {
+        rewardsHtml += `<div style="display:flex;justify-content:space-between;font-size:14px;">
+          <span>💰 Золото</span>
+          <strong style="color:#f1c40f;">+${rewards.goldGained}</strong>
+        </div>`;
+      }
+      if (rewards.xpGained > 0) {
+        rewardsHtml += `<div style="display:flex;justify-content:space-between;font-size:14px;">
+          <span>✨ Опыт</span>
+          <strong style="color:#a29bfe;">+${rewards.xpGained}</strong>
+        </div>`;
+      }
+      rewardsHtml += '</div>';
+    } else {
+      rewardsHtml = '<div style="text-align:center;color:#9aa0b5;font-size:13px;margin-top:14px;">Без наград</div>';
+    }
+
+    // Level-up
+    let levelUpHtml = '';
+    if (rewards.levelUp) {
+      levelUpHtml = `
+        <div style="margin-top:14px;padding:10px;background:rgba(241,196,15,0.1);border:1px solid rgba(241,196,15,0.3);border-radius:8px;text-align:center;">
+          <div style="color:#f1c40f;font-weight:bold;font-size:13px;">🎉 УРОВЕНЬ ПОВЫШЕН!</div>
+          <div style="color:#fff;font-size:16px;font-weight:bold;margin-top:4px;">Lv ${rewards.newLevel}</div>
+        </div>
+      `;
+    }
+
+    // HTML модалки
+    const modal = document.createElement('div');
+    modal.id = 'final-rewards-modal';
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+      z-index: 10000; display: flex; align-items: center; justify-content: center;
+      padding: 16px; opacity: 0; transition: opacity 0.25s ease;
+    `;
+
+    modal.innerHTML = `
+      <div style="background: #13141f; border-radius: 20px; padding: 20px; width: 100%; max-width: 400px; border-top: 3px solid ${headerColor}; max-height: 90vh; overflow-y: auto;">
+        
+        <!-- Заголовок -->
+        <div style="text-align:center;padding:14px;background:${headerBg};border-radius:14px;margin-bottom:16px;border:${headerBorder};">
+          <div style="font-size:22px;font-weight:bold;color:${headerColor};letter-spacing:1px;">${headerText}</div>
+        </div>
+
+        <!-- Основные награды -->
+        ${rewardsHtml}
+
+        <!-- Level Up -->
+        ${levelUpHtml}
+
+        <!-- Breakdown -->
+        ${breakdownHtml}
+
+        <!-- Кнопка -->
+        <button id="final-rewards-btn" style="
+          margin-top:20px;width:100%;padding:14px;border:none;border-radius:12px;
+          background:linear-gradient(135deg, #6c5ce7, #a29bfe);color:#fff;
+          font-weight:bold;font-size:15px;cursor:pointer;
+          box-shadow:0 4px 12px rgba(108,92,231,0.4);
+        ">🏆 ВЕРНУТЬСЯ НА АРЕНУ</button>
+
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Анимация появления
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        modal.style.opacity = '1';
+      });
+    });
+
+    // Кнопка «Вернуться на Арену»
+    document.getElementById('final-rewards-btn').onclick = () => {
+      try { localStorage.setItem('arena_active', 'true'); } catch(e) {}
+      if (BState.socket) BState.socket.disconnect();
+      window.location.replace('../index.html');
+    };
+
+    // Для зрителя — просто закрыть
+    if (BState.isSpectator) {
+      const btn = document.getElementById('final-rewards-btn');
+      if (btn) {
+        btn.textContent = '❌ ЗАКРЫТЬ';
+        btn.onclick = () => {
+          modal.remove();
+          window.history.back();
+        };
+      }
+    }
+  },
   // ==========================================================================
   // БАНКА
   // ==========================================================================

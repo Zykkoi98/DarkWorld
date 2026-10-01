@@ -9,6 +9,9 @@ window.BState = {
   myUuid: null,
   battleType: null,
   isSpectator: false,
+  // 🔥 Финальные награды PvP
+  finalRewards: null,
+  rewardsShown: false,
 
   // Команды
   teamA: [],
@@ -75,5 +78,7 @@ window.BState = {
     this.allLogs = [];
     this.isBattleOver = false;
     this.spectatorCount = 0;
+    this.finalRewards = null;
+    this.rewardsShown = false;
   }
 };
