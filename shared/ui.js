@@ -162,7 +162,43 @@ function getAtk(playerData) {
 
   return baseAtk + gearAtk;
 }
+// 🔥 Диапазон ATK (min-max) для отображения
+function getAtkRange(playerData) {
+  if (!playerData) return '0';
 
+  const str = Number(playerData.stats?.strength || playerData.strength || 1);
+  const baseAtk = Math.floor(2 + ((str + getEquipmentBonus(playerData, 'strength')) * 1.5));
+
+  let minBonus = 0;
+  let maxBonus = 0;
+
+  if (playerData.equipped) {
+    const slots = ['head', 'body', 'legs', 'gloves', 'neck', 'mainHand', 'offHand', 'extra'];
+    const processItem = (itemId) => {
+      if (!itemId) return;
+      const item = getItemData(itemId);
+      if (!item || !item.bonus) return;
+
+      if (item.bonus.atkMin !== undefined && item.bonus.atkMax !== undefined) {
+        minBonus += item.bonus.atkMin;
+        maxBonus += item.bonus.atkMax;
+      } else if (item.bonus.atk !== undefined) {
+        minBonus += item.bonus.atk;
+        maxBonus += item.bonus.atk;
+      }
+    };
+    slots.forEach(slot => processItem(playerData.equipped[slot]));
+    if (Array.isArray(playerData.equipped.rings)) {
+      playerData.equipped.rings.forEach(processItem);
+    }
+  }
+
+  const minAtk = baseAtk + minBonus;
+  const maxAtk = baseAtk + maxBonus;
+
+  if (minAtk === maxAtk) return String(minAtk);
+  return `${minAtk}-${maxAtk}`;
+}
   function getDef(playerData) {
     if (!playerData) return 0;
     const end = Number(playerData.stats?.endurance || playerData.endurance || 1);
@@ -327,7 +363,7 @@ function getAtk(playerData) {
       { label: '💰 Золото', value: (p.gold || 0) + ' монет' },
       { label: '❤️ Здоровье', value: (p.hp || 0) + ' / ' + getMaxHp(p) },
       { label: '✨ Опыт', value: currentXp + '/' + nextXp },
-      { label: '⚔️ Атака', value: getAtk(p) + '' },
+      { label: '⚔️ Атака', value: getAtkRange(p) },         // 🔥 ДИАПАЗОН
       { label: '🛡️ Защита', value: getDef(p) + ' ед.' }
     ];
 
@@ -1002,6 +1038,7 @@ function submitStatDistribution() {
     getEquipmentBonus,
     getMaxHp,
     getAtk,
+    getAtkRange,           // 🔥 НОВОЕ
     getDef,
 
     // Инициализация
