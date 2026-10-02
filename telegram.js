@@ -224,7 +224,7 @@ function setupSecureDataListeners(callback) {
 
     if (typeof callback === 'function') callback(null);
   });
-
+  window.socket.off('town_hp_regen_update');
   // 🔥 РЕГЕНЕРАЦИЯ HP
   window.socket.on('town_hp_regen_update', (data) => {
     if (!window.player) return;
