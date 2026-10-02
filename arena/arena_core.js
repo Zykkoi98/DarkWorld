@@ -33,14 +33,31 @@ function initArenaPage() {
   }
 
   const bindToParentSocket = () => {
-    if (parentWindow && parentWindow !== window && parentWindow.socket && parentWindow.socket.connected) {
-      socket = parentWindow.socket;
+    const parentSocket = parentWindow?.socket;
+
+    // 🔥 Проверка: сокет должен быть живым (connected + есть id + не disconnected)
+    const isAlive = parentSocket
+      && parentSocket.connected === true
+      && parentSocket.id
+      && parentSocket.io?._readyState === 'open';
+
+    if (isAlive) {
+      socket = parentSocket;
       console.log('✅ [ARENA] Привязан к сокету города');
       setupSocketListeners();
       refreshLobby();
       socket.emit('arena_check_my_request');
       return true;
     }
+
+    if (parentSocket) {
+      console.warn('⚠️ [ARENA] Сокет родителя не готов:', {
+        connected: parentSocket.connected,
+        id: parentSocket.id,
+        state: parentSocket.io?._readyState
+      });
+    }
+
     return false;
   };
 
@@ -55,7 +72,27 @@ function initArenaPage() {
   setupModeModal();
 
   globalLobbyInterval = setInterval(refreshLobby, 5000);
+  // 🔥 ПЕРИОДИЧЕСКАЯ ПРОВЕРКА СОКЕТА
+  // Каждые 5 сек проверяем что сокет жив. Если отвалился — переподключаемся к родителю.
+  setInterval(() => {
+    const isAlive = socket
+      && socket.connected
+      && socket.io?._readyState === 'open';
+
+    if (!isAlive) {
+      console.warn('⚠️ [ARENA] Сокет отвалился — пробуем переподключиться');
+
+      const parentSocket = window.parent?.socket;
+      if (parentSocket && parentSocket.connected) {
+        socket = parentSocket;
+        setupSocketListeners();
+        refreshLobby();
+        console.log('✅ [ARENA] Переподключились к родительскому сокету');
+      }
+    }
+  }, 5000);
 }
+
 
 // ============================================================================
 // СОКЕТ-СЛУШАТЕЛИ
@@ -221,7 +258,24 @@ function setupModeModal() {
       if (!mode) return;
 
       console.log('🎲 [ARENA] Создаём заявку:', mode);
-      if (!socket) return;
+
+      // 🔥 ПРОВЕРКА СОКЕТА
+      if (!socket || !socket.connected || socket.io?._readyState !== 'open') {
+        console.warn('⚠️ [ARENA] Сокет не готов — переподключаемся');
+
+        // Пытаемся взять свежий сокет у родителя
+        const parentSocket = window.parent?.socket;
+        if (parentSocket && parentSocket.connected) {
+          socket = parentSocket;
+          setupSocketListeners();
+        }
+
+        // Если всё ещё мёртв — ошибка
+        if (!socket || !socket.connected) {
+          showToast('❌ Соединение потеряно. Обновите страницу (F5).', 'error');
+          return;
+        }
+      }
 
       window.__myRequestJustCreated = true;
       try { localStorage.setItem('arena_active', 'true'); } catch(e) {}
