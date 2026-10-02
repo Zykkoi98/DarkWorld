@@ -193,13 +193,17 @@
        ============================================================ */
       .tactical-center-controls {
         flex: 1 1 auto;
-        min-width: 100px;        /* 🔥 минимум вместо 0 */
-        display: flex; flex-direction: column; gap: 4px;
+        min-width: 140px;            /* 🔥 МИНИМУМ 140px — не даёт сжаться */
+        max-width: 260px;            /* 🔥 МАКСИМУМ 260px — не даёт раздуться */
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
         background: rgba(0, 0, 0, 0.4);
-        padding: 4px; border-radius: 10px;
+        padding: 4px;
+        border-radius: 10px;
         border: 1px solid rgba(255, 255, 255, 0.05);
         justify-content: space-between;
-        /* overflow: hidden;   ← убрать */
+        /* overflow: hidden — убрать */
       }
 
     .columns-wrapper { display: flex; gap: 3px; width: 100%; min-width: 0; }
