@@ -16,14 +16,24 @@ window.loadGame = function(callback) {
   if (window.socket) {
     console.log("⚠️ [СОКЕТ] Уже существует, переиспользуем");
     
-    // Если сокет отключён — закрываем и создаём новый
     if (!window.socket.connected) {
       console.log("🔄 [СОКЕТ] Отключён, пересоздаём...");
       try { window.socket.disconnect(); } catch(e) {}
       window.socket = null;
     } else {
-      // Сокет жив — используем его
-      if (typeof callback === 'function') callback(null);
+      // 🔥 ФИКС: даже если сокет жив — переустанавливаем слушатели!
+      console.log("♻️ [СОКЕТ] Переустанавливаем слушатели");
+      setupSecureDataListeners(callback);
+
+      // 🔥 Запрашиваем свежий профиль
+      let userId = 777777;
+      let username = "Браузерный_Тестер";
+      if (TG && tgUser) {
+        userId = Number(tgUser.id);
+        username = tgUser.first_name || "Рыцарь";
+      }
+
+      window.socket.emit('load_game_secure', { userId, username });
       return;
     }
   }
