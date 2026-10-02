@@ -39,7 +39,13 @@
       --border: rgba(255, 255, 255, 0.08);
     }
 
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      margin: 0;
+      padding: 0;
+    }
 
     html, body {
       width: 100%;
@@ -50,21 +56,32 @@
     body {
       padding: 6px;
       font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg); color: var(--text);
-      display: flex; flex-direction: column;
-      height: 100vh; overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
       align-items: center;
     }
 
     #battle-screen {
-      max-width: 480px; width: 100%;
-      display: flex; flex-direction: column; height: 100%; gap: 6px;
+      max-width: 480px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      gap: 6px;
       overflow-x: hidden;
     }
 
     .battle-header {
-      text-align: center; font-size: 14px; font-weight: bold; color: #f1c40f;
-      padding: 3px 0; border-bottom: 1px solid var(--border);
+      text-align: center;
+      font-size: 14px;
+      font-weight: bold;
+      color: #f1c40f;
+      padding: 3px 0;
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
 
@@ -72,10 +89,10 @@
        ДУЭЛЬ-ЗОНА — три блока: слева, центр, справа
        ============================================================ */
     .duel-zone {
-      display: flex !important;
-      flex-direction: row !important;
-      justify-content: space-between !important;
-      align-items: flex-start !important;
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: flex-start;
       gap: 4px;
       background: rgba(0, 0, 0, 0.3);
       border-radius: 12px;
@@ -86,55 +103,75 @@
     }
 
     .fighter-side-wrapper {
-      display: flex; flex-direction: column;
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      width: 90px;                 /* 🔥 было 110px — уменьшили */
+      width: 90px;
       flex-shrink: 0;
       min-width: 0;
     }
 
     .big-fighter-card {
-      width: 90px;                 /* 🔥 было 110px */
-      height: 125px;               /* 🔥 было 145px */
+      width: 90px;
+      height: 125px;
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 5px 3px;
       text-align: center;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: flex-start;
-      position: relative; overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      position: relative;
+      overflow: hidden;
       background: #13141f;
       box-shadow: 0 3px 10px rgba(0,0,0,0.4);
       flex-shrink: 0;
     }
 
     .card-background-art {
-      position: absolute; top: 0; left: 0;
-      width: 100%; height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       object-fit: cover;
-      z-index: 1; opacity: 0.75;
+      z-index: 1;
+      opacity: 0.75;
       filter: contrast(1.05) saturate(1.1);
       pointer-events: none;
     }
 
     .card-gradient-overlay {
-      position: absolute; top: 0; left: 0;
-      width: 100%; height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background: linear-gradient(to bottom,
         rgba(13, 14, 21, 0.75) 0%,
         rgba(13, 14, 21, 0.0) 35%,
         rgba(13, 14, 21, 0.0) 65%,
         rgba(13, 14, 21, 0.85) 100%);
-      z-index: 2; pointer-events: none;
+      z-index: 2;
+      pointer-events: none;
     }
 
-    .big-lvl, .big-name, .hp-wrapper { position: relative; z-index: 3; }
+    .big-lvl, .big-name, .hp-wrapper {
+      position: relative;
+      z-index: 3;
+    }
 
     .big-lvl {
-      font-size: 10px; color: #f1c40f; font-weight: bold;
-      height: 12px; line-height: 12px;
-      margin-bottom: 3px; text-shadow: 0 1px 4px #000;
-      width: 100%; text-align: center;
+      font-size: 10px;
+      color: #f1c40f;
+      font-weight: bold;
+      height: 12px;
+      line-height: 12px;
+      margin-bottom: 3px;
+      text-shadow: 0 1px 4px #000;
+      width: 100%;
+      text-align: center;
     }
 
     .big-name {
@@ -148,70 +185,119 @@
       overflow: hidden;
       display: -webkit-box;
       -webkit-line-clamp: 2;
-      line-clamp: 2;                   /* 🔥 стандартная версия */
+      line-clamp: 2;
       -webkit-box-orient: vertical;
       align-items: center;
       justify-content: center;
       text-align: center;
       color: #ffffff;
-      margin-top: auto; margin-bottom: 2px;
+      margin-top: auto;
+      margin-bottom: 2px;
       text-shadow: 0 1px 4px #000;
     }
 
-    .hp-wrapper { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .hp-wrapper {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
     .hp-bar {
-      width: 100%; height: 5px;
+      width: 100%;
+      height: 5px;
       background: rgba(255, 255, 255, 0.08);
-      border-radius: 3px; overflow: hidden;
+      border-radius: 3px;
+      overflow: hidden;
       border: 1px solid rgba(0,0,0,0.2);
     }
-    .hp-fill { height: 100%; background: linear-gradient(90deg, #2ecc71, #26de81); width: 100%; transition: width 0.3s ease; }
-    .enemy-hp .hp-fill { background: linear-gradient(90deg, #ff4757, #ff6b6b); }
+
+    .hp-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2ecc71, #26de81);
+      width: 100%;
+      transition: width 0.3s ease;
+    }
+
+    .enemy-hp .hp-fill {
+      background: linear-gradient(90deg, #ff4757, #ff6b6b);
+    }
 
     .hp-text {
-      font-size: 11px;             /* 🔥 было 13px */
+      font-size: 11px;
       color: #ffffff;
       font-family: monospace;
       font-weight: bold;
       text-shadow: 0 1px 4px rgba(0,0,0,0.9);
     }
 
-    .quick-slots-row { display: flex; gap: 4px; width: 100%; margin-top: 4px; }
+    .quick-slots-row {
+      display: flex;
+      gap: 4px;
+      width: 100%;
+      margin-top: 4px;
+    }
+
     .quick-action-btn {
-      flex: 1; height: 30px;       /* 🔥 было 32pаx */
+      flex: 1;
+      height: 30px;
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid var(--border);
-      border-radius: 6px; color: #ffffff;
-      font-size: 13px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
+      border-radius: 6px;
+      color: #ffffff;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       transition: all 0.15s ease;
     }
-    .quick-action-btn:disabled { opacity: 0.15; cursor: not-allowed; box-shadow: none; }
+
+    .quick-action-btn:disabled {
+      opacity: 0.15;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
 
     /* ============================================================
-       ЦЕНТРАЛЬНЫЙ ПУЛЬТ
+       ЦЕНТРАЛЬНЫЙ ПУЛЬТ — УДАР, БЛОК, АТАКОВАТЬ
        ============================================================ */
-      .tactical-center-controls {
-        flex: 1 1 auto;
-        min-width: 140px;            /* 🔥 МИНИМУМ 140px — не даёт сжаться */
-        max-width: 260px;            /* 🔥 МАКСИМУМ 260px — не даёт раздуться */
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        background: rgba(0, 0, 0, 0.4);
-        padding: 4px;
-        border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        justify-content: space-between;
-        /* overflow: hidden — убрать */
-      }
+    .tactical-center-controls {
+      flex: 1 1 auto;
+      min-width: 140px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      justify-content: space-between;
+    }
 
-    .columns-wrapper { display: flex; gap: 3px; width: 100%; min-width: 0; }
-    .zone-column-box { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .columns-wrapper {
+      display: flex;
+      gap: 3px;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .zone-column-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
     .mini-title {
-      font-size: 8px; font-weight: bold;
-      text-align: center; margin-bottom: 1px;
-      letter-spacing: 0.5px; text-transform: uppercase;
+      font-size: 8px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 1px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
 
     .compact-zone-btn {
@@ -219,29 +305,37 @@
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.08);
       color: #b2bec3;
-      padding: 5px 0;              /* 🔥 было 7px */
-      font-size: 9px;              /* 🔥 было 10px */
+      padding: 5px 0;
+      font-size: 9px;
       font-weight: 600;
       border-radius: 5px;
-      cursor: pointer; text-align: center;
+      cursor: pointer;
+      text-align: center;
       transition: all 0.15s ease;
       text-transform: uppercase;
     }
+
     .compact-zone-btn.attack-selected {
       background: linear-gradient(135deg, #ff9f43, #ee5253) !important;
-      border-color: #ff6b6b; color: #fff !important; box-shadow: 0 0 8px rgba(238, 82, 83, 0.4);
+      border-color: #ff6b6b;
+      color: #fff !important;
+      box-shadow: 0 0 8px rgba(238, 82, 83, 0.4);
     }
+
     .compact-zone-btn.defend-selected {
       background: linear-gradient(135deg, #0abde3, #10ac84) !important;
-      border-color: #00d2d3; color: #fff !important; box-shadow: 0 0 8px rgba(10, 189, 227, 0.4);
+      border-color: #00d2d3;
+      color: #fff !important;
+      box-shadow: 0 0 8px rgba(10, 189, 227, 0.4);
     }
 
     #strike-action-btn {
       width: 100%;
       background: linear-gradient(135deg, #70a1ff, #1e90ff);
-      color: white; border: none;
-      padding: 7px;                /* 🔥 было 9px */
-      font-size: 11px;             /* 🔥 было 12px */
+      color: white;
+      border: none;
+      padding: 7px;
+      font-size: 11px;
       font-weight: bold;
       border-radius: 6px;
       cursor: pointer;
@@ -249,10 +343,12 @@
       letter-spacing: 0.5px;
       box-shadow: 0 4px 12px rgba(30, 144, 255, 0.2);
     }
+
     #strike-action-btn:disabled {
       background: #2c3e50 !important;
       color: #7f8c8d !important;
-      opacity: 0.4; cursor: not-allowed;
+      opacity: 0.4;
+      cursor: not-allowed;
       box-shadow: none;
     }
 
@@ -260,8 +356,8 @@
       width: 100%;
       background: #e67e22;
       color: #fff;
-      padding: 5px 6px;            /* 🔥 было 6px 8px */
-      font-size: 10px;             /* 🔥 было 11px */
+      padding: 5px 6px;
+      font-size: 10px;
       font-weight: bold;
       border-radius: 6px;
       border: none;
@@ -269,35 +365,60 @@
       box-shadow: 0 3px 8px rgba(230, 126, 34, 0.25);
       margin-top: 2px;
     }
-    #random-strike-btn:disabled { opacity: 0.4; pointer-events: none; }
+
+    #random-strike-btn:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
 
     /* ============================================================
        МАССОВКА
        ============================================================ */
     .reserve-zone {
-      display: flex; justify-content: space-between; gap: 6px;
-      width: 100%; margin-top: 2px;
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      width: 100%;
+      margin-top: 2px;
       flex-shrink: 0;
     }
+
     .reserve-column {
-      flex: 1; display: flex; flex-direction: column; gap: 3px;
-      background: rgba(0, 0, 0, 0.2); padding: 4px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 4px;
       border-radius: 8px;
-      max-height: 80px;             /* 🔥 было 90px */
+      max-height: 80px;
       overflow-y: auto;
       border: 1px solid var(--border);
       min-width: 0;
     }
+
     .mini-fighter-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 5px;
       padding: 3px 5px;
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 4px; cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      cursor: pointer;
     }
-    .mini-fighter-card.active-target { border: 1px solid #ff4757; background: rgba(255, 71, 87, 0.08); }
-    .mini-fighter-card.dead { opacity: 0.2; pointer-events: none; }
+
+    .mini-fighter-card.active-target {
+      border: 1px solid #ff4757;
+      background: rgba(255, 71, 87, 0.08);
+    }
+
+    .mini-fighter-card.dead {
+      opacity: 0.2;
+      pointer-events: none;
+    }
+
     .mini-fighter-info {
       font-size: 9px;
       font-weight: bold;
@@ -313,11 +434,16 @@
        ЛОГИ
        ============================================================ */
     .battle-bottom {
-      width: 100%; flex: 1;
-      display: flex; flex-direction: column; gap: 4px;
-      min-height: 80px; margin-top: 2px;
+      width: 100%;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 80px;
+      margin-top: 2px;
       overflow: hidden;
     }
+
     .battle-log {
       flex: 1;
       background: rgba(0, 0, 0, 0.4);
@@ -331,7 +457,16 @@
       overflow-x: hidden;
       word-break: break-word;
     }
-    .log-round-break { color: #f1c40f; margin: 4px 0; border-top: 1px dashed var(--border); padding-top: 4px; font-weight: bold; text-align: center; }
+
+    .log-round-break {
+      color: #f1c40f;
+      margin: 4px 0;
+      border-top: 1px dashed var(--border);
+      padding-top: 4px;
+      font-weight: bold;
+      text-align: center;
+    }
+
     .log-damage { color: #ff6b6b; }
     .log-system { color: #f1c40f; font-weight: bold; }
     .log-miss { color: #84817a; }
@@ -340,22 +475,35 @@
        ЗАГРУЗКА
        ============================================================ */
     #battle-loading-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background: var(--bg);
       z-index: 9999;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
     }
+
     .spinner {
-      width: 32px; height: 32px;
+      width: 32px;
+      height: 32px;
       border: 3px solid rgba(255,255,255,0.1);
       border-left-color: #1e90ff;
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
 
     /* ============================================================
-       🔥 МОБИЛЬНЫЙ АДАПТИВ — для узких экранов
+       МОБИЛЬНЫЙ АДАПТИВ
        ============================================================ */
     @media (max-width: 400px) {
       .fighter-side-wrapper { width: 80px; }
@@ -367,6 +515,7 @@
       #strike-action-btn { padding: 6px; font-size: 10px; }
       #random-strike-btn { padding: 4px 5px; font-size: 9px; }
       .battle-log { font-size: 10px; }
+      .tactical-center-controls { min-width: 120px; }
     }
 
     @media (max-width: 360px) {
@@ -379,6 +528,7 @@
       #strike-action-btn { padding: 5px; font-size: 9px; }
       #random-strike-btn { padding: 3px 4px; font-size: 8px; }
       .mini-fighter-info { font-size: 8px; max-width: 55px; }
+      .tactical-center-controls { min-width: 100px; }
     }
 
     @media (max-height: 700px) {
@@ -403,7 +553,9 @@
   <div id="battle-screen">
     <div id="battle-round-indicator" class="battle-header">Подключение к арене...</div>
 
+    <!-- ДУЭЛЬ-ЗОНА: ЛЕВО / ЦЕНТР / ПРАВО -->
     <div class="duel-zone">
+
       <!-- ЛЕВАЯ СТОРОНА: Герой -->
       <div class="fighter-side-wrapper">
         <div id="main-hero-card" class="big-fighter-card">
@@ -422,7 +574,7 @@
         </div>
       </div>
 
-      <!-- ЦЕНТРАЛЬНЫЙ ПУЛЬТ ->
+      <!-- ЦЕНТРАЛЬНЫЙ ПУЛЬТ: УДАР / БЛОК / АТАКОВАТЬ -->
       <div class="tactical-center-controls">
         <div class="columns-wrapper">
           <div class="zone-column-box">
