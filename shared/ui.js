@@ -134,11 +134,34 @@
     return Math.floor(baseHp + endBonus + gearHp);
   }
 
-  function getAtk(playerData) {
-    if (!playerData) return 0;
-    const str = Number(playerData.stats?.strength || playerData.strength || 1);
-    return Math.floor(2 + ((str + getEquipmentBonus(playerData, 'strength')) * 1.5)) + getEquipmentBonus(playerData, 'atk');
+function getAtk(playerData) {
+  if (!playerData) return 0;
+  const str = Number(playerData.stats?.strength || playerData.strength || 1);
+  const baseAtk = Math.floor(2 + ((str + getEquipmentBonus(playerData, 'strength')) * 1.5));
+
+  // 🔥 Средний ATK от шмота (для отображения)
+  let gearAtk = 0;
+  if (playerData.equipped) {
+    const slots = ['head', 'body', 'legs', 'gloves', 'neck', 'mainHand', 'offHand', 'extra'];
+    const processItem = (itemId) => {
+      if (!itemId) return;
+      const item = getItemData(itemId);
+      if (!item || !item.bonus) return;
+
+      if (item.bonus.atkMin !== undefined && item.bonus.atkMax !== undefined) {
+        gearAtk += Math.floor((item.bonus.atkMin + item.bonus.atkMax) / 2);
+      } else if (item.bonus.atk !== undefined) {
+        gearAtk += item.bonus.atk;
+      }
+    };
+    slots.forEach(slot => processItem(playerData.equipped[slot]));
+    if (Array.isArray(playerData.equipped.rings)) {
+      playerData.equipped.rings.forEach(processItem);
+    }
   }
+
+  return baseAtk + gearAtk;
+}
 
   function getDef(playerData) {
     if (!playerData) return 0;
@@ -772,12 +795,25 @@ function submitStatDistribution() {
       if (itemData.req.luck) text += ((pStats.luck || 1) >= itemData.req.luck ? '✅' : '🔒') + ' Удача: ' + itemData.req.luck + '\n';
     }
 
-    // Бонусы
+ // Бонусы
     if (itemData.bonus) {
       text += '\n⭐ Бонусы:\n';
       const b = itemData.bonus;
-      if (b.atk) text += '⚔️ Атака: +' + b.atk + '\n';
-      if (b.def) text += '🛡️ Защита: +' + b.def + '\n';
+
+      // 🔥 Атака — с диапазоном
+      if (b.atkMin !== undefined && b.atkMax !== undefined) {
+        text += '⚔️ Атака: +' + b.atkMin + '-' + b.atkMax + '\n';
+      } else if (b.atk) {
+        text += '⚔️ Атака: +' + b.atk + '\n';
+      }
+
+      // 🔥 Защита — с диапазоном (на будущее)
+      if (b.defMin !== undefined && b.defMax !== undefined) {
+        text += '🛡️ Защита: +' + b.defMin + '-' + b.defMax + '\n';
+      } else if (b.def) {
+        text += '🛡️ Защита: +' + b.def + '\n';
+      }
+
       if (b.mf_crit) text += '💥 Крит: +' + b.mf_crit + '%\n';
       if (b.mf_inv) text += '🏹 Уворот: +' + b.mf_inv + '%\n';
       if (b.mf_antiinv) text += '🎯 Антиуворот: +' + b.mf_antiinv + '%\n';
