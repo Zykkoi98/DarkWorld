@@ -245,8 +245,15 @@ function acceptChallenge(ownerId, team) {
   if (Number(localPlayer?.hp || 0) <= 0) {
     return showToast('❌ Вы слишком слабы! Излечитесь в городе.', 'error');
   }
-  console.log('🎯 [ARENA] Присоединяемся к:', ownerId, 'команда:', team);
-  socket.emit('arena_join_request', { ownerId: Number(ownerId), team: team });
+
+  // 🔥 Для дуэли 1×1 — автоматически команда B
+  let finalTeam = team;
+  if (!finalTeam) {
+    finalTeam = 'B';   // создатель уже в A, значит присоединившийся — в B
+  }
+
+  console.log('🎯 [ARENA] Присоединяемся к:', ownerId, 'команда:', finalTeam);
+  socket.emit('arena_join_request', { ownerId: Number(ownerId), team: finalTeam });
 }
 
 // ============================================================================
