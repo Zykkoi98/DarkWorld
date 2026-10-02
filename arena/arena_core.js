@@ -1,6 +1,6 @@
 // ============================================================================
-// ===== 🏆 КЛИЕНТ АРЕНЫ (ARENA_CORE.JS) =====
-// ===== Лобби, заявки, редирект в бой + F5-восстановление =====
+// ===== 🏆 КЛИЕНТ АРЕНЫ (ARENA_CORE.JS) — v12 =====
+// ===== Групповые бои: табы, команды A/B, N×N =====
 // ============================================================================
 
 let socket = null;
@@ -8,6 +8,7 @@ let localPlayer = null;
 let myTimerInterval = null;
 let globalLobbyInterval = null;
 let myActiveRequest = null;
+let currentTab = 'duel';   // 'duel' | 'group' | 'chaos'
 
 // ============================================================================
 // ИНИЦИАЛИЗАЦИЯ
@@ -17,7 +18,6 @@ function initArenaPage() {
 
   const parentWindow = window.parent;
 
-  // Загружаем профиль
   if (parentWindow && parentWindow !== window && parentWindow.player) {
     localPlayer = parentWindow.player;
   } else {
@@ -32,7 +32,6 @@ function initArenaPage() {
     return;
   }
 
-  // Привязка к сокету родителя
   const bindToParentSocket = () => {
     if (parentWindow && parentWindow !== window && parentWindow.socket && parentWindow.socket.connected) {
       socket = parentWindow.socket;
@@ -52,9 +51,9 @@ function initArenaPage() {
   }
 
   setupClickListeners();
+  setupTabs();
   setupModeModal();
 
-  // Автообновление каждые 5 сек
   globalLobbyInterval = setInterval(refreshLobby, 5000);
 }
 
@@ -68,7 +67,7 @@ const onLobbyData = (lobbyData) => {
 };
 
 const onRequestJoined = (data) => {
-  console.log('✅ [ARENA] Присоединились к комнате:', data.ownerId);
+  console.log('✅ [ARENA] Присоединились:', data);
   refreshLobby();
 };
 
@@ -141,6 +140,35 @@ function setupSocketListeners() {
 }
 
 // ============================================================================
+// ТАБЫ
+// ============================================================================
+function setupTabs() {
+  document.querySelectorAll('.arena-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.classList.contains('disabled')) return;
+      const t = tab.dataset.tab;
+      if (!t) return;
+
+      currentTab = t;
+
+      document.querySelectorAll('.arena-tab').forEach(x => x.classList.remove('active'));
+      tab.classList.add('active');
+
+      // Обновляем заголовок списка
+      const titles = {
+        duel: 'ОТКРЫТЫЕ ДУЭЛИ:',
+        group: 'ОТКРЫТЫЕ ГРУППОВЫЕ ЗАЯВКИ:',
+        chaos: 'ОТКРЫТЫЕ ЗАЯВКИ ХАОСА:'
+      };
+      const titleEl = document.getElementById('lobby-list-title');
+      if (titleEl) titleEl.textContent = titles[t] || 'ОТКРЫТЫЕ ВЫЗОВЫ:';
+
+      refreshLobby();
+    });
+  });
+}
+
+// ============================================================================
 // КЛИКИ
 // ============================================================================
 function setupClickListeners() {
@@ -158,7 +186,6 @@ function setupClickListeners() {
   document.getElementById('back-btn')?.addEventListener('click', (e) => {
     e.preventDefault();
 
-    // 🔥 БЛОКИРОВКА: пока заявка активна — нельзя выйти
     if (myActiveRequest || window.__myRequestJustCreated) {
       showToast('❌ Нельзя выйти с Арены! Сначала отмените заявку.', 'warning');
       return;
@@ -213,13 +240,23 @@ function refreshLobby() {
   socket.emit('arena_get_lobby');
 }
 
-function acceptChallenge(ownerId) {
+function acceptChallenge(ownerId, team) {
   if (!socket) return;
   if (Number(localPlayer?.hp || 0) <= 0) {
     return showToast('❌ Вы слишком слабы! Излечитесь в городе.', 'error');
   }
-  console.log('🎯 [ARENA] Присоединяемся к:', ownerId);
-  socket.emit('arena_join_request', { ownerId: Number(ownerId) });
+  console.log('🎯 [ARENA] Присоединяемся к:', ownerId, 'команда:', team);
+  socket.emit('arena_join_request', { ownerId: Number(ownerId), team: team });
+}
+
+// ============================================================================
+// ФИЛЬТРАЦИЯ ПО ТАБУ
+// ============================================================================
+function matchesTab(mode, tab) {
+  if (tab === 'duel') return mode === 'duel_1v1';
+  if (tab === 'group') return mode.startsWith('group_');
+  if (tab === 'chaos') return mode.startsWith('chaos_');
+  return true;
 }
 
 // ============================================================================
@@ -238,26 +275,14 @@ function renderLobby(lobbyData) {
   const cPanel = document.getElementById('my-create-panel');
 
   if (myActiveRequest) {
-    // 🔥 Игрок в заявке — ставим флаг для F5
     try { localStorage.setItem('arena_active', 'true'); } catch(e) {}
 
     if (cPanel) cPanel.style.display = 'none';
     if (sPanel) sPanel.style.display = 'block';
 
-    const isOwner = Number(myActiveRequest.ownerId) === myId;
-
-    document.getElementById('my-mode-text').textContent = formatMode(myActiveRequest.mode);
-    document.getElementById('my-progress-text').textContent =
-      `Ожидание: ${myActiveRequest.currentCount} / ${myActiveRequest.maxPlayers}`;
-
-    const cancelBtn = document.getElementById('cancel-request-btn');
-    if (cancelBtn) {
-      cancelBtn.textContent = isOwner ? '✕ ОТМЕНИТЬ ЗАЯВКУ' : '✕ ВЫЙТИ ИЗ КОМНАТЫ';
-    }
-
+    renderMyRequest(myActiveRequest, myId);
     startMyTimer(myActiveRequest.expiresAt);
   } else {
-    // 🔥 Заявки нет — снимаем флаг (если не «только что создана»)
     if (!window.__myRequestJustCreated) {
       try { localStorage.removeItem('arena_active'); } catch(e) {}
     }
@@ -267,9 +292,10 @@ function renderLobby(lobbyData) {
     if (cPanel) cPanel.style.display = 'block';
   }
 
-  // --- Список чужих заявок ---
+  // Список чужих заявок (с фильтром по табу)
   const opponents = lobbyData.filter(room =>
-    !room.members.some(m => Number(m.id) === myId)
+    !room.members.some(m => Number(m.id) === myId) &&
+    matchesTab(room.mode, currentTab)
   );
 
   const counter = document.getElementById('total-requests-counter');
@@ -282,50 +308,178 @@ function renderLobby(lobbyData) {
   if (opponents.length === 0) {
     const placeholder = document.createElement('div');
     placeholder.className = 'empty-msg';
-    placeholder.textContent = '🏰 На Арене тишина... Будь первым, брось вызов!';
+    placeholder.textContent = currentTab === 'duel'
+      ? '⚔️ Нет открытых дуэлей. Создай свою!'
+      : currentTab === 'group'
+        ? '👥 Нет открытых групповых заявок. Создай свою!'
+        : '🌀 Скоро!';
     container.appendChild(placeholder);
     return;
   }
 
   opponents.forEach(room => {
-    const card = document.createElement('div');
-    card.className = 'user-card';
+    const card = renderLobbyCard(room, myId);
+    container.appendChild(card);
+  });
+}
 
-    const timeLeft = Math.max(0, Math.floor((room.expiresAt - Date.now()) / 1000));
-    const mins = Math.floor(timeLeft / 60);
-    const secs = timeLeft % 60;
+// ============================================================================
+// СВОЯ ЗАЯВКА — КОМПАКТНАЯ
+// ============================================================================
+function renderMyRequest(room, myId) {
+  const isOwner = Number(room.ownerId) === myId;
+  const teamSize = room.teamSize;
+  const isDuel = room.mode === 'duel_1v1';
 
-    const isFull = room.currentCount >= room.maxPlayers;
+  document.getElementById('my-mode-text').textContent = formatMode(room.mode);
 
-    card.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 3px;">
-        <div style="font-weight: bold; font-size: 14px; color: #a29bfe;">${formatMode(room.mode)}</div>
-        <div style="font-weight: bold; font-size: 15px; color: #ffffff;">${room.ownerName}
-          <span style="color: #f1c40f; font-size: 12px; font-weight: normal; margin-left: 4px;">Lv. ${room.ownerLevel}</span>
+  const teamColumnsEl = document.getElementById('my-team-columns');
+  const progressSimpleEl = document.getElementById('my-progress-simple');
+
+  if (isDuel) {
+    // Дуэль — простой прогресс
+    if (teamColumnsEl) teamColumnsEl.style.display = 'none';
+    if (progressSimpleEl) {
+      progressSimpleEl.style.display = 'block';
+      progressSimpleEl.textContent = `Ожидание: ${room.currentCount} / ${room.maxPlayers}`;
+    }
+  } else {
+    // N×N — две колонки
+    if (teamColumnsEl) teamColumnsEl.style.display = 'flex';
+    if (progressSimpleEl) progressSimpleEl.style.display = 'none';
+
+    renderTeamColumn('a', room.teamA, teamSize);
+    renderTeamColumn('b', room.teamB, teamSize);
+  }
+
+  const cancelBtn = document.getElementById('cancel-request-btn');
+  if (cancelBtn) {
+    cancelBtn.textContent = isOwner ? '✕ ОТМЕНИТЬ ЗАЯВКУ' : '✕ ВЫЙТИ ИЗ КОМАНДЫ';
+  }
+}
+
+function renderTeamColumn(team, members, teamSize) {
+  const container = document.getElementById(`my-team-${team}-members`);
+  const counter = document.getElementById(`my-team-${team}-count`);
+  if (!container || !counter) return;
+
+  counter.textContent = `${members.length} / ${teamSize}`;
+
+  container.innerHTML = '';
+
+  if (members.length === 0) {
+    container.innerHTML = '<div class="team-col-empty">пусто</div>';
+    return;
+  }
+
+  members.forEach(m => {
+    const el = document.createElement('div');
+    el.className = 'team-col-member';
+    el.textContent = `👤 ${m.name} (Lv ${m.level})`;
+    container.appendChild(el);
+  });
+}
+
+// ============================================================================
+// КАРТОЧКА ЗАЯВКИ В ЛОББИ
+// ============================================================================
+function renderLobbyCard(room, myId) {
+  const card = document.createElement('div');
+  card.className = 'user-card';
+
+  const timeLeft = Math.max(0, Math.floor((room.expiresAt - Date.now()) / 1000));
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  const timeStr = `⏱️ 0${mins}:${secs < 10 ? '0' + secs : secs}`;
+
+  const isDuel = room.mode === 'duel_1v1';
+
+  let headerHtml = `
+    <div>
+      <div class="card-mode">${formatMode(room.mode)}</div>
+      <div class="card-owner">${room.ownerName}
+        <span class="card-owner-level">Lv. ${room.ownerLevel}</span>
+      </div>
+    </div>
+    <div class="card-timer">${timeStr}</div>
+  `;
+
+  let teamsHtml = '';
+  if (!isDuel) {
+    // Две колонки команд
+    teamsHtml = `
+      <div class="team-columns">
+        <div class="team-col team-a">
+          <div class="team-col-title">
+            <span>A</span>
+            <span>${room.teamACount} / ${room.teamSize}</span>
+          </div>
+          ${renderMembersList(room.teamA)}
         </div>
-        <div style="font-size: 11px; color: var(--hint);">
-          👥 ${room.currentCount} / ${room.maxPlayers}
+        <div class="team-col team-b">
+          <div class="team-col-title">
+            <span>B</span>
+            <span>${room.teamBCount} / ${room.teamSize}</span>
+          </div>
+          ${renderMembersList(room.teamB)}
         </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <span style="font-family: monospace; font-size: 14px; color: #ffc048; font-weight: bold;">
-          ⏱️ 0${mins}:${secs < 10 ? '0' + secs : secs}
-        </span>
-        <button class="action-btn btn-accept" data-owner-id="${room.ownerId}" ${isFull ? 'disabled style="opacity:0.4;"' : ''}>
-          ${isFull ? 'ЗАПОЛНЕНО' : 'В БОЙ'}
+    `;
+  } else {
+    // Дуэль — простой счётчик
+    teamsHtml = `<div style="font-size: 11px; color: var(--hint); text-align: center; margin: 6px 0;">👥 ${room.currentCount} / ${room.maxPlayers}</div>`;
+  }
+
+  let actionsHtml = '';
+  if (isDuel) {
+    actionsHtml = `
+      <div class="card-actions">
+        <button class="action-btn btn-accept" data-owner-id="${room.ownerId}" data-team="">
+          ⚔️ В БОЙ
         </button>
       </div>
     `;
+  } else {
+    // Две кнопки команд
+    const aFull = room.teamACount >= room.teamSize;
+    const bFull = room.teamBCount >= room.teamSize;
 
-    const btn = card.querySelector('.btn-accept');
-    if (btn && !isFull) {
-      btn.addEventListener('click', function() {
-        acceptChallenge(this.getAttribute('data-owner-id'));
-      });
-    }
+    actionsHtml = `
+      <div class="card-actions">
+        <button class="action-btn btn-team-a" data-owner-id="${room.ownerId}" data-team="A" ${aFull ? 'disabled style="opacity:0.4;"' : ''}>
+          🔵 В команду A
+        </button>
+        <button class="action-btn btn-team-b" data-owner-id="${room.ownerId}" data-team="B" ${bFull ? 'disabled style="opacity:0.4;"' : ''}>
+          🔴 В команду B
+        </button>
+      </div>
+    `;
+  }
 
-    container.appendChild(card);
+  card.innerHTML = `
+    <div class="card-header">${headerHtml}</div>
+    ${teamsHtml}
+    ${actionsHtml}
+  `;
+
+  card.querySelectorAll('.action-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const ownerId = this.getAttribute('data-owner-id');
+      const team = this.getAttribute('data-team');
+      acceptChallenge(ownerId, team || null);
+    });
   });
+
+  return card;
+}
+
+function renderMembersList(members) {
+  if (!members || members.length === 0) {
+    return '<div class="team-col-empty">пусто</div>';
+  }
+  return members.map(m =>
+    `<div class="team-col-member">👤 ${m.name} (Lv ${m.level})</div>`
+  ).join('');
 }
 
 function formatMode(mode) {
@@ -408,7 +562,6 @@ function cleanup() {
   }
 }
 
-// 🔥 Экспорт для родителя (game.js)
 Object.defineProperty(window, 'myActiveRequest', {
   get: () => myActiveRequest
 });
