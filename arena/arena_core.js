@@ -32,40 +32,67 @@ function initArenaPage() {
     return;
   }
 
-  const bindToParentSocket = () => {
-    const parentSocket = parentWindow?.socket;
+let arenaWaitedForParent = 0;
+const ARENA_MAX_WAIT = 2000;
+const ARENA_WAIT_STEP = 100;
 
-    // 🔥 Проверка: сокет должен быть живым (connected + есть id + не disconnected)
-    const isAlive = parentSocket
-      && parentSocket.connected === true
-      && parentSocket.id
-      && parentSocket.io?._readyState === 'open';
+const bindToParentSocket = () => {
+  const parentSocket = parentWindow?.socket;
 
-    if (isAlive) {
-      socket = parentSocket;
-      console.log('✅ [ARENA] Привязан к сокету города');
+  const isAlive = parentSocket && parentSocket.connected === true && parentSocket.id;
+
+  if (isAlive) {
+    socket = parentSocket;
+    console.log('✅ [ARENA] Привязан к сокету города');
+    setupSocketListeners();
+    refreshLobby();
+    socket.emit('arena_check_my_request');
+    return true;
+  }
+
+  // Родитель есть, но сокет не готов — ждём
+  if (parentWindow && parentWindow !== window && arenaWaitedForParent < ARENA_MAX_WAIT) {
+    return false;
+  }
+
+  // Родителя нет или таймаут — создаём свой сокет
+  if (typeof io !== 'undefined' && !window.__arenaOwnSocket) {
+    console.log(`⚠️ [ARENA] Родитель не готов за ${ARENA_MAX_WAIT}мс — создаём свой сокет`);
+
+    window.__arenaOwnSocket = true;
+    socket = io('https://darkworld-server.onrender.com', {
+      transports: ['websocket'],
+      forceNew: true,
+      upgrade: false,
+      auth: { userId: localPlayer?.id || null }
+    });
+
+    socket.on('connect', () => {
+      console.log(`✅ [ARENA] Свой сокет подключён: ${socket.id}`);
       setupSocketListeners();
       refreshLobby();
       socket.emit('arena_check_my_request');
-      return true;
-    }
+    });
 
-    if (parentSocket) {
-      console.warn('⚠️ [ARENA] Сокет родителя не готов:', {
-        connected: parentSocket.connected,
-        id: parentSocket.id,
-        state: parentSocket.io?._readyState
-      });
-    }
+    socket.on('connect_error', (err) => {
+      console.error('🚨 [ARENA] Ошибка подключения:', err.message);
+    });
 
-    return false;
-  };
-
-  if (!bindToParentSocket()) {
-    const waitForSocket = setInterval(() => {
-      if (bindToParentSocket()) clearInterval(waitForSocket);
-    }, 300);
+    return true;
   }
+
+  return false;
+};
+
+if (!bindToParentSocket()) {
+  const waitInterval = setInterval(() => {
+    arenaWaitedForParent += ARENA_WAIT_STEP;
+    if (bindToParentSocket() || arenaWaitedForParent >= ARENA_MAX_WAIT) {
+      clearInterval(waitInterval);
+      if (arenaWaitedForParent >= ARENA_MAX_WAIT) bindToParentSocket();
+    }
+  }, ARENA_WAIT_STEP);
+}
 
   setupClickListeners();
   setupTabs();
@@ -75,9 +102,7 @@ function initArenaPage() {
   // 🔥 ПЕРИОДИЧЕСКАЯ ПРОВЕРКА СОКЕТА
   // Каждые 5 сек проверяем что сокет жив. Если отвалился — переподключаемся к родителю.
   setInterval(() => {
-    const isAlive = socket
-      && socket.connected
-      && socket.io?._readyState === 'open';
+    const isAlive = socket && socket.connected && socket.id;
 
     if (!isAlive) {
       console.warn('⚠️ [ARENA] Сокет отвалился — пробуем переподключиться');
@@ -260,7 +285,7 @@ function setupModeModal() {
       console.log('🎲 [ARENA] Создаём заявку:', mode);
 
       // 🔥 ПРОВЕРКА СОКЕТА
-      if (!socket || !socket.connected || socket.io?._readyState !== 'open') {
+       if (!socket || !socket.connected) {
         console.warn('⚠️ [ARENA] Сокет не готов — переподключаемся');
 
         // Пытаемся взять свежий сокет у родителя
@@ -611,6 +636,12 @@ function showToast(msg, type = 'info') {
 function cleanup() {
   if (myTimerInterval) clearInterval(myTimerInterval);
   if (globalLobbyInterval) clearInterval(globalLobbyInterval);
+    // 🔥 Если сокет СВОЙ — отключаем его
+  if (window.__arenaOwnSocket && socket) {
+    try { socket.disconnect(); } catch(e) {}
+    socket = null;
+  }
+  window.__arenaOwnSocket = false;
 
   if (socket) {
     socket.off('arena_lobby_updated', onLobbyUpdated);

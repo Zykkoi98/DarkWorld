@@ -51,96 +51,129 @@ function initTowerPage() {
   }
 
   console.log("📡 [БАШНЯ] Подключаемся к сокету...");
-  
-  // 🔥 ГИБРИДНЫЙ РЕЖИМ: сначала пробуем родителя, потом создаём свой сокет
-  if (window.parent && window.parent !== window && window.parent.socket && window.parent.socket.connected) {
-    towerSocket = window.parent.socket;
-    console.log("✅ [БАШНЯ] Привязан к сокету родителя (города)");
-  } else if (typeof io !== 'undefined') {
-    // 🔥 Родителя нет — создаём свой сокет (для прямого захода или fallback)
-    let handshakeUserId = localPlayer?.id || null;
-    console.log(`⚠️ [БАШНЯ] Родителя нет — создаём свой сокет (userId: ${handshakeUserId})`);
-    
-    towerSocket = io('https://darkworld-server.onrender.com', {
-      transports: ['websocket'],
-      forceNew: false,
-      auth: { userId: handshakeUserId }
-    });
-    
-    towerSocket.on('connect', () => {
-      console.log(`✅ [БАШНЯ] Свой сокет подключен: ${towerSocket.id}`);
-      towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
-      towerSocket.emit('check_tower_cooldown_request', { userId: localPlayer.id });
-    });
-    
-    towerSocket.on('connect_error', (err) => {
-      console.error("🚨 [БАШНЯ] Ошибка подключения:", err.message);
-    });
-  } else {
-    setTimeout(initTowerPage, 200);
-    return;
-  }
-  
-  window.towerSocket = towerSocket;
-  towerSocket.userId = localPlayer.id;
 
-  // 🔥 ФИКС: сразу показываем HP из кэша
-  updateTowerHpDisplay();
+  // 🔥 Ждём родительский сокет ДО 2 секунд
+  let waitedForParent = 0;
+  const MAX_WAIT = 2000;
+  const WAIT_STEP = 100;
 
-  // 🔥 Слушатели Башни
-  towerSocket.off('tower_load_game_success');
-  towerSocket.on('tower_load_game_success', (data) => {
-    if (data && data.player) {
-      localPlayer = data.player;
-      window.player = data.player;   // 🔥 синхронизация с общим UI
-      localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+  const tryBind = () => {
+    if (window.parent && window.parent !== window) {
+      const parentSocket = window.parent.socket;
 
-      updateTowerHpDisplay();
-      renderTowerInterface();
+      // Родитель есть, сокет подключён
+      if (parentSocket && parentSocket.connected) {
+        towerSocket = parentSocket;
+        console.log('✅ [БАШНЯ] Привязан к сокету родителя (города)');
+        return true;
+      }
+
+      // Родитель есть, но сокет не готов — ждём
+      if (waitedForParent < MAX_WAIT) {
+        return false;
+      }
     }
-  });
 
-  towerSocket.off('tower_cooldown_status');
-  towerSocket.on('tower_cooldown_status', (data) => {
-    isCooldownDataLoaded = true;
-    if (data && data.active && data.ends_at) {
-      activeCooldownEnd = data.ends_at;
-    } else {
-      activeCooldownEnd = null;
+    // Родителя нет или таймаут — создаём свой сокет
+    if (typeof io !== 'undefined') {
+      const handshakeUserId = localPlayer?.id || null;
+      console.log(`⚠️ [БАШНЯ] Родитель не готов за ${MAX_WAIT}мс — создаём свой сокет (userId: ${handshakeUserId})`);
+
+      towerSocket = io('https://darkworld-server.onrender.com', {
+        transports: ['websocket'],
+        forceNew: true,
+        upgrade: false,
+        auth: { userId: handshakeUserId }
+      });
+
+      towerSocket.on('connect', () => {
+        console.log(`✅ [БАШНЯ] Свой сокет подключен: ${towerSocket.id}`);
+        towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
+        towerSocket.emit('check_tower_cooldown_request', { userId: localPlayer.id });
+      });
+
+      towerSocket.on('connect_error', (err) => {
+        console.error("🚨 [БАШНЯ] Ошибка подключения:", err.message);
+      });
+
+      return true;
     }
-    renderTowerInterface();
-    runCooldownTimer();
-  });
 
-  towerSocket.off('tower_shop_success');
-  towerSocket.on('tower_shop_success', (data) => {
-    updateTowerLog(data.message || "🎉 Успешно!");
-    towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
-  });
+    return false;
+  };
 
-  towerSocket.off('tower_shop_error');
-  towerSocket.on('tower_shop_error', (data) => {
-    updateTowerLog(data.message || "🚨 Ошибка", true);
-  });
+  // 🔥 Настройка сокета — вызывается ТОЛЬКО когда towerSocket готов
+  const setupTowerSocket = () => {
+    if (!towerSocket) {
+      console.error('🚨 [БАШНЯ] towerSocket не создан!');
+      return;
+    }
 
-  // ❌ [УДАЛЕНО] Блок arena_redirect_to_battle — редирект в бой обрабатывает
-  // только global_battle_watch.js с абсолютным путём от корня проекта
+    window.towerSocket = towerSocket;
+    towerSocket.userId = localPlayer.id;
 
-  // 🔥 HP регенерирует — обновляем визуально
-  towerSocket.off('town_hp_regen_update');
-  towerSocket.on('town_hp_regen_update', (data) => {
-    if (!localPlayer) return;
-    localPlayer.hp = data.currentHp;
-    
-    // 🔥 Используем единую функцию обновления
     updateTowerHpDisplay();
-    
-    localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
-  });
 
-  // 🔥 Авторизуемся на сервере Башни
-  towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
-  towerSocket.emit('check_tower_cooldown_request', { userId: localPlayer.id });
+    towerSocket.off('tower_load_game_success');
+    towerSocket.on('tower_load_game_success', (data) => {
+      if (data && data.player) {
+        localPlayer = data.player;
+        window.player = data.player;
+        localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+        updateTowerHpDisplay();
+        renderTowerInterface();
+      }
+    });
+
+    towerSocket.off('tower_cooldown_status');
+    towerSocket.on('tower_cooldown_status', (data) => {
+      isCooldownDataLoaded = true;
+      if (data && data.active && data.ends_at) {
+        activeCooldownEnd = data.ends_at;
+      } else {
+        activeCooldownEnd = null;
+      }
+      renderTowerInterface();
+      runCooldownTimer();
+    });
+
+    towerSocket.off('tower_shop_success');
+    towerSocket.on('tower_shop_success', (data) => {
+      updateTowerLog(data.message || "🎉 Успешно!");
+      towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
+    });
+
+    towerSocket.off('tower_shop_error');
+    towerSocket.on('tower_shop_error', (data) => {
+      updateTowerLog(data.message || "🚨 Ошибка", true);
+    });
+
+    towerSocket.off('town_hp_regen_update');
+    towerSocket.on('town_hp_regen_update', (data) => {
+      if (!localPlayer) return;
+      localPlayer.hp = data.currentHp;
+      updateTowerHpDisplay();
+      localStorage.setItem('rpg_save', JSON.stringify({ player: localPlayer }));
+    });
+
+    // Авторизуемся на сервере Башни
+    towerSocket.emit('load_tower_game_secure', { userId: localPlayer.id, username: localPlayer.name });
+    towerSocket.emit('check_tower_cooldown_request', { userId: localPlayer.id });
+  };
+
+  // 🔥 Запуск
+  if (tryBind()) {
+    setupTowerSocket();
+  } else {
+    const waitInterval = setInterval(() => {
+      waitedForParent += WAIT_STEP;
+      if (tryBind() || waitedForParent >= MAX_WAIT) {
+        clearInterval(waitInterval);
+        if (!towerSocket) tryBind();
+        setupTowerSocket();
+      }
+    }, WAIT_STEP);
+  }
 }
 
 window.exitTower = function() {
