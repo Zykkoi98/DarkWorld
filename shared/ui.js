@@ -119,8 +119,19 @@
 
   function getMaxHp(playerData) {
     if (!playerData) return 10;
+
     const baseEnd = Number(playerData.stats?.endurance || playerData.endurance || 1);
-    return ((baseEnd + getEquipmentBonus(playerData, 'endurance')) * 10) + getEquipmentBonus(playerData, 'hp');
+    const level = Number(playerData.level || 1);
+    const gearEnd = getEquipmentBonus(playerData, 'endurance');
+    const gearHp = getEquipmentBonus(playerData, 'hp');
+
+    const totalEnd = baseEnd + gearEnd;
+
+    // 🔥 НОВАЯ ФОРМУЛА (синхронизирована с db_helper.js)
+    const baseHp = 30 + (level * 15);
+    const endBonus = totalEnd * 4;
+
+    return Math.floor(baseHp + endBonus + gearHp);
   }
 
   function getAtk(playerData) {
