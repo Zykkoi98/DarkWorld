@@ -36,33 +36,15 @@ function updateWalletStatusLog(text, isError = false) {
 function updateShopHpDisplay() {
   const hpEl = document.getElementById('shop-hero-hp');
   if (!hpEl || !localPlayer) return;
-  
+
   const currentHp = Number(localPlayer.hp || 0);
-  const baseEndurance = Number(localPlayer.stats?.endurance || localPlayer.endurance || 1);
-  
-  let gearEndurance = 0;
-  let flatHpBonus = 0;
-  
-  if (localPlayer.equipped) {
-    const slots = ['head', 'body', 'legs', 'gloves', 'neck', 'mainHand', 'offHand', 'extra'];
-    
-    const processItem = (itemId) => {
-      if (!itemId || !window.getItemData) return;
-      const itemData = window.getItemData(itemId);
-      if (itemData?.bonus) {
-        if (itemData.bonus.endurance) gearEndurance += itemData.bonus.endurance;
-        if (itemData.bonus.stats?.endurance) gearEndurance += itemData.bonus.stats.endurance;
-        if (itemData.bonus.hp) flatHpBonus += itemData.bonus.hp;
-      }
-    };
-    
-    slots.forEach(slot => processItem(localPlayer.equipped[slot]));
-    if (Array.isArray(localPlayer.equipped.rings)) {
-      localPlayer.equipped.rings.forEach(itemId => processItem(itemId));
-    }
+
+  // 🔥 Используем общую функцию из UI
+  let maxHp = 10;
+  if (window.UI && typeof window.UI.getMaxHp === 'function') {
+    maxHp = window.UI.getMaxHp(localPlayer);
   }
-  
-  const maxHp = ((baseEndurance + gearEndurance) * 10) + flatHpBonus;
+
   hpEl.textContent = `❤️ ${currentHp} / ${maxHp}`;
 }
 
