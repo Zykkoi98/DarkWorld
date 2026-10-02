@@ -82,7 +82,6 @@
       padding: 5px;
       border: 1px solid var(--border);
       width: 100%;
-      overflow: hidden;
       flex-shrink: 0;
     }
 
@@ -139,8 +138,8 @@
     }
 
     .big-name {
-      height: 24px;                /* 🔥 было 28px */
-      font-size: 9px;              /* 🔥 было 11px */
+      height: 24px;
+      font-size: 9px;
       font-weight: bold;
       line-height: 1.15;
       width: 100%;
@@ -149,6 +148,7 @@
       overflow: hidden;
       display: -webkit-box;
       -webkit-line-clamp: 2;
+      line-clamp: 2;                   /* 🔥 стандартная версия */
       -webkit-box-orient: vertical;
       align-items: center;
       justify-content: center;
@@ -191,16 +191,16 @@
     /* ============================================================
        ЦЕНТРАЛЬНЫЙ ПУЛЬТ
        ============================================================ */
-    .tactical-center-controls {
-      flex: 1;
-      min-width: 0;                /* 🔥 КРИТИЧНО: не давать раздуваться */
-      display: flex; flex-direction: column; gap: 4px;
-      background: rgba(0, 0, 0, 0.4);
-      padding: 4px; border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      justify-content: space-between;
-      overflow: hidden;
-    }
+      .tactical-center-controls {
+        flex: 1 1 auto;
+        min-width: 100px;        /* 🔥 минимум вместо 0 */
+        display: flex; flex-direction: column; gap: 4px;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 4px; border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        justify-content: space-between;
+        /* overflow: hidden;   ← убрать */
+      }
 
     .columns-wrapper { display: flex; gap: 3px; width: 100%; min-width: 0; }
     .zone-column-box { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
